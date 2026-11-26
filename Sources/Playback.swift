@@ -422,7 +422,7 @@ private final class Session {
                     // attack even when the last frame in the batch is its quiet tail.
                     output = SignalFrame(tones: [Tone(hertz: frequency, weight: 1)], level: beatLevel,
                                          bands: output.bands, inputRMS: output.inputRMS,
-                                         hasAudio: true, beatStrength: beat, beatFrequency: frequency)
+                                         hasAudio: true, beatStrength: beat, beatFrequency: frequency, bassLevel: output.bassLevel)
                 }
                 haptics = output
             } else {
@@ -445,7 +445,7 @@ private final class Session {
                 return
             }
             let automatic = automaticHaptics.frame(haptics, mode: mode,
-                blocked: macMusic?.suppressOutput == true || !hapticsEnabled, at: outputTime)
+                blocked: macMusic?.suppressOutput == true || !hapticsEnabled, impact: tuning.impact, at: outputTime)
             let rendered: SignalFrame
             if mode == .assist, case .file = source, patternPlayer != nil,
                hapticsEnabled, macMusic?.suppressOutput != true {
