@@ -24,6 +24,9 @@ gh release create "$tag" --repo Bryce-Whittsette/songwave --target "$(git rev-pa
   "$folder/songwave-source.zip" "$folder/SHA256SUMS" "$folder/appcast.xml"
 if [[ "$publish" == --publish ]]; then
   gh release edit "$tag" --repo Bryce-Whittsette/songwave --draft=false
+  # Keep the repository's About download in step with every published app.
+  gh repo edit Bryce-Whittsette/songwave --homepage \
+    "https://github.com/Bryce-Whittsette/songwave/releases/download/$tag/SongWave-$version-AppleSilicon.dmg"
   printf 'Published %s. Check the Publish update feed workflow before announcing it.\n' "$tag"
 else
   printf 'Draft ready. Review it, then publish with: gh release edit %s --repo Bryce-Whittsette/songwave --draft=false\n' "$tag"
