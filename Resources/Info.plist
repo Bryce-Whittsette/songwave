@@ -7,7 +7,7 @@
   <key>CFBundleDisplayName</key><string>SongWave</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.5.4</string>
-  <key>CFBundleVersion</key><string>13</string>
+  <key>CFBundleVersion</key><string>14</string>
   <key>SUFeedURL</key><string>https://raw.githubusercontent.com/Bryce-Whittsette/songwave/main/updates/appcast.xml</string>
   <key>SUPublicEDKey</key><string>JN/+vLCrjfWPxmRUQ+YFKK9M6+O8uVvJ5SlIZbk9o4w=</string>
   <key>SUEnableAutomaticChecks</key><true/>

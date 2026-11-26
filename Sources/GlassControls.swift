@@ -2,9 +2,9 @@ import AppKit
 import SwiftUI
 
 extension View {
-    @ViewBuilder func glassSurface<S: InsettableShape>(_ shape: S) -> some View {
+    @ViewBuilder func glassSurface<S: InsettableShape>(_ shape: S, interactive: Bool = false) -> some View {
         if #available(macOS 26.0, *) {
-            self.glassEffect(.regular, in: shape)
+            self.glassEffect(.regular.interactive(interactive), in: shape)
         } else {
             self.background(.regularMaterial, in: shape)
                 .overlay { shape.strokeBorder(.primary.opacity(0.12), lineWidth: 0.6) }
@@ -25,13 +25,13 @@ struct ModeSwitch: View {
             let position = dragX.map { min(half, max(0, $0 - half / 2)) } ?? resting
             ZStack(alignment: .leading) {
                 Capsule().fill(.primary.opacity(0.045))
-                Capsule().fill(.primary.opacity(0.09)).glassSurface(Capsule())
+                Capsule().fill(.primary.opacity(0.09)).glassSurface(Capsule(), interactive: true)
                     .frame(width: half).offset(x: position)
                     .animation(dragX == nil ? slide : nil, value: position)
                 HStack(spacing: 0) {
                     ForEach(OutputMode.allCases) { option in
                         Button { mode = option } label: {
-                            Text(option.rawValue).font(.system(size: 11.5, weight: .medium))
+                            Text(option.rawValue).font(.system(size: 13, weight: mode == option ? .semibold : .regular))
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .contentShape(Rectangle())
                         }
@@ -44,9 +44,29 @@ struct ModeSwitch: View {
                 .updating($dragX) { value, state, _ in state = value.location.x }
                 .onEnded { value in mode = value.location.x < half ? .trackpad : .assist })
         }
-        .frame(height: 30)
+        .frame(height: 32)
         .padding(2)
         .background(.primary.opacity(0.04), in: Capsule())
+    }
+}
+
+enum PrecisionEntry {
+    enum Failure: Error, Equatable { case invalidNumber, outOfRange }
+
+    // Parse a complete number, accepting the local decimal mark as well as
+    // plain ASCII decimal/exponent notation. Units and trailing text are invalid.
+    static func parse(_ text: String, in range: ClosedRange<Double>, scale: Double = 1,
+                      locale: Locale = .current) -> Result<Double, Failure> {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count <= 64, scale.isFinite, scale > 0 else { return .failure(.invalidNumber) }
+        let separator = locale.decimalSeparator ?? "."
+        let normalized = separator == "." ? trimmed : trimmed.replacingOccurrences(of: separator, with: ".")
+        let allowed = CharacterSet(charactersIn: "+-.0123456789eE")
+        guard normalized.unicodeScalars.allSatisfy({ allowed.contains($0) }),
+              let number = Double(normalized), number.isFinite else { return .failure(.invalidNumber) }
+        let value = number / scale
+        guard value.isFinite, range.contains(value) else { return .failure(.outOfRange) }
+        return .success(value)
     }
 }
 
@@ -59,6 +79,7 @@ struct PrecisionWheel: View {
     @State private var dragOrigin: Double?
     @State private var editing = false
     @State private var entry = ""
+    @State private var entryError: String?
     @Environment(\.isEnabled) private var enabled
     @FocusState private var focused: Bool
 
@@ -68,17 +89,27 @@ struct PrecisionWheel: View {
     }
 
     private func openEditor() {
-        entry = String(format: "%.4g", value * entryScale)
+        entry = formattedEntry(value)
+        entryError = nil
         editing = true
     }
 
+    private func formattedEntry(_ value: Double) -> String {
+        String(format: "%.4g", locale: Locale.current, value * entryScale)
+    }
+
     private func commitEntry() {
-        let local = NumberFormatter()
-        local.numberStyle = .decimal
-        if let number = Double(entry) ?? local.number(from: entry)?.doubleValue, number.isFinite {
-            change(number / entryScale)
+        switch PrecisionEntry.parse(entry, in: range, scale: entryScale) {
+        case .success(let number):
+            change(number)
+            editing = false
+        case .failure(.invalidNumber):
+            entryError = "Enter a valid number."
+            focused = true
+        case .failure(.outOfRange):
+            entryError = "Enter a value from \(formattedEntry(range.lowerBound)) to \(formattedEntry(range.upperBound))."
+            focused = true
         }
-        editing = false
     }
 
     private func change(_ newValue: Double) {
@@ -88,17 +119,17 @@ struct PrecisionWheel: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(title).font(.callout)
+            Text(title).font(.system(size: 14))
             Spacer(minLength: 4)
             Button(action: openEditor) {
                 HStack(spacing: 7) {
-                    Image(systemName: "dial.low").foregroundStyle(.secondary)
-                    Text(label).monospacedDigit().font(.callout.weight(.medium))
-                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 8))
+                    Image(systemName: "dial.low").font(.system(size: 13)).foregroundStyle(.secondary)
+                    Text(label).monospacedDigit().font(.system(size: 14, weight: .medium))
+                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
-                .padding(.horizontal, 10).frame(minWidth: 102, minHeight: 28)
-                .glassSurface(Capsule())
+                .padding(.horizontal, 12).frame(minWidth: 112, minHeight: 34)
+                .glassSurface(Capsule(), interactive: true)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -122,7 +153,7 @@ struct PrecisionWheel: View {
             .accessibilityAdjustableAction { change(value + ($0 == .increment ? step : -step)) }
             .accessibilityAction { openEditor() }
             .popover(isPresented: $editing) {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text(title).font(.headline)
                     Slider(value: Binding(get: { value }, set: change), in: range, step: step)
                         .accessibilityLabel(title)
@@ -130,19 +161,33 @@ struct PrecisionWheel: View {
                         Button { change(value - step) } label: { Image(systemName: "minus") }
                             .accessibilityLabel("Decrease " + title)
                         TextField("Value", text: $entry).focused($focused)
+                            .textFieldStyle(.roundedBorder)
+                            .accessibilityLabel(title + " value")
                             .onSubmit { commitEntry() }
                         if entryScale == 100 { Text("%").foregroundStyle(.secondary) }
                         Button { change(value + step) } label: { Image(systemName: "plus") }
                             .accessibilityLabel("Increase " + title)
-                        Button("Done") { commitEntry() }
+                    }
+                    if let entryError {
+                        Label(entryError, systemImage: "exclamationmark.circle")
+                            .font(.callout).fixedSize(horizontal: false, vertical: true)
                     }
                     if range == -1...1 {
                         Text("Negative values emphasize bass. Positive values emphasize detail.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
+                    HStack {
+                        Text("\(formattedEntry(range.lowerBound))–\(formattedEntry(range.upperBound))\(entryScale == 100 ? "%" : "")")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Done") { commitEntry() }.keyboardShortcut(.defaultAction)
+                    }
                 }
-                .onChange(of: value) { _, new in entry = String(format: "%.4g", new * entryScale) }
-                .padding(14).frame(width: 240)
+                .onAppear { focused = true }
+                .onExitCommand { editing = false }
+                .onChange(of: entry) { _, _ in entryError = nil }
+                .onChange(of: value) { _, new in entry = formattedEntry(new); entryError = nil }
+                .padding(16).frame(width: 300)
             }
         }
     }

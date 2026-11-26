@@ -22,15 +22,15 @@ enum PlaybackAccess {
     }
 }
 
-struct PlaybackAccessSheet: View {
+// Reused inline in Settings and inside the single player-owned access sheet.
+// Presenting this content does not request any system or player permission.
+struct PlaybackAccessContent: View {
     @ObservedObject var studio: Studio
-    @Environment(\.dismiss) private var dismiss
-    @State private var playerRequest: Provider?
+    @Binding var playerRequest: Provider?
     @State private var message: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Playback Access").font(.title.weight(.semibold))
             Text("Allow System Audio Recording to feel music from other apps. Local files and the demo already work.")
             HStack {
                 Button(studio.audioAccessHealth.failure != nil ? "Retry Audio Access" : studio.audioAccessReady ? "Check Audio Access" : "Allow System Audio…") {
@@ -75,13 +75,28 @@ struct PlaybackAccessSheet: View {
                 if playerRequest != nil { ProgressView().controlSize(.small) }
             }
             if let message { Text(message).font(.callout).foregroundStyle(.secondary) }
+            Button("Privacy Settings…", action: studio.permissions)
+        }
+        .font(.system(size: 14))
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+struct PlaybackAccessSheet: View {
+    @ObservedObject var studio: Studio
+    @Environment(\.dismiss) private var dismiss
+    @State private var playerRequest: Provider?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Playback Access").font(.title2.weight(.semibold))
+            PlaybackAccessContent(studio: studio, playerRequest: $playerRequest)
             HStack {
-                Button("Privacy Settings…", action: studio.permissions)
                 Spacer()
                 Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
                     .disabled(studio.requestingAudioAccess || playerRequest != nil)
             }
-        }.padding(24).frame(width: 450)
+        }.padding(24).frame(width: 480)
             .interactiveDismissDisabled(studio.requestingAudioAccess || playerRequest != nil)
     }
 }

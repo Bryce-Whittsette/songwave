@@ -15,6 +15,8 @@ The hiring rubric weighted technical depth 30%, validation 25%, maintainability 
 
 ## Changes prepared in 0.5.4
 
+- A visible native Settings window, shared global appearance/menu preferences, readable typography and stronger primary-button contrast; everyday controls are exposed in the player.
+
 - Signed Sparkle update checks with installation approval, and a release/feed pipeline that needs no private CI key.
 - Shared recognized-call policy for explicit player routes, plus capture/muting cleanup and reconnect tests.
 - A host-time user bypass fade, with immediate Stop/call/error behavior retained.

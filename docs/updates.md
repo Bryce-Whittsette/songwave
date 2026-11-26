@@ -4,7 +4,7 @@ The 0.5.4 development candidate adds an in-app updater. The public 0.5.3 downloa
 
 ## For listeners
 
-SongWave checks automatically, roughly once a day, and asks before downloading and installing. Use **SongWave → Check for Updates…** or the sliders menu to check now. **Check for Updates Automatically** turns background checks off or on.
+SongWave checks automatically, roughly once a day, and asks before downloading and installing. Use **SongWave → Check for Updates…** or **Settings → Updates** to check now. **Check for Updates Automatically** turns background checks off or on.
 
 People on 0.5.3 need one manual installation of the first updater-enabled release. Later versions can arrive through the app. Installing from a DMG still works.
 
