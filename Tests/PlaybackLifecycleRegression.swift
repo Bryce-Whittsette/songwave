@@ -1,6 +1,15 @@
 import CoreAudio
 import Foundation
 
+// Keep assertion locations visible even in optimized CI executables.
+private func require(_ condition: @autoclosure () -> Bool, _ message: String = "",
+                     file: StaticString = #filePath, line: UInt = #line) {
+    guard condition() else {
+        FileHandle.standardError.write(Data("Lifecycle assertion failed at \(file):\(line): \(message)\n".utf8))
+        exit(1)
+    }
+}
+
 // Boundary replacements only: the production Playback/Session, call policy,
 // spectrum, automatic renderer and output gain run unchanged. No recording
 // permission, speaker, keyboard, actuator or neural model is used in this suite.
@@ -27,7 +36,7 @@ enum LifecycleHardware {
     static func motor(_ delta: Int) { locked { motors += delta } }
     static func failNextCapture() { locked { failCapture = true } }
     static func captureFails() -> Bool { locked { let value = failCapture; failCapture = false; return value } }
-    static func clear() { locked { precondition(taps == 0 && motors == 0 && muted == 0); packets.removeAll(); clients.removeAll(); failCapture = false } }
+    static func clear() { locked { require(taps == 0 && motors == 0 && muted == 0); packets.removeAll(); clients.removeAll(); failCapture = false } }
 }
 enum AudioHardware {
     static func processList() -> [AudioObjectID] { Array(LifecycleHardware.snapshot().keys) }
@@ -81,9 +90,9 @@ final class Trackpad {
     let name = "Mock trackpad"
     init() throws { LifecycleHardware.motor(1) }
     func play(_ tones: [Tone], for milliseconds: Double, level: Double) throws {
-        precondition(milliseconds > 0 && milliseconds <= 16)
-        precondition(level.isFinite && (0...1).contains(level))
-        precondition(!tones.isEmpty && tones.allSatisfy { $0.hertz.isFinite && $0.weight.isFinite })
+        require(milliseconds > 0 && milliseconds <= 16)
+        require(level.isFinite && (0...1).contains(level))
+        require(!tones.isEmpty && tones.allSatisfy { $0.hertz.isFinite && $0.weight.isFinite })
         LifecycleHardware.packet(level)
     }
     deinit { LifecycleHardware.motor(-1) }
@@ -117,31 +126,31 @@ final class IsolatedVocals {
     static func wait(_ description: String, timeout: Double = 3, until condition: () -> Bool) {
         let end = Date(timeIntervalSinceNow: timeout)
         while !condition() && Date() < end { RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.002)) }
-        precondition(condition(), description)
+        require(condition(), description)
     }
     static func run(for duration: Double) { RunLoop.current.run(until: Date(timeIntervalSinceNow: duration)) }
     static func gain() {
         for cadence in [0.008, 0.016] {
             var gain = UserHapticsGain()
-            precondition(gain.level(enabled: true, at: 0) == 1)
-            precondition(gain.level(enabled: false, at: 0.016) == 1)
+            require(gain.level(enabled: true, at: 0) == 1)
+            require(gain.level(enabled: false, at: 0.016) == 1)
             var prior = 1.0
             for step in 1...20 {
                 let next = gain.level(enabled: false, at: 0.016 + Double(step) * cadence)
-                precondition((0...prior).contains(next)); prior = next
+                require((0...prior).contains(next)); prior = next
             }
-            precondition(prior == 0)
-            precondition(gain.level(enabled: true, at: 1) == 1)
-            precondition(gain.level(enabled: false, at: .nan) == 0)
-            precondition(gain.level(enabled: false, at: 2) == 0)
+            require(prior == 0)
+            require(gain.level(enabled: true, at: 1) == 1)
+            require(gain.level(enabled: false, at: .nan) == 0)
+            require(gain.level(enabled: false, at: 2) == 0)
         }
         var gain = UserHapticsGain()
         _ = gain.level(enabled: true, at: 1)
         _ = gain.level(enabled: false, at: 1.008)
         let falling = gain.level(enabled: false, at: 1.072)
-        precondition(falling > 0 && falling < 1)
-        precondition(gain.level(enabled: true, at: 1.072) == falling)
-        precondition(gain.level(enabled: true, at: 1.136) > falling)
+        require(falling > 0 && falling < 1)
+        require(gain.level(enabled: true, at: 1.072) == falling)
+        require(gain.level(enabled: true, at: 1.136) > falling)
     }
     static func main() throws {
         gain()
@@ -152,40 +161,40 @@ final class IsolatedVocals {
                 let client = LifecycleClient(bundle: provider.bundle)
                 let idleCall = LifecycleClient(bundle: "com.apple.FaceTime", output: 0)
                 LifecycleHardware.set([111: client, 112: idleCall])
-                precondition(!CallAudioPolicy.active(in: AudioHardware.processList().compactMap(AudioClient.init)), "An idle FaceTime app is not a call")
+                require(!CallAudioPolicy.active(in: AudioHardware.processList().compactMap(AudioClient.init)), "An idle FaceTime app is not a call")
                 let link = try MusicLink(provider == .spotify ? "spotify:track:0000000000000000000000" : "https://music.apple.com/us/song/test/123")
                 let engine = Playback()
                 var tuning = mode.defaults
                 tuning.automaticTiming = false
                 engine.start(.player(link), tuning: tuning, mode: mode, playerPath: "/Mock/Player.app", startAt: 0) { _ in }
                 wait("The explicit player route failed to produce output with inactive FaceTime open") { LifecycleHardware.writes.count > 12 }
-                precondition(LifecycleHardware.mutedTaps == (mode == .trackpad ? 1 : 0))
+                require(LifecycleHardware.mutedTaps == (mode == .trackpad ? 1 : 0))
                 let beforeBypass = LifecycleHardware.writes.count
                 engine.setHaptics(false)
                 run(for: 0.09)
-                precondition(LifecycleHardware.writes.count > beforeBypass + 2, "Manual bypass hard-cut instead of rendering a fade")
+                require(LifecycleHardware.writes.count > beforeBypass + 2, "Manual bypass hard-cut instead of rendering a fade")
                 run(for: 0.15)
                 let faded = LifecycleHardware.writes.count
                 run(for: 0.05)
-                precondition(LifecycleHardware.writes.count == faded, "Bypass did not finish")
+                require(LifecycleHardware.writes.count == faded, "Bypass did not finish")
                 engine.setHaptics(true)
                 wait("Enabling haptics did not resume") { LifecycleHardware.writes.count > faded + 8 }
                 LifecycleHardware.set([111: client, 112: LifecycleClient(bundle: "com.apple.FaceTime", input: 1, output: 0)])
                 wait("The explicit player did not release capture during a call", timeout: 1) { LifecycleHardware.liveTaps == 0 }
-                precondition(LifecycleHardware.mutedTaps == 0, "A call retained trackpad-only speaker muting")
+                require(LifecycleHardware.mutedTaps == 0, "A call retained trackpad-only speaker muting")
                 let suppressed = LifecycleHardware.writes.count
                 run(for: 0.08)
-                precondition(LifecycleHardware.writes.count == suppressed, "A call received fading or stale haptics")
+                require(LifecycleHardware.writes.count == suppressed, "A call received fading or stale haptics")
                 LifecycleHardware.set([111: client, 112: idleCall])
                 wait("Music did not reconnect after the call", timeout: 1.5) { LifecycleHardware.writes.count > suppressed + 8 }
-                precondition(LifecycleHardware.mutedTaps == (mode == .trackpad ? 1 : 0))
+                require(LifecycleHardware.mutedTaps == (mode == .trackpad ? 1 : 0))
                 LifecycleHardware.failNextCapture()
                 LifecycleHardware.set([113: client, 112: idleCall])
                 wait("Capture failure did not release the session", timeout: 2) { LifecycleHardware.liveMotors == 0 }
-                precondition(LifecycleHardware.liveTaps == 0 && LifecycleHardware.mutedTaps == 0)
+                require(LifecycleHardware.liveTaps == 0 && LifecycleHardware.mutedTaps == 0)
                 let stopped = LifecycleHardware.writes.count
                 run(for: 0.05)
-                precondition(LifecycleHardware.writes.count == stopped, "Capture failure retained motor output")
+                require(LifecycleHardware.writes.count == stopped, "Capture failure retained motor output")
                 engine.stop()
                 cases += 1
             }
