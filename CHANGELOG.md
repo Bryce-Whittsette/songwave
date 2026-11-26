@@ -2,9 +2,16 @@
 
 Every public release is listed here, newest first. Each version has a short explanation and expandable developer notes.
 
-## [In development — 0.5.4](docs/releases/0.5.4.md)
+## [0.5.4 — Settings and updates](docs/releases/0.5.4.md)
 
-Signed in-app updates; shared call handling for song-link routes; smooth haptic bypass; clearer audio-access recovery; tuning help; stricter AHAP numbers. This candidate has not been published. The public version is still 0.5.3.
+Public Preview · November 26, 2026
+
+- Visible Settings, clearer typography and contrast, native glass controls and consistent light/dark appearance.
+- Signed in-app updates with automatic checks and approval before installation.
+- Smoother haptic bypass, call handling for song-link routes and clearer audio-access recovery.
+- Precision-entry validation, tuning help and stricter AHAP numbers.
+
+[Download](https://github.com/Bryce-Whittsette/songwave/releases/tag/v0.5.4) · [Full notes and developer details](docs/releases/0.5.4.md) · [Code changes](https://github.com/Bryce-Whittsette/songwave/compare/v0.5.3...v0.5.4)
 
 ## [0.5.3 — Bass sustain](docs/releases/0.5.3.md)
 

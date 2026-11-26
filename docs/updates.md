@@ -1,6 +1,6 @@
 # Updates
 
-The 0.5.4 development candidate adds an in-app updater. The public 0.5.3 download does not contain it yet.
+SongWave 0.5.4 adds an in-app updater. People on 0.5.3 need to install 0.5.4 manually once.
 
 ## For listeners
 

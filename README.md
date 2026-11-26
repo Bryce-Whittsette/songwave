@@ -4,25 +4,26 @@ Feel the music playing on your Mac through its Force Touch trackpad.
 
 Open SongWave, play music in Spotify, Apple Music, or your browser, and rest a finger on the trackpad. No song link or file needed.
 
-**[Download for Mac — Apple silicon](https://github.com/Bryce-Whittsette/songwave/releases/download/v0.5.3/SongWave-0.5.3-AppleSilicon.dmg)** · [What's new](docs/releases/0.5.3.md) · [Version history](CHANGELOG.md)
+**[Download for Mac — Apple silicon](https://github.com/Bryce-Whittsette/songwave/releases/download/v0.5.4/SongWave-0.5.4-AppleSilicon.dmg)** · [What's new](docs/releases/0.5.4.md) · [Version history](CHANGELOG.md)
 
 Public preview · macOS 14.2 or later · Force Touch trackpad required · Tested on an M4 MacBook Air
 
 ## Install
 
-1. Download and open **SongWave-0.5.3-AppleSilicon.dmg**.
+1. Download and open **SongWave-0.5.4-AppleSilicon.dmg**.
 2. Drag **SongWave** into the **Applications** folder shown in the window. Open SongWave from Applications.
 3. Finish the short setup and allow **System Audio Recording** when prompted. Then play music normally.
 
 This preview hasn't been notarized by Apple. If macOS blocks it, see [the SongWave installation help](docs/troubleshooting.md#macos-wont-open-the-app). If you choose to proceed, first try opening SongWave, then go to **System Settings → Privacy & Security → Open Anyway** and confirm the app name. You can also [build it yourself](docs/development.md).
 
-**Already installed?** Quit SongWave, download the new DMG, and drag SongWave into Applications. Choose **Replace**, then open it again. Your listening preferences stay saved; macOS may ask for audio access again after a preview update.
+**Already installed?** Quit SongWave, download the new DMG, and drag SongWave into Applications. Choose **Replace**, then open it again. Your listening preferences stay saved; macOS may ask for audio access again after a preview update. Version 0.5.3 needs this one manual update; from 0.5.4 onward, use **SongWave → Check for Updates…** or allow automatic checks.
 
-## New in 0.5.3
+## New in 0.5.4
 
-- Low bass can carry a soft rumble underneath the individual drum taps.
-- **Bass sustain** lets you set that rumble, or turn it off for taps only.
-- **Transient emphasis** changes how quickly drum taps fade: lower for rounder hits, higher for crisper taps.
+- A visible **Settings** button with five clearly named pages and the **Command-comma** shortcut.
+- Clearer text, spacing, light/dark appearance and native glass controls.
+- Automatic update checks that ask before downloading and installing.
+- Smoother haptic on/off transitions and better audio-access and call recovery.
 
 See [every public version](CHANGELOG.md) for the changes and expandable developer notes.
 
@@ -45,7 +46,7 @@ Music detection and vocal separation are approximate. Some protected audio canno
 
 ## For developers
 
-[Product decisions and development credits](docs/project-decisions.md) · [Update pipeline in the 0.5.4 candidate](docs/updates.md)
+[Product decisions and development credits](docs/project-decisions.md) · [Update pipeline](docs/updates.md)
 
 [Build and test](docs/development.md) · [How it works](docs/architecture.md) · [Streaming engine decisions](docs/streaming-engine.md) · [Mobile feasibility](docs/mobile.md) · [Release process](docs/releasing.md) · [Contributing](CONTRIBUTING.md) · [Privacy](PRIVACY.md)
 

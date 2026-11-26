@@ -1,6 +1,6 @@
 # Preparing the broader launch
 
-0.5.3 is a public preview. The 0.5.4 work is a local development candidate until reviewed and published. Readiness means someone new can install, understand, recover, and update the app reliably.
+0.5.4 is a public preview. Broader launch preparation continues. Readiness means someone new can install, understand, recover, and update the app reliably.
 
 ## Independent review baseline
 
