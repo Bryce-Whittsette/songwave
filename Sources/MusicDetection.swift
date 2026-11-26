@@ -127,6 +127,15 @@ struct AudioClient {
     }
 }
 
+// Both automatic discovery and an explicitly selected player use the same call
+// rule. AudioClient excludes inactive processes before assigning isCall, so an
+// open but idle FaceTime window does not suppress music.
+enum CallAudioPolicy {
+    static func active(in clients: [AudioClient]) -> Bool {
+        clients.contains(where: \.isCall)
+    }
+}
+
 private final class MusicFeed {
     let tap: AudioTap
     let bundle: String
@@ -174,7 +183,7 @@ final class MacMusicInput {
             scanAfter = now + 0.35
             tabs = YouTubeState.playing()
             let clients = AudioHardware.processList().compactMap(AudioClient.init)
-            callActive = clients.contains(where: \.isCall)
+            callActive = CallAudioPolicy.active(in: clients)
             let eligible = callActive ? [] : clients.map(\.id)
             let allowed = Set(eligible)
             feeds = feeds.filter { allowed.contains($0.key) }

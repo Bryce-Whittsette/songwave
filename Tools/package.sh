@@ -16,6 +16,9 @@ trap 'rm -rf "$stage"' EXIT
 ditto --norsrc --noextattr "$app" "$stage/verified/SongWave.app"
 app="$stage/verified/SongWave.app"
 codesign --verify --deep --strict "$app"
+[[ "$(lipo -archs "$app/Contents/MacOS/SongWave")" == arm64 ]] || {
+  printf 'The AppleSilicon package requires an arm64 build.\n' >&2; exit 1;
+}
 mkdir -p "$stage/disk" "$stage/unpacked"
 ditto --norsrc --noextattr "$app" "$stage/disk/SongWave.app"
 ln -s /Applications "$stage/disk/Applications"

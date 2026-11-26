@@ -33,14 +33,20 @@ struct PlaybackAccessSheet: View {
             Text("Playback Access").font(.title.weight(.semibold))
             Text("Allow System Audio Recording to feel music from other apps. Local files and the demo already work.")
             HStack {
-                Button(studio.audioAccessReady ? "Check Audio Access" : "Allow System Audio…") {
+                Button(studio.audioAccessHealth.failure != nil ? "Retry Audio Access" : studio.audioAccessReady ? "Check Audio Access" : "Allow System Audio…") {
                     message = nil
                     Task {
-                        message = await studio.prepareAudioAccess()
+                        _ = await studio.prepareAudioAccess()
                     }
                 }.disabled(studio.requestingAudioAccess || playerRequest != nil)
                 if studio.requestingAudioAccess { ProgressView().controlSize(.small) }
-                else if studio.audioAccessReady { Text("Audio setup saved").foregroundStyle(.secondary) }
+            }
+            Text(studio.audioAccessHealth.summary(setupSaved: studio.audioAccessReady))
+                .font(.callout).foregroundStyle(.secondary)
+            if let failure = studio.audioAccessHealth.failure {
+                Text(failure).font(.callout)
+                Text("To resume automatic listening, fix access and choose Retry Audio Access. Local files and the demo remain available.")
+                    .font(.callout).foregroundStyle(.secondary)
             }
             Divider()
             Text("Optional player details").font(.headline)
@@ -73,7 +79,9 @@ struct PlaybackAccessSheet: View {
                 Button("Privacy Settings…", action: studio.permissions)
                 Spacer()
                 Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+                    .disabled(studio.requestingAudioAccess || playerRequest != nil)
             }
         }.padding(24).frame(width: 450)
+            .interactiveDismissDisabled(studio.requestingAudioAccess || playerRequest != nil)
     }
 }

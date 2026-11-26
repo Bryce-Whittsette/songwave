@@ -11,3 +11,5 @@ Song details and artwork can involve network requests to Spotify oEmbed, Apple's
 The optional YouTube extension reads information about the playing YouTube video, including category, title, position and video identity, and passes it to the local native host. It is restricted to YouTube domains. Browser native-messaging configuration and app preferences are stored locally.
 
 SongWave has no built-in advertising, analytics service or application account. GitHub has its own policies for release downloads and issue submissions. Sharing through Messages opens a draft; the user chooses the recipient and sends it.
+
+The 0.5.4 development candidate adds automatic update checks through Sparkle. The release feed and app downloads use GitHub hosting, which receives normal network connection information and the app's update request. Audio, song titles and listening history are not included. Sparkle system profiling is disabled. Checks can be turned off, and installation requires approval. See [Updates](docs/updates.md).

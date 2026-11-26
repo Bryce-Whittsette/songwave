@@ -1,0 +1,51 @@
+name: Publish update feed
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag, for example v0.5.4
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: songwave-update-feed
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: macos-26
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Download and verify signed release
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          mkdir -p "$RUNNER_TEMP/update"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern appcast.xml --pattern SongWave-macOS.zip --dir "$RUNNER_TEMP/update"
+          xcrun swift Tools/verify-update.swift "$RUNNER_TEMP/update/appcast.xml" "$RUNNER_TEMP/update/SongWave-macOS.zip" "$RELEASE_TAG"
+      - name: Advance the feed without downgrading installed clients
+        run: |
+          python3 - "$RUNNER_TEMP/update/appcast.xml" <<'PY'
+          import sys, xml.etree.ElementTree as E
+          from pathlib import Path
+          ns = {'s':'http://www.andymatuschak.org/xml-namespaces/sparkle'}
+          source=Path(sys.argv[1]); target=Path('updates/appcast.xml')
+          def build(path):
+              return int(E.parse(path).findtext('channel/item/s:version','0',ns))
+          if build(source) > build(target): target.write_bytes(source.read_bytes())
+          PY
+          if git diff --quiet -- updates/appcast.xml; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add updates/appcast.xml
+          git commit -m "Publish signed update feed for $RELEASE_TAG"
+          gh auth setup-git
+          git push origin HEAD:main

@@ -17,6 +17,30 @@ struct PlaybackUpdate {
     var error: String?
 }
 
+// Manual bypass is a short gain ramp. Capture and beat analysis keep advancing
+// during it; call/error suppression is a separate immediate stop at the output.
+struct UserHapticsGain {
+    private var value = 1.0
+    private var origin = 1.0
+    private var target = 1.0
+    private var startedAt = 0.0
+    private var previousTime: Double?
+
+    mutating func level(enabled: Bool, at now: Double) -> Double {
+        let next = enabled ? 1.0 : 0.0
+        guard now.isFinite else { self = UserHapticsGain(); return next }
+        if previousTime == nil || previousTime.map({ now < $0 || now - $0 > 0.2 }) == true {
+            value = next; origin = next; target = next; startedAt = now
+        } else {
+            let progress = min(1, max(0, (now - startedAt) / 0.14))
+            value = origin + (target - origin) * progress * progress * (3 - 2 * progress)
+            if next != target { origin = value; target = next; startedAt = now }
+        }
+        previousTime = now
+        return value
+    }
+}
+
 final class Playback {
     private let queue = DispatchQueue(label: "songwave.playback", qos: .userInteractive)
     private var session: Session?
@@ -128,6 +152,10 @@ private final class Session {
     var renderMilliseconds: Int { mode == .assist ? 8 : 16 }
     private var sleeping = false
     private var motorEnvelope = MotorEnvelope()
+    private var userHapticsGain = UserHapticsGain()
+    private var playerCallActive = false
+    private var nextCallScan = 0.0
+    private var outputSuppressed: Bool { playerCallActive || macMusic?.suppressOutput == true }
     var motor: Trackpad?
     var tap: AudioTap?
     var macMusic: MacMusicInput?
@@ -212,12 +240,14 @@ private final class Session {
         assistTail = AssistTail()
         automaticHaptics = AutomaticHaptics()
         motorEnvelope = MotorEnvelope()
+        userHapticsGain = UserHapticsGain()
     }
 
     func setupSpectrum(rate: Double) throws {
         assistTail = AssistTail()
         automaticHaptics = AutomaticHaptics()
         motorEnvelope = MotorEnvelope()
+        userHapticsGain = UserHapticsGain()
         delayedFrames.removeAll(keepingCapacity: true)
         if wantsIsolation {
             if let isolator { isolator.reset() }
@@ -341,7 +371,22 @@ private final class Session {
                 }
                 if macMusic?.suppressOutput == true { delayedFrames.removeAll(keepingCapacity: true) }
             case .player(let link):
-                if now >= nextScan, let playerPath {
+                if now >= nextCallScan {
+                    nextCallScan = now + 0.35
+                    let active = CallAudioPolicy.active(in: AudioHardware.processList().compactMap(AudioClient.init))
+                    if active != playerCallActive {
+                        playerCallActive = active
+                        // Release trackpad-only muting, old PCM and delayed hits
+                        // while a call owns audio. Reconnect after the call ends.
+                        tap = nil
+                        connectedProcesses.removeAll(keepingCapacity: true)
+                        lastAudio = nil
+                        delayedFrames.removeAll(keepingCapacity: true)
+                        resetHapticState()
+                        if !active { nextScan = 0 }
+                    }
+                }
+                if !playerCallActive, now >= nextScan, let playerPath {
                     nextScan = now + 1.0
                     let processes = AudioHardware.processIDs(for: link.provider.bundle, appPath: playerPath).sorted()
                     if processes != connectedProcesses {
@@ -353,14 +398,14 @@ private final class Session {
                         }
                     }
                 }
-                advanced = readTap()
+                advanced = !playerCallActive && readTap()
             }
 
             let sourceAdvanced = advanced
             if sourceAdvanced { lastSourceInput = now }
             let sourceEnded = duration.map { Double(position) / sourceRate >= $0 || (file.map { $0.framePosition >= $0.length } ?? false) } ?? false
             if isolationActive {
-                if macMusic?.suppressOutput == true {
+                if outputSuppressed {
                     // A call or blocked video must silence already-separated output too.
                     if isolator != nil {
                         isolator?.cancel()
@@ -392,9 +437,9 @@ private final class Session {
                     advanced = !vocals.isEmpty
                 }
             }
-            let captured = advanced && macMusic?.suppressOutput != true ? (spectrum?.frame(tuning: tuning, mode: mode) ?? .empty) : .empty
+            let captured = advanced && !outputSuppressed ? (spectrum?.frame(tuning: tuning, mode: mode) ?? .empty) : .empty
             let signal = assistTail.resolve(captured, advanced: advanced,
-                enabled: (source.isLive || isolationActive) && macMusic?.suppressOutput != true, at: now)
+                enabled: (source.isLive || isolationActive) && !outputSuppressed, at: now)
             if signal.hasAudio { lastAudio = now }
             if mode == .assist && now >= nextTiming {
                 reportedDelay = tuning.automaticTiming ? OutputTiming.reportedDelay() : 0
@@ -444,25 +489,26 @@ private final class Session {
                 publish(PlaybackUpdate(partyOverheated: true))
                 return
             }
+            let userGain = userHapticsGain.level(enabled: hapticsEnabled, at: outputTime)
             let automatic = automaticHaptics.frame(haptics, mode: mode,
-                blocked: macMusic?.suppressOutput == true || !hapticsEnabled, impact: tuning.impact, at: outputTime)
+                blocked: outputSuppressed || userGain == 0, impact: tuning.impact, at: outputTime)
             let rendered: SignalFrame
             if mode == .assist, case .file = source, patternPlayer != nil,
-               hapticsEnabled, macMusic?.suppressOutput != true {
+               userGain > 0, !outputSuppressed {
                 let offset = (tuning.automaticTiming ? reportedDelay : 0) + tuning.delay / 1000
                 rendered = patternPlayer!.frame(at: max(0, speaker?.currentTime ?? 0) - offset)
             } else { rendered = automatic }
             let party = partyEnd > outputTime
             let accent = mode == .assist || (party && PartyBurst.accent(elapsed: PartyBurst.length - (partyEnd - outputTime)))
             let strength = party ? (accent ? 0.83 : 0) : tuning.gain
-            let target = rendered.level * strength * (followVolume ? volume : 1)
+            let target = rendered.level * strength * (followVolume ? volume : 1) * userGain
             let motorLevel = motorEnvelope.level(target: target,
                 transient: mode == .assist && rendered.beatStrength > 0, at: outputTime)
-            if hapticsEnabled && (!party || accent) && target > 0.001 {
+            if !outputSuppressed && (!party || accent) && target > 0.001 {
                 try motor.play(rendered.tones, for: Double(renderMilliseconds), level: motorLevel)
             }
             let useLighting = party ? partyLighting : lighting
-            if useLighting && hapticsEnabled {
+            if useLighting && hapticsEnabled && !outputSuppressed {
                 if signal.hasAudio && keyboard == nil && !lightUnavailable {
                     keyboard = KeyboardLight()
                     lightUnavailable = keyboard == nil
@@ -486,7 +532,7 @@ private final class Session {
             if updateCounter % (mode == .assist ? 4 : 2) == 0 || finished {
                 publish(PlaybackUpdate(signal: signal, elapsed: min(elapsed, duration ?? elapsed), duration: duration,
                                        device: motor.name, waiting: waiting, video: macMusic?.video, appBundle: macMusic?.activeBundle,
-                                       detection: isolationActive && macMusic?.suppressOutput != true ? (isolator?.status ?? "Waiting for vocals") : macMusic?.status,
+                                       detection: playerCallActive ? "Paused for call audio" : isolationActive && !outputSuppressed ? (isolator?.status ?? "Waiting for vocals") : macMusic?.status,
                                        processingDelay: isolator?.latency ?? 0, finished: finished))
             }
             if finished { stop() }

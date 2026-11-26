@@ -36,3 +36,18 @@ mkdir -p "$bass"
 cp -X "$project"/Sources/{HapticPattern,Equalizer,Signal,RhythmDSP,VocalFocus,Trackpad}.swift "$project/Tests/BassRegression.swift" "$bass/"
 xcrun swiftc -swift-version 5 -O "$bass"/*.swift -o "$bass/check"
 "$bass/check"
+
+access="$scratch/access"
+mkdir -p "$access"
+cp -X "$project/Sources/AudioAccessHealth.swift" "$project/Tests/AccessRegression.swift" "$access/"
+xcrun swiftc -swift-version 5 -O "$access"/*.swift -o "$access/check"
+"$access/check"
+
+lifecycle="$scratch/lifecycle"
+mkdir -p "$lifecycle"
+cp -X "$project"/Sources/{Playback,Source,MusicDetection,HapticPattern,Signal,Equalizer,RhythmDSP,VocalFocus}.swift \
+  "$project/Tests/PlaybackLifecycleRegression.swift" "$lifecycle/"
+xcrun swiftc -swift-version 5 -O "$lifecycle"/*.swift -o "$lifecycle/check"
+"$lifecycle/check"
+
+xcrun swift "$project/Tools/verify-update.swift" --self-test

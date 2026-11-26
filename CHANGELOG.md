@@ -2,6 +2,10 @@
 
 Every public release is listed here, newest first. Each version has a short explanation and expandable developer notes.
 
+## [In development — 0.5.4](docs/releases/0.5.4.md)
+
+Signed in-app updates; shared call handling for song-link routes; smooth haptic bypass; clearer audio-access recovery; tuning help; stricter AHAP numbers. This candidate has not been published. The public version is still 0.5.3.
+
 ## [0.5.3 — Bass sustain](docs/releases/0.5.3.md)
 
 Public Preview · November 26, 2026

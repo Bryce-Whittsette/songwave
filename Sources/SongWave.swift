@@ -20,6 +20,7 @@ enum Appearance: String, CaseIterable, Identifiable {
 struct SongWaveApp: App {
     @NSApplicationDelegateAdaptor(MenuController.self) private var menuController
     @StateObject private var studio = Studio()
+    @StateObject private var updates = AppUpdates()
     @AppStorage("showMenuControl") private var showMenuControl = true
     @Environment(\.openWindow) private var openWindow
     @AppStorage("appearance") private var appearance = Appearance.system
@@ -27,6 +28,7 @@ struct SongWaveApp: App {
     var body: some Scene {
         Window("SongWave", id: "studio") {
             Console(studio: studio, appearance: $appearance)
+                .environmentObject(updates)
                 .frame(minWidth: 810, minHeight: 640)
                 .preferredColorScheme(appearance.scheme)
                 .onAppear {
@@ -40,6 +42,9 @@ struct SongWaveApp: App {
         .defaultSize(width: 1010, height: 755)
         .windowResizability(.contentMinSize)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…", action: updates.check).disabled(!updates.canCheck)
+            }
             CommandGroup(replacing: .newItem) {
                 Button("Open Audio File…", action: studio.chooseAudio).keyboardShortcut("o")
             }
@@ -61,6 +66,7 @@ struct SongWaveApp: App {
 }
 
 struct Console: View {
+    @EnvironmentObject private var updates: AppUpdates
     @ObservedObject var studio: Studio
     @Binding var appearance: Appearance
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -227,6 +233,9 @@ struct Console: View {
                     Divider()
                 }
                 Button("Playback Access…") { studio.showPlaybackAccess = true }
+                Button("Check for Updates…", action: updates.check).disabled(!updates.canCheck)
+                Toggle("Check for Updates Automatically", isOn: Binding(
+                    get: { updates.checksAutomatically }, set: updates.setAutomaticChecks))
                 Button("Listening Setup…") { showSetup = true }
                 Button("Set Up YouTube Filter…") { showYouTube = true }
             } label: {
@@ -469,6 +478,9 @@ struct Console: View {
                     .help("Adds a softer continuous layer for detected low bass. Set to zero for taps only.")
                 PrecisionWheel(title: "Transient emphasis", value: $studio.tuning.impact, range: 0...1, step: 0.01,
                                label: "\(Int((studio.tuning.impact * 100).rounded()))%")
+                    .help("Changes the fade after a detected percussion hit. Higher values make shorter, crisper taps; lower values leave a longer tail. It does not change beat timing.")
+                Text("Higher emphasis makes drum taps shorter and crisper.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             if studio.mode == .trackpad {
                 PrecisionWheel(title: "Tone balance", value: $studio.tuning.tone, range: -1...1, step: 0.01,

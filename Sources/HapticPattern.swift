@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 
 // A bounded haptic-only AHAP adapter. Audio remains owned by the existing player;
 // waveform paths in imported documents are never opened or executed.
@@ -22,14 +23,17 @@ struct HapticPattern {
 
     init(data: Data) throws {
         func bad() -> GlassError { GlassError("Use an AHAP 1.0 file with haptic events and intensity or sharpness curves.") }
+        func number(_ object: [String: Any], _ key: String) throws -> Double {
+            // JSON booleans bridge to NSNumber too; true must not become a
+            // version, timestamp, duration or full-strength intensity of 1.
+            guard let value = object[key] as? NSNumber,
+                  CFGetTypeID(value) != CFBooleanGetTypeID(), value.doubleValue.isFinite else { throw bad() }
+            return value.doubleValue
+        }
         guard data.count <= 1_048_576,
               let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let version = root["Version"] as? Double, version == 1,
+              try number(root, "Version") == 1,
               let pattern = root["Pattern"] as? [[String: Any]], pattern.count <= 4096 else { throw bad() }
-        func number(_ object: [String: Any], _ key: String, fallback: Double? = nil) throws -> Double {
-            guard let value = (object[key] as? Double) ?? fallback, value.isFinite else { throw bad() }
-            return value
-        }
         var events: [Event] = [], curves: [Curve] = [], audio = 0
         for item in pattern {
             if let event = item["Event"] as? [String: Any] {

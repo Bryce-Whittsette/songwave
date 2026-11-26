@@ -42,6 +42,7 @@ final class Studio: ObservableObject {
     // Core Audio still checks permission when a tap is opened. A preview rebuild
     // must not make people repeat our own connection screen.
     @Published private(set) var audioAccessReady = Studio.configuredAudioAccess()
+    @Published private(set) var audioAccessHealth = AudioAccessHealth()
 
     private static func configuredAudioAccess() -> Bool {
         let defaults = UserDefaults.standard
@@ -54,23 +55,26 @@ final class Studio: ObservableObject {
     }
 
     func prepareAudioAccess() async -> String? {
-        guard !requestingAudioAccess else { return nil }
+        guard !requestingAudioAccess, audioAccessHealth.beginCheck() else { return nil }
         requestingAudioAccess = true
         defer { requestingAudioAccess = false }
         do {
             try await PlaybackAccess.requestAudio()
             UserDefaults.standard.set(true, forKey: "audioAccessConfigured")
             audioAccessReady = true
+            audioAccessHealth.finishCheck(failure: nil)
             return nil
         } catch {
-            return error.localizedDescription
+            let message = error.localizedDescription
+            audioAccessHealth.finishCheck(failure: message)
+            return message
         }
     }
 
     func finishPlaybackAccess() {
         let pending = afterAudioAccess
         afterAudioAccess = nil
-        guard audioAccessReady else { return }
+        guard audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady) else { return }
         if let pending {
             autoStarted = true
             pending()
@@ -137,7 +141,8 @@ final class Studio: ObservableObject {
     }
 
     func autoListen() {
-        guard !autoStarted, launchListen, audioAccessReady else { return }
+        guard !autoStarted, launchListen,
+              audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady) else { return }
         autoStarted = true
         if !active { start(.macAudio) }
     }
@@ -151,7 +156,8 @@ final class Studio: ObservableObject {
     func resumeAfterWake() {
         let resume = resumeMacAfterWake
         resumeMacAfterWake = false
-        guard resume, audioAccessReady, !active else { return }
+        guard resume, !active,
+              audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady) else { return }
         start(.macAudio)
     }
 
@@ -163,7 +169,7 @@ final class Studio: ObservableObject {
             error = "Let the Mac cool down before starting another burst."
             return
         }
-        if !useDemo && !active && !audioAccessReady {
+        if !useDemo && !active && (!audioAccessReady || audioAccessHealth.requiresRecovery) {
             afterAudioAccess = { [weak self] in self?.startParty(lights: lights) }
             showPlaybackAccess = true
             return
@@ -395,15 +401,17 @@ final class Studio: ObservableObject {
     }
 
     func toggleAssist() {
-        if active, let source, !source.isLive {
-            if mode != .assist { mode = .assist }
+        if active {
+            if mode != .assist {
+                localBypass = false
+                engine.setHaptics(true)
+                mode = .assist
+            }
             else {
                 localBypass.toggle()
                 engine.setHaptics(!localBypass)
             }
-        } else if assistEnabled { stop() }
-        else if active { mode = .assist }
-        else {
+        } else {
             mode = .assist
             start(.macAudio)
         }
@@ -416,7 +424,7 @@ final class Studio: ObservableObject {
 
     func start(_ source: PlaybackSource, openPlayer: Bool = false, from position: Double = 0, preserveParty: Bool = false) {
         resumeMacAfterWake = false
-        if source.isLive && !audioAccessReady {
+        if source.isLive && (!audioAccessReady || audioAccessHealth.requiresRecovery) {
             afterAudioAccess = { [weak self] in self?.start(source, openPlayer: openPlayer, from: position) }
             showPlaybackAccess = true
             return

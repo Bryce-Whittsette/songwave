@@ -39,7 +39,7 @@ Build without installing:
 bash build.sh /tmp/SongWave.app
 ```
 
-Builds are ad hoc signed. A replacement binary can cause macOS to ask for recording permission again. SongWave preserves its own setup, while macOS controls the permission decision.
+Builds are ad hoc signed by default. A replacement binary can cause macOS to ask for recording permission again. SongWave preserves its own setup, while macOS controls the permission decision. The first 0.5.4 source build downloads a pinned, checksum-verified Sparkle archive; installed apps need no SDK download. Release identity and updater instructions are in [Updates](updates.md).
 
 ## Tests
 
@@ -47,7 +47,7 @@ Builds are ad hoc signed. A replacement binary can cause macOS to ask for record
 bash Tests/run.sh
 ```
 
-The default suite checks EQ controls, percussion/vocal separation heuristics, timing offsets, AHAP parsing, envelope behavior, and simulated live app routing. It does not play audio or actuate the trackpad or keyboard.
+The default suite checks EQ controls, percussion/vocal separation heuristics, timing offsets, AHAP parsing, envelope behavior, simulated live routes, explicit-player interruption/reconnect/failure handling, access recovery, and signed-update feed rejection. It does not play audio or actuate the trackpad or keyboard.
 
 Optional actual-model tests:
 
