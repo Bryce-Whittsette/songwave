@@ -90,6 +90,13 @@ struct Console: View {
                         track
                         Monitor(display: studio.display, waiting: studio.waiting,
                                 status: studio.active && (studio.source == .macAudio || (studio.mode == .trackpad && studio.tuning.vocalQuality == .isolated)) ? studio.detection : nil)
+                        .overlay {
+                            if studio.partyEnd > 0 {
+                                RoundedRectangle(cornerRadius: 18)
+                                    .strokeBorder(AngularGradient(colors: [.pink, .purple, .blue, .cyan, .pink], center: .center), lineWidth: 2)
+                                    .allowsHitTesting(false)
+                            }
+                        }
                         transport
                         notice
                     }

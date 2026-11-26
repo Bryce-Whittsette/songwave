@@ -513,3 +513,32 @@ extension Tuning {
         eq = try values.decodeIfPresent(EQ.self, forKey: .eq) ?? eq
     }
 }
+
+// Session-local Ultra processing. Never written to Studio or saved preferences.
+enum UltraDynamics {
+    static func tuning(_ saved: Tuning, active: Bool) -> Tuning {
+        guard active else { return saved }
+        var value = saved
+        value.profile = .balanced
+        value.gain = 1
+        value.tone = 0
+        value.impact = 1
+        value.smoothing = 12
+        value.bassSustain = 0.85
+        value.eq = EQ()
+        value.eq.bass.gain = 4
+        value.eq.mid.gain = 1
+        value.eq.treble.gain = 2
+        return value
+    }
+    static func level(_ input: Double) -> Double {
+        guard input.isFinite, input > 0 else { return 0 }
+        // Lift quiet detected accents without raising the existing Ultra ceiling.
+        let value = min(1, input)
+        return min(0.83, value * 2.4 + sqrt(value) * 0.18)
+    }
+    static func lightBeat(_ input: Double) -> Double {
+        guard input.isFinite, input > 0 else { return 0 }
+        return min(1, 0.8 + input * 0.2)
+    }
+}

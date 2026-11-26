@@ -152,6 +152,32 @@ struct RhythmRegression {
         precondition(OutputTiming.additionalDelay(reported: 0, analysisRate: 24000, offsetMS: -100) == 0)
         precondition(abs(OutputTiming.additionalDelay(reported: 0, analysisRate: 24000, offsetMS: 100) - 0.1) < 1e-9)
 
+        var saved = OutputMode.assist.defaults
+        saved.gain = 0.02; saved.eq.enabled = false; saved.eq.bass.gain = -12
+        saved.delay = 73; saved.automaticTiming = false
+        let original = try JSONEncoder().encode(saved)
+        let burst = UltraDynamics.tuning(saved, active: true)
+        precondition(burst.eq.enabled && burst.eq.bass.gain == 4 && burst.gain == 1)
+        precondition(burst.delay == 73 && !burst.automaticTiming)
+        precondition(saved.eq.bass.gain == -12 && !saved.eq.enabled && saved.gain == 0.02)
+        // Semantic equality avoids depending on JSON dictionary key order.
+        let restored = UltraDynamics.tuning(saved, active: false)
+        precondition(restored.eq == saved.eq && restored.gain == saved.gain && restored.impact == saved.impact)
+        precondition(!original.isEmpty)
+        var previous = 0.0
+        for i in 0...1000 {
+            let level = UltraDynamics.level(Double(i) / 1000)
+            precondition(level >= previous && level <= 0.83); previous = level
+        }
+        for value in [Double.nan, .infinity, -.infinity, -1, 0] {
+            precondition(UltraDynamics.level(value) == 0 && UltraDynamics.lightBeat(value) == 0)
+        }
+        for value in [0.01, 0.05, 0.1, 0.25, 0.5] {
+            precondition(UltraDynamics.level(value) > value)
+            precondition(UltraDynamics.lightBeat(value) > value)
+        }
+        print("Ultra overrides a copy, preserves timing and saved EQ, lifts accents monotonically, caps output, and leaves silence/nonfinite inputs silent.")
+
         func decode(_ extras: String) throws -> Tuning {
             let json = #"{"profile":"Balanced","gain":0.4,"tone":0,"impact":0.65,"# + extras + "}"
             return try JSONDecoder().decode(Tuning.self, from: Data(json.utf8))

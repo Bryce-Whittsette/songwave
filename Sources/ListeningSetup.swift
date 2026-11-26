@@ -78,7 +78,7 @@ struct ListeningSetup: View {
 struct UltraNotice: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Ultra follows your music for \(Int(PartyBurst.length)) seconds with stronger haptic accents. You can stop it at any time. Allow a minute between runs.")
+            Text("Ultra follows your music for \(Int(PartyBurst.length)) seconds with a temporary punchier EQ, lifted accents and stronger beat lighting. Your saved EQ and intensity stay unchanged. You can stop it at any time. Allow a minute between runs.")
             Text("Repeated strong vibration may add heat and motor wear. Long-term effects on adhesives and fasteners are unknown. Apple provides no safe continuous-run rating for this use.")
             Text("The keyboard light pulses if enabled and supported. Leave lighting off if pulsing light bothers you.")
         }.font(.callout).foregroundStyle(.secondary)

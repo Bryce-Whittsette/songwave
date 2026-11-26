@@ -328,6 +328,7 @@ private final class Session {
 
     func tick() {
         let now = ProcessInfo.processInfo.systemUptime
+        let tuning = UltraDynamics.tuning(self.tuning, active: partyEnd > now)
         let interval = min(0.08, max(0.001, now - lastTick))
         lastTick = now
         guard let motor else { return }
@@ -500,8 +501,8 @@ private final class Session {
             } else { rendered = automatic }
             let party = partyEnd > outputTime
             let accent = mode == .assist || (party && PartyBurst.accent(elapsed: PartyBurst.length - (partyEnd - outputTime)))
-            let strength = party ? (accent ? 0.83 : 0) : tuning.gain
-            let target = rendered.level * strength * (followVolume ? volume : 1) * userGain
+            let response = party ? (accent ? UltraDynamics.level(rendered.level) : 0) : rendered.level * self.tuning.gain
+            let target = response * (followVolume ? volume : 1) * userGain
             let motorLevel = motorEnvelope.level(target: target,
                 transient: mode == .assist && rendered.beatStrength > 0, at: outputTime)
             if !outputSuppressed && (!party || accent) && target > 0.001 {
@@ -513,7 +514,7 @@ private final class Session {
                     keyboard = KeyboardLight()
                     lightUnavailable = keyboard == nil
                 }
-                keyboard?.update(beatStrength: rendered.beatStrength, now: outputTime)
+                keyboard?.update(beatStrength: party ? UltraDynamics.lightBeat(rendered.beatStrength) : rendered.beatStrength, now: outputTime)
                 if !signal.hasAudio && now - (lastAudio ?? 0) > 0.35 { keyboard = nil }
             } else { keyboard = nil }
             let idle = macMusic?.idle == true && (isolator?.hasPendingAudio != true)

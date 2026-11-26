@@ -2,6 +2,14 @@
 
 Every public release is listed here, newest first. Each version has a short explanation and expandable developer notes.
 
+## [0.5.5 — Ultra response](docs/releases/0.5.5.md)
+
+Public Preview · November 26, 2026
+
+Stronger Ultra response with a temporary internal EQ, lifted accents and stronger beat lighting. Saved controls stay unchanged. The 45-second timer and existing interruption limits remain.
+
+[Download](https://github.com/Bryce-Whittsette/songwave/releases/tag/v0.5.5) · [Full notes](docs/releases/0.5.5.md)
+
 ## [0.5.4 — Settings and updates](docs/releases/0.5.4.md)
 
 Public Preview · November 26, 2026

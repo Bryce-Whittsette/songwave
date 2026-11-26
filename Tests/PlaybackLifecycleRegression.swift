@@ -169,6 +169,24 @@ final class IsolatedVocals {
                 engine.start(.player(link), tuning: tuning, mode: mode, playerPath: "/Mock/Player.app", startAt: 0) { _ in }
                 wait("The explicit player route failed to produce output with inactive FaceTime open") { LifecycleHardware.writes.count > 12 }
                 require(LifecycleHardware.mutedTaps == (mode == .trackpad ? 1 : 0))
+                if mode == .assist {
+                    var quiet = tuning
+                    quiet.gain = 0; quiet.eq.enabled = false; quiet.eq.bass.gain = -12
+                    engine.set(tuning: quiet)
+                    run(for: 0.2)
+                    let quietCount = LifecycleHardware.writes.count
+                    run(for: 0.06)
+                    require(LifecycleHardware.writes.count == quietCount, "Zero normal intensity produced output")
+                    engine.party(until: ProcessInfo.processInfo.systemUptime + 3)
+                    wait("Ultra did not override zero saved intensity") { LifecycleHardware.writes.count > quietCount + 8 }
+                    engine.party(until: 0)
+                    run(for: 0.1)
+                    let restored = LifecycleHardware.writes.count
+                    run(for: 0.06)
+                    require(LifecycleHardware.writes.count == restored, "Ultra did not restore saved intensity")
+                    engine.set(tuning: tuning)
+                    wait("Normal settings did not resume") { LifecycleHardware.writes.count > restored + 8 }
+                }
                 engine.setHaptics(false)
                 run(for: 0.09)
                 // Hosted runners can miss timer ticks within a 90 ms window.
