@@ -2,7 +2,7 @@
 
 ## Public preview
 
-The first public release is v0.5.2. It is a GitHub prerelease, named Public Preview. The README links directly to its DMG because GitHub's latest-release shortcut may exclude prereleases.
+Public releases started with v0.5.2. The current public preview is v0.5.3. Previews are GitHub prereleases; the README links directly to the current DMG because GitHub's latest-release shortcut may exclude prereleases. [Version history](../CHANGELOG.md) covers every public version.
 
 The DMG is the primary download. The ZIP is an alternative. The source archive and checksums are for developers and users who want to inspect the release. The app is Apple silicon, ad hoc signed and unnotarized. Do not describe it as Apple-verified or universally hardware-tested.
 
@@ -10,7 +10,7 @@ The DMG is the primary download. The ZIP is an alternative. The source archive a
 
 1. Update the version and build number in `Resources/Info.plist`.
 2. Run default tests, the optional neural suite for relevant changes, and a build. Listen on actual supported hardware and check call suppression, stop, relaunch, muting restoration and keyboard restoration.
-3. Update user-facing instructions and release notes. Keep compatibility and known issues explicit.
+3. Add `docs/releases/<version>.md` and a newest-first entry in `CHANGELOG.md`. Lead with a few plain-language changes and easy download/update steps. Put implementation details, validation scope, measurements and code comparisons in an expandable `<details>` section. State compatibility and known issues explicitly. Update the README's version, download link and short What's new list. Keep previous versions and their downloads available; never invent release entries for unarchived local prototypes.
 4. Build from the commit you intend to tag, then package it:
 
 ```sh
@@ -18,7 +18,7 @@ bash build.sh /tmp/SongWave.app
 bash Tools/package.sh /tmp/SongWave.app /tmp/songwave-release
 ```
 
-5. Create a draft release, upload the DMG, app ZIP, source ZIP and SHA256SUMS, verify the tag points to the reviewed commit, then publish. Check public download links after publishing.
+5. Use that version's Markdown file as the GitHub release body. Create a draft release, upload the DMG, app ZIP, source ZIP and SHA256SUMS, verify the tag points to the reviewed commit, then publish. Check public download links after publishing, download the public assets and verify checksums. For historical releases missing detailed notes, use their version's file without replacing binaries or moving tags.
 
 The packaging script creates a drag-to-Applications DMG and verifies an extracted ZIP's signature. It does not notarize the app. Build in a clean checkout; the source archive includes tracked files, including the bundled vocal model.
 

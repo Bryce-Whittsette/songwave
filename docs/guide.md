@@ -14,6 +14,8 @@
 
 SongWave applies the EQ to the trackpad. The signal monitor shows the filtered signal. Spotify and Apple Music link previews display catalog artwork when it’s available. Albums and playlists show the linked item’s cover. Local files use embedded artwork if present.
 
+In automatic **Speakers + haptics**, **Fine Tune → Transient emphasis** changes how quickly a detected percussion hit fades. Lower values leave a longer, rounder tail; higher values make it shorter and crisper. The initial hit strength stays the same. This control does not change detection sensitivity, beat timing, the separate Bass sustain layer, or imported AHAP curves.
+
 ## Automatic haptics
 
 Open SongWave and play music in Spotify, Apple Music, your browser, or another audio app. **Mac Audio** follows the playing music automatically. There is no file, link, or pattern to import. **Speakers + haptics** generates shaped rhythmic events from the incoming audio; **Trackpad only** follows vocals with Light or Isolated processing. Speech, calls, and supported non-music video filtering still pause output. Capture availability and music recognition can vary by app.
