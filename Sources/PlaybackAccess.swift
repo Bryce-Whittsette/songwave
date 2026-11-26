@@ -22,25 +22,31 @@ enum PlaybackAccess {
     }
 }
 
-struct PlaybackAccessSheet: View {
+// Reused inline in Settings and inside the single player-owned access sheet.
+// Presenting this content does not request any system or player permission.
+struct PlaybackAccessContent: View {
     @ObservedObject var studio: Studio
-    @Environment(\.dismiss) private var dismiss
-    @State private var playerRequest: Provider?
+    @Binding var playerRequest: Provider?
     @State private var message: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Playback Access").font(.title.weight(.semibold))
             Text("Allow System Audio Recording to feel music from other apps. Local files and the demo already work.")
             HStack {
-                Button(studio.audioAccessReady ? "Check Audio Access" : "Allow System Audio…") {
+                Button(studio.audioAccessHealth.failure != nil ? "Retry Audio Access" : studio.audioAccessReady ? "Check Audio Access" : "Allow System Audio…") {
                     message = nil
                     Task {
-                        message = await studio.prepareAudioAccess()
+                        _ = await studio.prepareAudioAccess()
                     }
                 }.disabled(studio.requestingAudioAccess || playerRequest != nil)
                 if studio.requestingAudioAccess { ProgressView().controlSize(.small) }
-                else if studio.audioAccessReady { Text("Audio setup saved").foregroundStyle(.secondary) }
+            }
+            Text(studio.audioAccessHealth.summary(setupSaved: studio.audioAccessReady))
+                .font(.callout).foregroundStyle(.secondary)
+            if let failure = studio.audioAccessHealth.failure {
+                Text(failure).font(.callout)
+                Text("To resume automatic listening, fix access and choose Retry Audio Access. Local files and the demo remain available.")
+                    .font(.callout).foregroundStyle(.secondary)
             }
             Divider()
             Text("Optional player details").font(.headline)
@@ -69,11 +75,28 @@ struct PlaybackAccessSheet: View {
                 if playerRequest != nil { ProgressView().controlSize(.small) }
             }
             if let message { Text(message).font(.callout).foregroundStyle(.secondary) }
+            Button("Privacy Settings…", action: studio.permissions)
+        }
+        .font(.system(size: 14))
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+struct PlaybackAccessSheet: View {
+    @ObservedObject var studio: Studio
+    @Environment(\.dismiss) private var dismiss
+    @State private var playerRequest: Provider?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Playback Access").font(.title2.weight(.semibold))
+            PlaybackAccessContent(studio: studio, playerRequest: $playerRequest)
             HStack {
-                Button("Privacy Settings…", action: studio.permissions)
                 Spacer()
                 Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+                    .disabled(studio.requestingAudioAccess || playerRequest != nil)
             }
-        }.padding(24).frame(width: 450)
+        }.padding(24).frame(width: 480)
+            .interactiveDismissDisabled(studio.requestingAudioAccess || playerRequest != nil)
     }
 }

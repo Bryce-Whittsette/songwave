@@ -24,7 +24,7 @@ The packaging script creates a drag-to-Applications DMG and verifies an extracte
 
 ## Signing milestone
 
-A later release should use an Apple-issued Developer ID identity, notarization and stapling before broad promotion. Keep signing credentials out of the repository. The current preview does not contain an auto-updater; users install a new release explicitly.
+A later release should use an Apple-issued Developer ID identity, notarization and stapling before broad promotion. Keep signing credentials out of the repository. Public 0.5.3 has no updater. The 0.5.4 candidate adds signed in-app updates; use its [release/update pipeline](updates.md) when shipping that baseline and later versions. The first updater-enabled release still needs one manual installation for existing listeners.
 
 ## Feedback phase
 

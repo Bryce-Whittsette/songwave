@@ -9,8 +9,8 @@ If you prefer, [build the source yourself](development.md). No Terminal command 
 ## No vibration
 
 1. Use a Mac with a Force Touch trackpad. The public download is for Apple silicon.
-2. Open SongWave and select **Mac Audio**. The button says **Stop Mac Audio** while listening.
-3. Open the sliders menu → **Playback Access** and check System Audio Recording access. In macOS, this may be under **Privacy & Security → Screen & System Audio Recording**. Reopen SongWave if macOS requests it.
+2. Open SongWave and choose **Listen to Mac audio**. The button says **Stop listening** while listening.
+3. Open **Settings → Playback Access** and check System Audio Recording access. In macOS, this may be under **Privacy & Security → Screen & System Audio Recording**. Reopen SongWave if macOS requests it.
 4. Play a song, choose **Speakers + haptics**, and rest a finger lightly on the trackpad. Raise Intensity gradually.
 
 Trackpad only follows vocals, so instrumental passages may be quiet. Isolated needs a brief model warmup. Some protected audio cannot be captured. Music detection also needs a moment when playback starts.
@@ -31,7 +31,7 @@ Open Spotify or Music, then use **Playback Access → Connect Spotify / Connect 
 
 ## Talking videos vibrate
 
-Speech and known call apps are filtered, but an instrumental video intro can sound like music. For YouTube, use **Set Up YouTube Filter** in the sliders menu. Chrome and Firefox are supported. Safari uses audio recognition. See the [guide](guide.md#music-detection).
+Speech and known call apps are filtered, but an instrumental video intro can sound like music. For YouTube, open **Settings → Effects → YouTube music filter**. Chrome and Firefox are supported. Safari uses audio recognition. See the [guide](guide.md#music-detection).
 
 ## Keyboard light is faint or unavailable
 

@@ -45,6 +45,8 @@ Music detection and vocal separation are approximate. Some protected audio canno
 
 ## For developers
 
+[Product decisions and development credits](docs/project-decisions.md) · [Update pipeline in the 0.5.4 candidate](docs/updates.md)
+
 [Build and test](docs/development.md) · [How it works](docs/architecture.md) · [Streaming engine decisions](docs/streaming-engine.md) · [Mobile feasibility](docs/mobile.md) · [Release process](docs/releasing.md) · [Contributing](CONTRIBUTING.md) · [Privacy](PRIVACY.md)
 
 [MIT license](LICENSE). Third-party code and the bundled vocal model retain their [own notices](docs/credits.md). SongWave is an independent project, unaffiliated with Apple or Spotify.

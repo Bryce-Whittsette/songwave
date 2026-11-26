@@ -6,8 +6,18 @@
   <key>CFBundleName</key><string>SongWave</string>
   <key>CFBundleDisplayName</key><string>SongWave</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.5.3</string>
-  <key>CFBundleVersion</key><string>12</string>
+  <key>CFBundleShortVersionString</key><string>0.5.4</string>
+  <key>CFBundleVersion</key><string>14</string>
+  <key>SUFeedURL</key><string>https://raw.githubusercontent.com/Bryce-Whittsette/songwave/main/updates/appcast.xml</string>
+  <key>SUPublicEDKey</key><string>JN/+vLCrjfWPxmRUQ+YFKK9M6+O8uVvJ5SlIZbk9o4w=</string>
+  <key>SUEnableAutomaticChecks</key><true/>
+  <key>SUAutomaticallyUpdate</key><false/>
+  <key>SUAllowsAutomaticUpdates</key><false/>
+  <key>SUScheduledCheckInterval</key><integer>86400</integer>
+  <key>SUEnableSystemProfiling</key><false/>
+  <key>SUVerifyUpdateBeforeExtraction</key><true/>
+  <key>SURequireSignedFeed</key><true/>
+  <key>SUSignedFeedFailureExpirationInterval</key><integer>0</integer>
   <key>CFBundleIconFile</key><string>SongWave.icns</string>
   <key>LSMinimumSystemVersion</key><string>14.2</string>
   <key>NSPrincipalClass</key><string>NSApplication</string>

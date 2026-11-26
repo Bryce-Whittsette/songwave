@@ -20,31 +20,34 @@ enum Appearance: String, CaseIterable, Identifiable {
 struct SongWaveApp: App {
     @NSApplicationDelegateAdaptor(MenuController.self) private var menuController
     @StateObject private var studio = Studio()
-    @AppStorage("showMenuControl") private var showMenuControl = true
+    @StateObject private var updates = AppUpdates()
+    @StateObject private var preferences = AppPreferences()
     @Environment(\.openWindow) private var openWindow
-    @AppStorage("appearance") private var appearance = Appearance.system
 
     var body: some Scene {
         Window("SongWave", id: "studio") {
-            Console(studio: studio, appearance: $appearance)
+            Console(studio: studio)
+                .environmentObject(updates)
+                .environmentObject(preferences)
                 .frame(minWidth: 810, minHeight: 640)
-                .preferredColorScheme(appearance.scheme)
+                .preferredColorScheme(preferences.appearance.scheme)
                 .onAppear {
-                    applyAppearance()
                     studio.probe()
-                    menuController.attach(to: studio, show: showMenuControl) { openWindow(id: "studio") }
+                    menuController.attach(to: studio, show: preferences.showMenuControl) { openWindow(id: "studio") }
+                    preferences.bindMenuController(menuController)
                 }
-                .onChange(of: appearance) { _, _ in applyAppearance() }
-                .onChange(of: showMenuControl) { _, show in menuController.setVisible(show) }
         }
-        .defaultSize(width: 1010, height: 755)
+        .defaultSize(width: 1100, height: 880)
         .windowResizability(.contentMinSize)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…", action: updates.check).disabled(!updates.canCheck)
+            }
             CommandGroup(replacing: .newItem) {
                 Button("Open Audio File…", action: studio.chooseAudio).keyboardShortcut("o")
             }
             CommandGroup(after: .toolbar) {
-                Toggle("Show SongWave in Menu Bar", isOn: $showMenuControl)
+                Toggle("Show SongWave in Menu Bar", isOn: $preferences.showMenuControl)
             }
             CommandMenu("Playback") {
                 Button("Toggle Speakers + Haptics", action: studio.toggleAssist)
@@ -52,22 +55,24 @@ struct SongWaveApp: App {
                 Button("Stop Trackpad", action: studio.stop).keyboardShortcut(".", modifiers: .command)
             }
         }
-    }
-    private func applyAppearance() {
-        let theme = appearance == .system ? nil : NSAppearance(named: appearance == .dark ? .darkAqua : .aqua)
-        NSApp.appearance = theme
-        for window in NSApp.windows where window.canBecomeKey { window.appearance = theme }
+        Settings {
+            SongWaveSettings(studio: studio)
+                .environmentObject(preferences)
+                .environmentObject(updates)
+                .preferredColorScheme(preferences.appearance.scheme)
+                .frame(minWidth: 740, minHeight: 560)
+                .onAppear { preferences.bindMenuController(menuController) }
+        }
+        .defaultSize(width: 800, height: 610)
     }
 }
 
 struct Console: View {
     @ObservedObject var studio: Studio
-    @Binding var appearance: Appearance
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @AppStorage("showMenuControl") private var showMenuControl = true
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showTuning = false
     @State private var showEQDetails = false
-    @State private var showYouTube = false
     @State private var showSetup = false
     @State private var accessAfterSetup = false
     @State private var showBurst = false
@@ -78,11 +83,10 @@ struct Console: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                heading
+            VStack(alignment: .leading, spacing: 24) {
                 source
                 HStack(alignment: .top, spacing: 20) {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 16) {
                         track
                         Monitor(display: studio.display, waiting: studio.waiting,
                                 status: studio.active && (studio.source == .macAudio || (studio.mode == .trackpad && studio.tuning.vocalQuality == .isolated)) ? studio.detection : nil)
@@ -90,24 +94,29 @@ struct Console: View {
                         notice
                     }
                     .frame(maxWidth: .infinity)
-                    VStack(spacing: 12) {
+                    VStack(spacing: 16) {
                         output
                         equalizer
                     }
-                    .frame(width: 304)
+                    .frame(width: 348)
                 }
             }
             .frame(maxWidth: 1160)
             .padding(.horizontal, 26)
-            .padding(.top, 22)
+            .padding(.top, 18)
             .padding(.bottom, 24)
             .frame(maxWidth: .infinity)
         }
-        .background {
-            Color(nsColor: .windowBackgroundColor)
-            LinearGradient(colors: [.primary.opacity(0.035), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            heading
+                .frame(maxWidth: 1160)
+                .padding(.horizontal, 26).padding(.vertical, 18)
+                .frame(maxWidth: .infinity)
+                .background(.bar)
         }
-        .tint(.primary)
+        .font(.system(size: 14))
+        .background(Color(nsColor: .underPageBackgroundColor))
+        .tint(colorScheme == .dark ? Color.white : Color.black)
         .onAppear {
             if didSetup { studio.launchIfConfigured() } else { showSetup = true }
         }
@@ -129,7 +138,7 @@ struct Console: View {
                 }.buttonStyle(.link).padding(.bottom, 15)
             }.interactiveDismissDisabled(!didSetup)
         }
-        .sheet(isPresented: $studio.showPlaybackAccess, onDismiss: studio.finishPlaybackAccess) {
+        .sheet(isPresented: accessPresentation, onDismiss: studio.finishPlaybackAccess) {
             PlaybackAccessSheet(studio: studio)
         }
         .sheet(isPresented: $showBurst, onDismiss: {
@@ -155,31 +164,22 @@ struct Console: View {
                 }
             }.padding(24).frame(width: 400)
         }
-        .sheet(isPresented: $showYouTube) {
-            VStack(alignment: .leading, spacing: 15) {
-                Text("YouTube music videos").font(.title2.weight(.semibold))
-                Text("The browser filter reads the playing video’s category. SongWave pauses haptics for tutorials, other categories, and ads.")
-                Text("In Chrome, open chrome://extensions, enable Developer mode, and use Load unpacked to select the Chrome folder.")
-                Text("In Firefox, open about:debugging, choose This Firefox, then Load Temporary Add-on and select manifest.json from the Firefox folder. Repeat after restarting Firefox.")
-                Text("Keep SongWave in Applications after setup so the browser can find it.").foregroundStyle(.secondary)
-                HStack {
-                    ForEach(["Chrome", "Firefox"], id: \.self) { browser in
-                        Button("Set Up " + browser) {
-                            do { try YouTubeState.setUp(browser) }
-                            catch { studio.error = error.localizedDescription; showYouTube = false }
-                        }
-                    }
-                    Spacer()
-                    Button("Done") { showYouTube = false }.keyboardShortcut(.defaultAction)
-                }
-            }.padding(24).frame(width: 470)
-        }
         .sheet(isPresented: $showTuning) { tuningSheet }
         .sheet(isPresented: $showEQDetails) { eqSheet }
     }
 
     private static let brandMark = Bundle.main.url(forResource: "SongWave", withExtension: "icns")
         .flatMap(NSImage.init(contentsOf:))
+
+    // A recovery request from the menu bar waits for the current sheet to close.
+    // Settings embeds access content inline and never becomes a second presenter.
+    private var accessPresentation: Binding<Bool> {
+        Binding(get: {
+            studio.showPlaybackAccess && !showSetup && !showTuning && !showEQDetails && !showBurst
+        }, set: { presented in
+            if !presented { studio.showPlaybackAccess = false }
+        })
+    }
 
     private var heading: some View {
         HStack(alignment: .center, spacing: 11) {
@@ -199,46 +199,21 @@ struct Console: View {
                     .disabled(NSSharingService(named: .composeMessage) == nil)
                 Button("Copy Repository Link", action: ProjectShare.copy)
             } label: {
-                Image(systemName: "square.and.arrow.up")
+                Label("Share", systemImage: "square.and.arrow.up")
+                    .font(.system(size: 14, weight: .medium))
+                    .padding(.horizontal, 10).padding(.vertical, 7)
+                    .glassSurface(Capsule(), interactive: true)
             }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                .labelStyle(.titleAndIcon)
                 .accessibilityLabel("Share SongWave")
-            Menu {
-                ForEach(Appearance.allCases) { option in
-                    Button {
-                        appearance = option
-                    } label: {
-                        if appearance == option {
-                            Label(option.rawValue, systemImage: "checkmark")
-                        } else {
-                            Text(option.rawValue)
-                        }
-                    }
-                }
-                Divider()
-                Toggle("Show in Menu Bar", isOn: $showMenuControl)
-                Toggle("Listen on Launch", isOn: $studio.launchListen)
-                Toggle("Follow Mac Volume", isOn: $studio.followVolume)
-                Toggle("Sync Keyboard Light", isOn: $studio.keyboard)
-                Divider()
-                if case .file = studio.source {
-                    Button("Custom AHAP Pattern…", action: studio.choosePattern)
-                        .disabled(studio.mode != .assist)
-                    if studio.patternName != nil { Button("Use Automatic Haptics", action: studio.clearPattern) }
-                    Divider()
-                }
-                Button("Playback Access…") { studio.showPlaybackAccess = true }
-                Button("Listening Setup…") { showSetup = true }
-                Button("Set Up YouTube Filter…") { showYouTube = true }
-            } label: {
-                Label("SongWave settings", systemImage: "slider.horizontal.3")
-                    .labelStyle(.iconOnly)
-                    .frame(width: 20)
+            SettingsLink {
+                Label("Settings", systemImage: "gearshape")
+                    .font(.system(size: 14, weight: .medium))
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .frame(width: 27)
-            .accessibilityLabel("SongWave settings")
-            .help("Appearance, menu bar, and YouTube filter")
+            .glassControlButton()
+            .labelStyle(.titleAndIcon)
+            .help("Open SongWave settings (Command-comma)")
+            .accessibilityLabel("Settings")
         }
     }
 
@@ -246,10 +221,10 @@ struct Console: View {
         VStack(alignment: .leading, spacing: 9) {
             HStack {
                 Button(action: studio.routeMacAudio) {
-                    Label(studio.active && studio.source == .macAudio ? "Stop Mac Audio" : "Route Mac Audio",
+                    Label(studio.active && studio.source == .macAudio ? "Stop listening" : "Listen to Mac audio",
                           systemImage: studio.active && studio.source == .macAudio ? "stop.fill" : "speaker.wave.2")
                 }
-                .buttonStyle(RouteButtonStyle())
+                .primaryGlassAction()
                 .help("Automatically follow music from Spotify, Music, browsers, and other apps on this Mac.")
                 Spacer()
                 Button("Open File…", action: studio.chooseAudio)
@@ -270,9 +245,9 @@ struct Console: View {
                 }
                 .padding(.horizontal, 10).padding(.vertical, 8)
                 .frame(minHeight: 35)
-                .glassSurface(RoundedRectangle(cornerRadius: 11))
+                .glassSurface(RoundedRectangle(cornerRadius: 11), interactive: true)
                 Button("Open & Route", action: studio.playLink)
-                    .buttonStyle(RouteButtonStyle())
+                    .primaryGlassAction()
                     .keyboardShortcut(.return, modifiers: [.command])
                     .disabled(studio.link.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
@@ -292,13 +267,13 @@ struct Console: View {
             cover
             VStack(alignment: .leading, spacing: 4) {
                 Text(studio.metadata?.title ?? liveAppName ?? studio.source?.title ?? "No source loaded")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .lineLimit(2)
                 if let artist = studio.metadata?.artist {
                     Text(artist).font(.callout).foregroundStyle(.secondary).lineLimit(1)
                 }
                 if let source = studio.source {
-                    Text(source.detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    Text(source.detail).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
             Spacer(minLength: 4)
@@ -331,14 +306,16 @@ struct Console: View {
     }
 
     private var transport: some View {
+        VStack(alignment: .leading, spacing: 12) {
         HStack(spacing: 12) {
+            if studio.source?.isLive != true {
             Button(action: studio.toggle) {
-                Image(systemName: studio.active ? "stop.fill" : "play.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 24, height: 23)
+                Label(studio.active ? "Stop playback" : "Play source",
+                      systemImage: studio.active ? "stop.fill" : "play.fill")
             }
-            .controlSize(.large)
+            .controlSize(.regular)
             .accessibilityLabel(studio.active ? "Stop trackpad output" : "Play through trackpad")
+            }
             if studio.partyEnd > 0 {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
                     let seconds = max(0, Int(ceil(studio.partyEnd - ProcessInfo.processInfo.systemUptime)))
@@ -347,7 +324,7 @@ struct Console: View {
                         .accessibilityLabel("Insane Ultra, \(seconds) seconds remaining")
                 }
             }
-            if studio.localBypass { Text("Speakers only").font(.caption).foregroundStyle(.secondary) }
+            if studio.localBypass { Text("Speakers only").font(.system(size: 13)).foregroundStyle(.secondary) }
             if let duration = studio.duration, duration > 0 {
                 Text(timestamp(studio.elapsed)).monospacedDigit().font(.callout)
                 Meter(value: min(1, studio.elapsed / duration), label: "Playback progress", party: studio.partyEnd > 0)
@@ -365,22 +342,47 @@ struct Console: View {
                 } else { Spacer() }
             }
         }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 8)
+            Divider()
+            HStack(spacing: 16) {
+                Toggle("Keyboard light", isOn: $studio.keyboard)
+                    .toggleStyle(.checkbox)
+                    .help("Pulse a supported keyboard backlight with detected beats.")
+                Spacer(minLength: 8)
+                Toggle("Follow Mac volume", isOn: $studio.followVolume)
+                    .toggleStyle(.checkbox)
+                    .help("Scale haptic strength with your current audio output's volume.")
+            }
+            .font(.system(size: 13))
+        }
+        .padding(16)
         .panel()
     }
 
     private var output: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Output").font(.headline).accessibilityAddTraits(.isHeader)
+            HStack {
+                Text("Output").font(.system(size: 16, weight: .semibold)).accessibilityAddTraits(.isHeader)
+                Spacer()
+                if studio.mode == .assist {
+                    Toggle("Haptics", isOn: Binding(
+                        get: { studio.active && !studio.localBypass },
+                        set: { enabled in
+                            guard enabled != (studio.active && !studio.localBypass) else { return }
+                            if studio.active { studio.toggleAssist() }
+                            else if enabled { studio.toggle() }
+                        }))
+                        .toggleStyle(.switch).controlSize(.small)
+                        .help("Turn trackpad haptics on or off while the song keeps playing.")
+                }
+            }
             ModeSwitch(mode: $studio.mode)
             if let name = studio.patternName, studio.mode == .assist {
-                Text("Custom pattern · " + name).font(.caption.weight(.medium)).lineLimit(1)
-                Text(studio.patternNote ?? "").font(.caption).foregroundStyle(.secondary)
+                Text("Custom pattern · " + name).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                Text(studio.patternNote ?? "").font(.system(size: 13)).foregroundStyle(.secondary)
             } else {
-                Text("Automatic haptics").font(.caption.weight(.medium))
+                Text("Automatic haptics").font(.system(size: 13, weight: .medium))
                 Text(studio.mode == .assist ? "Shapes rhythm and texture from the music playing on your Mac." : "Follows vocals from the music playing on your Mac.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.system(size: 13)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Divider()
@@ -390,7 +392,7 @@ struct Console: View {
                 }
                 .pickerStyle(.segmented)
                 Text(studio.tuning.vocalQuality.description)
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.system(size: 13)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack {
                     Text("Vocal tone")
@@ -404,7 +406,7 @@ struct Console: View {
             PrecisionWheel(title: "Intensity", value: $studio.tuning.gain, range: 0...1, step: 0.01,
                         label: "\(Int((studio.tuning.gain * 100).rounded()))%")
             Text("Point at a value and swipe with two fingers. Click for a slider.")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Picker("Genre", selection: Binding(get: { studio.genre }, set: studio.setGenre)) {
                 ForEach(ListeningGenre.allCases) { Text($0.rawValue).tag($0) }
             }
@@ -416,21 +418,32 @@ struct Console: View {
                     else { burstLights = !reduceMotion; burstDemo = false; showBurst = true }
                 }
             }
+            if case .file = studio.source {
+                HStack {
+                    Button("Attach Pattern…", action: studio.choosePattern)
+                        .disabled(studio.mode != .assist)
+                    if studio.patternName != nil {
+                        Button("Use Automatic", action: studio.clearPattern)
+                    }
+                }
+                Text("Optional authored haptics for this local audio file.")
+                    .font(.system(size: 13)).foregroundStyle(.secondary)
+            }
         }
-        .padding(13)
+        .padding(18)
         .panel()
     }
 
     private var equalizer: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack {
-                Text("Trackpad EQ").font(.headline).accessibilityAddTraits(.isHeader)
+                Text("Trackpad EQ").font(.system(size: 16, weight: .semibold)).accessibilityAddTraits(.isHeader)
                 Spacer()
                 Toggle("Enable trackpad equalizer", isOn: $studio.tuning.eq.enabled)
                     .labelsHidden().toggleStyle(.switch).controlSize(.mini)
             }
             if !studio.tuning.eq.enabled {
-                Text("Bypassed · adjust a band to enable EQ").font(.caption).foregroundStyle(.secondary)
+                Text("Bypassed · adjust a band to enable EQ").font(.system(size: 13)).foregroundStyle(.secondary)
             }
             EQCurve(eq: studio.tuning.eq, wetMix: studio.tuning.eq.enabled ? 1 : 0)
                 .opacity(studio.tuning.eq.enabled ? 1 : 0.44)
@@ -445,7 +458,7 @@ struct Console: View {
                         .labelsHidden().controlSize(.small)
                         .help("Raise or lower " + band.rawValue.lowercased() + " by half a decibel")
                 }
-                .opacity(studio.tuning.eq.enabled ? 1 : 0.64)
+
             }
             HStack {
                 Button("Reset EQ") { studio.tuning.eq = EQ(enabled: studio.tuning.eq.enabled) }
@@ -454,7 +467,7 @@ struct Console: View {
             }
             .controlSize(.small)
         }
-        .padding(13)
+        .padding(18)
         .panel()
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.28), value: studio.tuning.eq.enabled)
     }
@@ -469,6 +482,9 @@ struct Console: View {
                     .help("Adds a softer continuous layer for detected low bass. Set to zero for taps only.")
                 PrecisionWheel(title: "Transient emphasis", value: $studio.tuning.impact, range: 0...1, step: 0.01,
                                label: "\(Int((studio.tuning.impact * 100).rounded()))%")
+                    .help("Changes the fade after a detected percussion hit. Higher values make shorter, crisper taps; lower values leave a longer tail. It does not change beat timing.")
+                Text("Higher emphasis makes drum taps shorter and crisper.")
+                    .font(.system(size: 13)).foregroundStyle(.secondary)
             }
             if studio.mode == .trackpad {
                 PrecisionWheel(title: "Tone balance", value: $studio.tuning.tone, range: -1...1, step: 0.01,
@@ -493,7 +509,7 @@ struct Console: View {
                                label: String(format: "%+.0f ms", studio.tuning.delay))
                     .help("Positive values add delay. Negative values reduce the automatic delay.")
                 Text("Automatic timing uses the selected audio output’s reported latency.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.system(size: 13)).foregroundStyle(.secondary)
             }
             HStack {
                 Button("Reset Tuning") {
@@ -543,7 +559,7 @@ struct Console: View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: symbol)
             Text(message).frame(maxWidth: .infinity, alignment: .leading)
-            if studio.captureHelp { Button("Settings", action: studio.permissions).controlSize(.small) }
+            if studio.captureHelp { Button("Audio Privacy Settings…", action: studio.permissions).controlSize(.small) }
         }
         .font(.callout)
         .padding(10)
@@ -572,24 +588,25 @@ private let surface = Color(nsColor: .controlBackgroundColor)
 
 private extension View {
     func panel() -> some View {
-        glassSurface(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay { RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.6), lineWidth: 0.5) }
     }
-}
 
-private struct RouteButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var enabled
-    @Environment(\.colorScheme) private var scheme
+    @ViewBuilder func primaryGlassAction() -> some View {
+        if #available(macOS 26.0, *) {
+            self.buttonStyle(.glassProminent).controlSize(.large)
+        } else {
+            self.buttonStyle(.borderedProminent).controlSize(.large)
+        }
+    }
 
-    func makeBody(configuration: Configuration) -> some View {
-        let activeText: Color = scheme == .dark ? .black : .white
-        return configuration.label
-            .font(.callout.weight(.semibold))
-            .foregroundStyle(enabled ? activeText : Color.secondary)
-            .padding(.horizontal, 13)
-            .frame(height: 33)
-            .background(.primary.opacity(enabled ? (configuration.isPressed ? 0.72 : 0.92) : 0.06), in: Capsule())
-            .glassSurface(Capsule())
-            .contentShape(Rectangle())
+    @ViewBuilder func glassControlButton() -> some View {
+        if #available(macOS 26.0, *) {
+            self.buttonStyle(.glass).controlSize(.large)
+        } else {
+            self.buttonStyle(.bordered).controlSize(.large)
+        }
     }
 }
 
@@ -603,10 +620,10 @@ private struct Monitor: View {
         let signal = display.frame
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Signal Monitor").font(.headline).accessibilityAddTraits(.isHeader)
+                Text("Signal Monitor").font(.system(size: 16, weight: .semibold)).accessibilityAddTraits(.isHeader)
                 Spacer()
                 Text(signal.hasAudio ? "Signal" : waiting ? "Waiting" : "Idle")
-                    .font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                    .font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
             }
             ZStack {
                 TimelineView(.animation(minimumInterval: reduceMotion ? 0.10 : 1.0 / 60, paused: !signal.hasAudio && !display.settling)) { _ in
@@ -628,10 +645,10 @@ private struct Monitor: View {
                 Spacer()
                 Text("4 kHz")
             }
-            .font(.caption).foregroundStyle(.secondary)
+            .font(.system(size: 13)).foregroundStyle(.secondary)
             Divider()
             HStack {
-                Text("Level").font(.caption).foregroundStyle(.secondary)
+                Text("Level").font(.system(size: 13)).foregroundStyle(.secondary)
                 if signal.inputRMS > 0 {
                     let decibels = 20 * log10(signal.inputRMS)
                     Meter(value: min(1, max(0, 1 + decibels / 60)))
@@ -640,11 +657,11 @@ private struct Monitor: View {
                         .foregroundStyle(.secondary).frame(width: 48, alignment: .trailing)
                 } else {
                     Meter(value: 0).frame(height: 4)
-                    Text("— dB").font(.caption).foregroundStyle(.secondary).frame(width: 48, alignment: .trailing)
+                    Text("— dB").font(.system(size: 13)).foregroundStyle(.secondary).frame(width: 48, alignment: .trailing)
                 }
             }
         }
-        .padding(13)
+        .padding(18)
         .panel()
     }
 }

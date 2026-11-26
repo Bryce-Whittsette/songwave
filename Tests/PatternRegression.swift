@@ -23,6 +23,20 @@ import Foundation
         for invalid in [json.replacingOccurrences(of: "\"Time\":0.1", with: "\"Time\":-1"), json.replacingOccurrences(of: "\"EventDuration\":0.6", with: "\"EventDuration\":60")] {
             do { _ = try HapticPattern(data: Data(invalid.utf8)); preconditionFailure("Invalid pattern accepted") } catch {}
         }
+        let booleanFields = [
+            ("\"Version\":1", "\"Version\":true"),
+            ("\"Time\":0,\"EventType\"", "\"Time\":false,\"EventType\""),
+            ("\"EventDuration\":0.6", "\"EventDuration\":true"),
+            ("\"ParameterValue\":0.8", "\"ParameterValue\":true"),
+            ("\"ParameterCurve\":{\"Time\":0.1", "\"ParameterCurve\":{\"Time\":false"),
+            ("\"Time\":0.6,\"ParameterValue\"", "\"Time\":true,\"ParameterValue\""),
+            ("\"Time\":0,\"ParameterValue\":1", "\"Time\":0,\"ParameterValue\":true")
+        ]
+        for (original, replacement) in booleanFields {
+            precondition(json.contains(original), "Boolean regression fixture did not match its target.")
+            let invalid = json.replacingOccurrences(of: original, with: replacement)
+            do { _ = try HapticPattern(data: Data(invalid.utf8)); preconditionFailure("Boolean accepted as an AHAP number") } catch {}
+        }
         var renderer = MusicalEnvelope()
         let hit = SignalFrame(tones: [], level: 1, bands: [], inputRMS: 0, hasAudio: true, beatStrength: 1)
         precondition(renderer.frame(hit, at: 1).level == 1)

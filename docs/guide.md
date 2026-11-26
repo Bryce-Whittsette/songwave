@@ -6,7 +6,7 @@
 - **Speakers + haptics** leaves the full mix on the speakers. The trackpad and keyboard use detected kick and percussion attacks, with softer accents for quiet midrange and treble details and a short fade between hits. Harmonic vocal attacks are filtered. Dense mixes can still produce missed or false beats.
 - **Open File** plays a local audio file. **Open & Route** opens a Spotify or Apple Music link in its desktop app. Press **Play** there if needed. Allow **System Audio Recording** when macOS asks, then retry routing.
 - **Trackpad EQ** adjusts bass, mid, and treble. Point at a value and swipe up or down with two fingers. A single click opens a slider, plus/minus buttons and a field for typing the exact number. Editing a bypassed band turns the EQ back on. **Band Settings** sets each band’s center frequency and width. **Fine Tune → Bass sustain** adjusts the low-bass continuous layer in Speakers + haptics, including zero for taps only. **Fine Tune** controls vocal pitch smoothing and how many vocal harmonics to keep in Trackpad only, and output timing in Speakers + haptics. **Match audio output timing** uses the selected output’s reported latency. **Timing offset** fine-tunes that estimate. Positive values make haptics later, and negative values reduce the added delay.
-- **Genre** applies a new starting curve. **Listening Setup** in the sliders menu lets you change bass or clarity preference. Manual EQ edits take effect immediately.
+- **Genre** applies a new starting curve. **Settings → General → Listening preferences** lets you change bass or clarity preference. Manual EQ edits take effect immediately.
 - **Follow Mac Volume** adjusts haptic strength using the selected output’s volume. Fixed-level outputs keep the manual intensity.
 - **Sync Keyboard Light** pulses a supported MacBook’s white backlight from the same detected beats as speaker-mode haptics, then fades close to dark between hits. SongWave restores its previous brightness when the effect stops. macOS may suppress lighting in bright environments.
 - **Insane Ultra** adds timed haptic accents and a rainbow progress bar for up to 45 seconds. Ultra follows the current source and waits quietly during silence. Choose the built-in beat explicitly to hear the demo. Keyboard lighting is a separate choice in the start sheet. Stop early with **Stop Ultra**. A one-minute cooldown applies after a burst. Repeated vibration may increase heat and mechanical wear. Effects on adhesives and fasteners are unverified. The timer is an app limit, not a manufacturer safety rating.
@@ -20,13 +20,15 @@ In automatic **Speakers + haptics**, **Fine Tune → Transient emphasis** change
 
 Open SongWave and play music in Spotify, Apple Music, your browser, or another audio app. **Mac Audio** follows the playing music automatically. There is no file, link, or pattern to import. **Speakers + haptics** generates shaped rhythmic events from the incoming audio; **Trackpad only** follows vocals with Light or Isolated processing. Speech, calls, and supported non-music video filtering still pause output. Capture availability and music recognition can vary by app.
 
+The labeled **Settings** button and **Command-comma** open a browsable settings window. **Keyboard light** and **Follow Mac volume** are also visible below the signal monitor. In speaker mode, the **Haptics** switch fades trackpad output on/off while music continues; **Stop listening** ends automatic capture.
+
 The automatic renderer runs on every audio source and both output modes. Its attack and release levels use elapsed host time, so changing audio callback cadence does not change the fade speed. It adds no lookahead buffer; Isolated retains its own vocal-separation buffer.
 
 ## Optional custom file patterns
 
 Live speaker-mode percussion uses separate transient and release envelopes. This shapes each detected hit without adding a lookahead buffer or loading the vocal model.
 
-For authored haptics, open a local audio file, choose **Speakers + haptics**, then open the sliders menu and choose **Custom AHAP Pattern…**. The pattern replaces automatic percussion for that file and follows its current playback position. Replay the file to hear the pattern from the beginning. **Use Automatic Haptics** restores automatic detection. A different source clears the attachment.
+For authored haptics, open a local audio file, choose **Speakers + haptics**, then choose **Attach Pattern…** in the Output panel. The pattern replaces automatic percussion for that file and follows its current playback position. Replay the file to hear the pattern from the beginning. **Use Automatic** restores automatic detection. A different source clears the attachment.
 
 The supplied [120 BPM example](../Examples/120bpm.ahap) can be attached to your matching local audio loop. Its embedded audio reference is skipped.
 
@@ -40,9 +42,9 @@ Apple's Music Haptics catalog is not integrated. Core Haptics reports no built-i
 
 Mac Audio listens for music on-device. Speech and recognized call apps, including FaceTime, pause haptics. Detection needs a moment when a song starts. On audio alone, an instrumental intro to a spoken video can sound like a song.
 
-For category-aware YouTube filtering, open the sliders icon at the top right of SongWave and choose **Set Up YouTube Filter**. Follow the steps for Chrome or Firefox. The filter uses the playing video’s YouTube category and pauses haptics for other categories and ads. Safari uses audio recognition. Firefox’s temporary add-on needs to be loaded again after a browser restart.
+For category-aware YouTube filtering, open **Settings → Effects → YouTube music filter**. Follow the steps for Chrome or Firefox. The filter uses the playing video’s YouTube category and pauses haptics for other categories and ads. Safari uses audio recognition. Firefox’s temporary add-on needs to be loaded again after a browser restart.
 
-SongWave reads playback position and duration from Spotify, Music, local files and the optional YouTube filter. Other live sources show signal activity. The current title and artwork appear when available. Optional player access is requested from **Playback Access**. SongWave can read the current track after you connect the player there. Sources without track details show the playing app. Set **System**, **Light**, or **Dark** under the sliders icon. Native Liquid Glass is available on macOS 26 and later.
+SongWave reads playback position and duration from Spotify, Music, local files and the optional YouTube filter. Other live sources show signal activity. The current title and artwork appear when available. Optional player access is requested from **Settings → Playback Access**. SongWave can read the current track after you connect the player there. Sources without track details show the playing app. Choose **System**, **Light**, or **Dark** in **Settings → General**. Native Liquid Glass is available on macOS 26 and later.
 
 Routing works with audio macOS makes available for capture. Some protected streams may be silent. The demo and local files need no capture permission. Trackpad playback uses an undocumented macOS interface and was tested on an M4 MacBook Air. Audio is processed on-device and stays in bounded memory. Light and Speakers + haptics do not load the vocal-separation model.
 

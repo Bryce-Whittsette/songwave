@@ -25,6 +25,43 @@ private final class Swipe: NSEvent, @unchecked Sendable {
 }
 
 @main struct WheelRegression {
+    static func numericEntries() {
+        let english = Locale(identifier: "en_US")
+        let german = Locale(identifier: "de_DE")
+        func accepts(_ text: String, _ expected: Double, range: ClosedRange<Double> = -12...12,
+                     scale: Double = 1, locale: Locale = Locale(identifier: "en_US")) {
+            guard case .success(let value) = PrecisionEntry.parse(text, in: range, scale: scale, locale: locale) else {
+                preconditionFailure("Valid numeric input rejected: \(text)")
+            }
+            precondition(abs(value - expected) < 1e-9)
+        }
+        func rejects(_ text: String, _ expected: PrecisionEntry.Failure = .invalidNumber,
+                     range: ClosedRange<Double> = -12...12, scale: Double = 1,
+                     locale: Locale = Locale(identifier: "en_US")) {
+            guard case .failure(let error) = PrecisionEntry.parse(text, in: range, scale: scale, locale: locale) else {
+                preconditionFailure("Invalid numeric input accepted: \(text)")
+            }
+            precondition(error == expected)
+        }
+        accepts("  +3.5  ", 3.5, locale: english)
+        accepts("-12", -12); accepts("12", 12)
+        accepts(".5", 0.5); accepts("2e-1", 0.2)
+        accepts("0,5", 0.5, locale: german)
+        accepts("-0,75", -0.75, locale: german)
+        accepts("0.5", 0.5, locale: german)
+        accepts("100", 1, range: 0...1, scale: 100)
+        accepts("0", 0, range: 0...1, scale: 100)
+        for text in ["", " ", "NaN", "nan", "Inf", "-Infinity", "∞", "1e999", "3.5 dB", "60%", "2abc", "2 3", "1.2.3", "+", "1,234.5"] {
+            rejects(text)
+        }
+        rejects("0,5", locale: english)
+        rejects("0,5x", locale: german)
+        rejects("1,234.5", locale: german)
+        rejects("12.1", .outOfRange); rejects("-12.1", .outOfRange)
+        rejects("101", .outOfRange, range: 0...1, scale: 100)
+        rejects("-1", .outOfRange, range: 0...1, scale: 100)
+        print("Numeric entry accepted complete locale decimals and bounds; rejected suffixes, nonfinite numbers and out-of-range values.")
+    }
     @MainActor final class Levels: ObservableObject { @Published var values = [0.0, 0.0, 0.0] }
     struct Panel: View {
         @ObservedObject var levels: Levels
@@ -40,6 +77,8 @@ private final class Swipe: NSEvent, @unchecked Sendable {
         }
     }
     @MainActor static func main() async throws {
+        numericEntries()
+        if CommandLine.arguments.contains("--numeric-only") { return }
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         let levels = Levels()

@@ -23,7 +23,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check scripts
-        run: bash -n build.sh install.sh Tests/run.sh Tests/test-isolation.sh Tools/package.sh
+        run: bash -n build.sh install.sh Tests/run.sh Tests/test-isolation.sh Tools/package.sh Tools/fetch-sparkle.sh Tools/sign-app.sh Tools/publish-release.sh
       - name: Offline regression tests
         run: bash Tests/run.sh
       - name: Optional vocal-isolation tests
