@@ -14,7 +14,7 @@ Public preview · macOS 14.2 or later · Force Touch trackpad required · Tested
 2. Drag **SongWave** into the **Applications** folder shown in the window. Open SongWave from Applications.
 3. Finish the short setup and allow **System Audio Recording** when prompted. Then play music normally.
 
-This preview hasn't been notarized by Apple. If macOS blocks it, see [Apple's instructions for opening an unnotarized app](https://support.apple.com/en-us/102445). If you choose to proceed, first try opening SongWave, then go to **System Settings → Privacy & Security → Open Anyway** and confirm the app name. You can also [build it yourself](docs/development.md).
+This preview hasn't been notarized by Apple. If macOS blocks it, see [the SongWave installation help](docs/troubleshooting.md#macos-wont-open-the-app). If you choose to proceed, first try opening SongWave, then go to **System Settings → Privacy & Security → Open Anyway** and confirm the app name. You can also [build it yourself](docs/development.md).
 
 ## Choose how it feels
 
@@ -35,6 +35,6 @@ Music detection and vocal separation are approximate. Some protected audio canno
 
 ## For developers
 
-[Build and test](docs/development.md) · [How it works](docs/architecture.md) · [Release process](docs/releasing.md) · [Contributing](CONTRIBUTING.md) · [Privacy](PRIVACY.md)
+[Build and test](docs/development.md) · [How it works](docs/architecture.md) · [Streaming engine decisions](docs/streaming-engine.md) · [Mobile feasibility](docs/mobile.md) · [Release process](docs/releasing.md) · [Contributing](CONTRIBUTING.md) · [Privacy](PRIVACY.md)
 
 [MIT license](LICENSE). Third-party code and the bundled vocal model retain their [own notices](docs/credits.md). SongWave is an independent project, unaffiliated with Apple or Spotify.

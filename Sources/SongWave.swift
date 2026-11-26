@@ -464,6 +464,9 @@ struct Console: View {
             Text("Fine Tune").font(.title2.weight(.semibold))
             Text(studio.mode.rawValue).foregroundStyle(.secondary)
             if studio.mode == .assist {
+                PrecisionWheel(title: "Bass sustain", value: $studio.tuning.bassSustain, range: 0...1, step: 0.01,
+                               label: "\(Int((studio.tuning.bassSustain * 100).rounded()))%")
+                    .help("Adds a softer continuous layer for detected low bass. Set to zero for taps only.")
                 PrecisionWheel(title: "Transient emphasis", value: $studio.tuning.impact, range: 0...1, step: 0.01,
                                label: "\(Int((studio.tuning.impact * 100).rounded()))%")
             }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.3 — In review
+
+- Added a causal, bounded low-bass sustain layer alongside live percussion taps.
+- Added Bass sustain control and connected transient emphasis to release shape.
+- Added vocal-rejection, silence, suppression and sustain-bypass tests.
+- Kept installation and mobile/streaming feasibility notes inside SongWave docs.
+
+The public download remains 0.5.2 until the candidate is reviewed.
+
 ## 0.5.2 — Public Preview
 
 First public release.

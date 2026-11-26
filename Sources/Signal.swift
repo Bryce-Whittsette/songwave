@@ -36,6 +36,7 @@ struct SignalFrame {
     let hasAudio: Bool
     var beatStrength: Double = 0
     var beatFrequency: Double = 125
+    var bassLevel: Double = 0
 
     static let empty = SignalFrame(tones: [], level: 0, bands: Array(repeating: 0, count: 44), inputRMS: 0, hasAudio: false)
 }
@@ -61,7 +62,8 @@ struct AssistTail {
         let level = previous.level * exp(-age / 0.045)
         return SignalFrame(tones: level > 0.08 ? previous.tones : [], level: level,
                            bands: previous.bands, inputRMS: previous.inputRMS,
-                           hasAudio: true, beatStrength: 0, beatFrequency: previous.beatFrequency)
+                           hasAudio: true, beatStrength: 0, beatFrequency: previous.beatFrequency,
+                           bassLevel: previous.bassLevel * exp(-age / 0.035))
     }
 }
 
@@ -96,12 +98,14 @@ final class Spectrum {
     private var lastAnalysisSize = 0
     private var tactilePitch = 125.0
     private var vocalFocus = VocalFocus()
+    private var bassEnvelope: BassEnvelope
 
     init(sampleRate: Double) throws {
         guard sampleRate.isFinite, sampleRate >= 1 else {
             throw GlassError("The audio source has an invalid sample rate.")
         }
         self.sampleRate = sampleRate
+        bassEnvelope = BassEnvelope(rate: sampleRate)
         mixStep = 1 / (sampleRate * 0.14)
         guard let setup = vDSP_create_fftsetup(11, FFTRadix(kFFTRadix2)) else {
             throw GlassError("The spectrum analyzer could not start.")
@@ -141,6 +145,7 @@ final class Spectrum {
         for index in filters.indices { filtered = filters[index].process(filtered) }
         wetMix += min(mixStep, max(-mixStep, wetTarget - wetMix))
         let clean = Float(max(-4, min(4, dry + (filtered - dry) * wetMix)))
+        bassEnvelope.append(clean)
         samples[cursor] = clean
         cursor = (cursor + 1) % size
         filled = min(size, filled + 1)
@@ -163,6 +168,7 @@ final class Spectrum {
             previousTones.removeAll(keepingCapacity: true)
             previousLevel = 0
             vocalFocus = VocalFocus()
+            bassEnvelope.resetEvidence()
             beatTail = 0
             previousMagnitudes = Array(repeating: 0, count: size / 2)
             if filled >= analysisSize {
@@ -291,10 +297,20 @@ final class Spectrum {
             lastBeatFrame = time
             beatTail = max(beatTail * exp(-elapsed / 0.045), beat)
             // Each tactile pitch completes whole cycles in an 8 ms packet.
+            let lowEnd = min(lastBin - 1, max(bassStart, Int(125 / binWidth)))
+            let lowPeak = (bassStart...lowEnd).max { magnitudes[$0] < magnitudes[$1] } ?? bassStart
+            let a = log(max(1e-7, Double(magnitudes[max(1, lowPeak - 1)])))
+            let b = log(max(1e-7, Double(magnitudes[lowPeak])))
+            let c = log(max(1e-7, Double(magnitudes[lowPeak + 1])))
+            let curve = a - 2 * b + c
+            let delta = abs(curve) > 1e-7 ? max(-0.5, min(0.5, 0.5 * (a - c) / curve)) : 0
+            let lowPitch = (Double(lowPeak) + delta) * binWidth
+            let sustain = bassEnvelope.level(pitch: lowPitch,
+                magnitude: Double(magnitudes[lowPeak]) / Double(analysisSize), at: time) * tuning.bassSustain
             let pitch = tactilePitch
             return SignalFrame(tones: beatTail > 0.08 ? [Tone(hertz: pitch, weight: 1)] : [],
-                               level: beatTail * (0.80 + tuning.impact * 0.20), bands: bands,
-                               inputRMS: rms, hasAudio: true, beatStrength: beat, beatFrequency: tactilePitch)
+                               level: max(sustain, beatTail * (0.80 + tuning.impact * 0.20)), bands: bands,
+                               inputRMS: rms, hasAudio: true, beatStrength: beat, beatFrequency: tactilePitch, bassLevel: sustain)
         }
 
         if tuning.vocalQuality == .light {
@@ -472,6 +488,7 @@ struct Tuning: Codable {
     var delay: Double = 0
     var automaticTiming = true
     var vocalQuality = VocalQuality.light
+    var bassSustain = 0.6
     var eq = EQ()
 }
 
@@ -491,6 +508,7 @@ extension Tuning {
         // Preserve a legacy nonzero delay as a manual setting, rather than adding
         // automatic compensation on top of an existing calibration.
         automaticTiming = try values.decodeIfPresent(Bool.self, forKey: .automaticTiming) ?? (delay == 0)
+        bassSustain = min(1, max(0, try values.decodeIfPresent(Double.self, forKey: .bassSustain) ?? 0.6))
         vocalQuality = try values.decodeIfPresent(VocalQuality.self, forKey: .vocalQuality) ?? .light
         eq = try values.decodeIfPresent(EQ.self, forKey: .eq) ?? eq
     }
