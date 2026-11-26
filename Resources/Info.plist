@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleExecutable</key><string>SongWave</string>
+  <key>CFBundleIdentifier</key><string>studio.songwave.trackpad</string>
+  <key>CFBundleName</key><string>SongWave</string>
+  <key>CFBundleDisplayName</key><string>SongWave</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>0.5.2</string>
+  <key>CFBundleVersion</key><string>11</string>
+  <key>CFBundleIconFile</key><string>SongWave.icns</string>
+  <key>LSMinimumSystemVersion</key><string>14.2</string>
+  <key>NSPrincipalClass</key><string>NSApplication</string>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>SongWave asks the music player for the current song title and artist to show what is playing.</string>
+  <key>NSAudioCaptureUsageDescription</key>
+  <string>SongWave routes audio from your Mac or the player you choose to your Force Touch trackpad. It does not save recordings.</string>
+</dict></plist>

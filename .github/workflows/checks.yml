@@ -1,0 +1,35 @@
+name: Checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      neural:
+        description: Run the optional Core ML vocal-isolation tests
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  macos:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check scripts
+        run: bash -n build.sh install.sh Tests/run.sh Tests/test-isolation.sh Tools/package.sh
+      - name: Offline regression tests
+        run: bash Tests/run.sh
+      - name: Optional vocal-isolation tests
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.neural }}
+        run: bash Tests/test-isolation.sh
+      - name: Build and verify the app
+        run: |
+          bash build.sh "$RUNNER_TEMP/SongWave.app"
+          codesign --verify --deep --strict "$RUNNER_TEMP/SongWave.app"

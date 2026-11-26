@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "SongWave for YouTube",
+  "version": "0.3.0",
+  "description": "Use the playing video's category to control SongWave haptics.",
+  "permissions": [
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://music.youtube.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://music.youtube.com/*"
+      ],
+      "js": [
+        "content.js"
+      ]
+    }
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "youtube@songwave.local",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  }
+}

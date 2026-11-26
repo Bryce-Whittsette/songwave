@@ -1,0 +1,29 @@
+name: Bug report
+description: Something isn't working.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Tell us what you expected and what happened instead. Leave out personal data.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Your setup
+      placeholder: M4 MacBook Air, macOS 27.3, SongWave 0.5.2
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Music source and mode
+      placeholder: Spotify desktop, Speakers + haptics
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it?
+      description: Include the steps and whether it happens every time.
+    validations:
+      required: true

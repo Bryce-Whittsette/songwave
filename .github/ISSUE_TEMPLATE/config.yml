@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Installation and troubleshooting
+    url: https://github.com/Bryce-Whittsette/songwave/blob/main/docs/troubleshooting.md
+    about: Start here for download, permissions, and playback help.
