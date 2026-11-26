@@ -11,6 +11,10 @@ version="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/C
 case "$version" in *[!0-9.]*|'') printf 'Invalid version.\n' >&2; exit 1;; esac
 stage="$(mktemp -d "${TMPDIR:-/tmp}/songwave-release.XXXXXX")"
 trap 'rm -rf "$stage"' EXIT
+# File Provider folders may attach Finder metadata after a build. Verify a clean
+# staging copy so incidental metadata is not shipped in the disk image or ZIP.
+ditto --norsrc --noextattr "$app" "$stage/verified/SongWave.app"
+app="$stage/verified/SongWave.app"
 codesign --verify --deep --strict "$app"
 mkdir -p "$stage/disk" "$stage/unpacked"
 ditto --norsrc --noextattr "$app" "$stage/disk/SongWave.app"

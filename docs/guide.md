@@ -45,4 +45,3 @@ SongWave reads playback position and duration from Spotify, Music, local files a
 Routing works with audio macOS makes available for capture. Some protected streams may be silent. The demo and local files need no capture permission. Trackpad playback uses an undocumented macOS interface and was tested on an M4 MacBook Air. Audio is processed on-device and stays in bounded memory. Light and Speakers + haptics do not load the vocal-separation model.
 
 The genre adjustments are modest, editable starting points designed for this trackpad. Personal taste informed the choice to offer an independent bass or clarity preference. [McMullin’s bass-preference study](https://aes.org/publications/elibrary/elibrary-page/?id=19252) and [listening tests across five genres](https://www.mdpi.com/2624-599X/4/3/45) studied audible EQ. SongWave’s tactile presets have not been validated in a listening study.
-
