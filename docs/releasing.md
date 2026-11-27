@@ -2,7 +2,7 @@
 
 ## Public preview
 
-Public releases started with v0.5.2. The current public preview is v0.5.3. Previews are GitHub prereleases; the README links directly to the current DMG because GitHub's latest-release shortcut may exclude prereleases. [Version history](../CHANGELOG.md) covers every public version.
+Public releases started with v0.5.2. The current Mac public preview is v0.5.8. Previews are GitHub prereleases; the README links directly to the current DMG because GitHub's latest-release shortcut may exclude prereleases. [Version history](../CHANGELOG.md) covers every public version.
 
 The DMG is the primary download. The ZIP is an alternative. The source archive and checksums are for developers and users who want to inspect the release. The app is Apple silicon, ad hoc signed and unnotarized. Do not describe it as Apple-verified or universally hardware-tested.
 
@@ -24,7 +24,7 @@ The packaging script creates a drag-to-Applications DMG and verifies an extracte
 
 ## Signing milestone
 
-A later release should use an Apple-issued Developer ID identity, notarization and stapling before broad promotion. Keep signing credentials out of the repository. Public 0.5.3 has no updater. The 0.5.4 candidate adds signed in-app updates; use its [release/update pipeline](updates.md) when shipping that baseline and later versions. The first updater-enabled release still needs one manual installation for existing listeners.
+A later release should use an Apple-issued Developer ID identity, notarization and stapling before broad promotion. Keep signing credentials out of the repository. Versions through 0.5.3 have no updater and need one manual installation. Versions 0.5.4 onward include signed in-app updates; use the [release/update pipeline](updates.md). Checks can run automatically, but the listener approves downloading and installing. The iPhone source prototype is not a public mobile release; its separate signing and device-validation steps are in the [mobile guide](mobile.md).
 
 ## Feedback phase
 

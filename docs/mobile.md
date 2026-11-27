@@ -18,7 +18,7 @@ For Apple Music, enable **Settings → Accessibility → Music Haptics**. A subs
 
 These steps are for developers testing the prototype. They are not the eventual public installation flow.
 
-1. Install Xcode with an iOS SDK. Open **Mobile/SongWaveiOS.xcodeproj** and select **SongWaveMobile**.
+1. Install Xcode with an iOS SDK. The deployment minimum is iOS 18.0. Open **Mobile/SongWaveiOS.xcodeproj** and select **SongWaveMobile**.
 2. Under **Signing & Capabilities**, choose your development team. Change the bundle identifier if testing your own copy.
 3. Connect and select a supported iPhone, then click **Run**. Open an audio file inside SongWave and tap **Play**.
 4. For Apple Music, register the matching App ID and enable its **MusicKit App Service** in the Apple developer account. No private API or invented MusicKit entitlement is required. [Apple's setup instructions](https://developer.apple.com/help/account/services/musickit/).

@@ -1,6 +1,6 @@
 # Energy and responsiveness
 
-The next development build reduces avoidable interface work while keeping audio analysis and haptic timing independent of the window.
+Mac 0.5.8 reduces avoidable interface work while keeping audio analysis and haptic timing independent of the window.
 
 ## Changes
 
