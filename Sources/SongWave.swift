@@ -481,7 +481,7 @@ struct Console: View {
                 .accessibilityIdentifier("tools.sound.heading")
             Picker("Genre", selection: Binding(get: { studio.genre }, set: studio.setGenre)) {
                 ForEach(ListeningGenre.allCases) { Text($0.rawValue).tag($0) }
-            }.accessibilityIdentifier("tools.genre")
+            }.accessibilityLabel("Genre").accessibilityIdentifier("tools.genre")
             if studio.hapticFocus.includesVoice {
                 if studio.mode == .trackpad && studio.hapticFocus == .voice {
                     Picker("Vocal quality", selection: $studio.tuning.vocalQuality) {

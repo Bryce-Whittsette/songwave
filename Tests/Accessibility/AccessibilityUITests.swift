@@ -28,7 +28,13 @@ final class AccessibilityUITests: XCTestCase {
             XCTAssertGreaterThan(owned.count, 3, "The active content must expose its children for auditing.")
         }
         let scopedNodes = owned
-        try app.performAccessibilityAudit(for: [.sufficientElementDescription, .action, .parentChild]) { issue in
+        // Apple's action/parent-child passes inspect inactive windows and can
+        // report native menu issues without a resolvable element. Keep the
+        // existing full setup/recovery audits; advanced sheets use scoped
+        // description audits plus explicit menu/button navigation below.
+        let types: XCUIAccessibilityAuditType = contentID == nil ?
+            [.sufficientElementDescription, .action, .parentChild] : [.sufficientElementDescription]
+        try app.performAccessibilityAudit(for: types) { issue in
             if contentID != nil, let element = issue.element {
                 // Each XCUIElement property read can request a new remote AX
                 // snapshot. Take one per issue, then compare locally, so a
@@ -194,7 +200,14 @@ final class AccessibilityUITests: XCTestCase {
                 let intensity = app.buttons["Intensity"].value as? String
                 app.buttons["tools.open"].click()
                 XCTAssertTrue(app.staticTexts["tools.sound.heading"].waitForExistence(timeout: 4))
-                let genre = app.descendants(matching: .any).matching(identifier: "tools.genre").firstMatch.value as? String
+                let genreControl = app.descendants(matching: .any).matching(identifier: "tools.genre").firstMatch
+                XCTAssertTrue(genreControl.isHittable)
+                genreControl.click()
+                let preset = app.menuItems["Rock / Metal"]
+                XCTAssertTrue(preset.waitForExistence(timeout: 4))
+                preset.click()
+                let genre = genreControl.value as? String
+                XCTAssertEqual(genre, "Rock / Metal")
                 XCTAssertFalse(app.buttons["tools.ultra.open"].exists)
                 XCTAssertFalse(app.buttons["Bass"].exists)
                 for title in ["Sound", "Trackpad EQ", "Experiments"] {
