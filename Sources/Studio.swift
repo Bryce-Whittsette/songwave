@@ -17,13 +17,13 @@ final class Studio: ObservableObject {
     var verifyingSetup: Bool { firstSuccess.phase != .idle && firstSuccess.phase != .confirmed }
     var healthSnapshot: ListeningHealthSnapshot {
         let local: Bool = { if case .file = source { return true }; return false }()
-        let capture: CaptureHealth = local ? .localFile : audioAccessHealth.failure != nil ? .failed :
-            requestingAudioAccess ? .checking : !audioAccessReady ? .notConfigured : captureHealth
+        let capture: CaptureHealth = audioAccessHealth.failure != nil ? .failed :
+            requestingAudioAccess ? .checking : local ? .localFile : !audioAccessReady ? .notConfigured : captureHealth
         let bundle: String? = { if case .player(let link) = source { return link.provider.bundle }; return detectedApp }()
         return ListeningHealthSnapshot(trackpadAvailable: device != nil, capture: capture,
             app: local ? .file : bundle == nil ? selectedDiagnosticApp : ListeningHealthSnapshot.app(bundle: bundle, localFile: false),
             pause: ListeningHealthSnapshot.pause(active: active, bypassed: localBypass, verifying: verifyingSetup,
-                failure: error != nil || capture == .failed, detection: detection),
+                failure: error != nil || (capture == .failed && !local), detection: detection),
             error: trackpadFailure != nil ? .trackpad : capture == .failed ? .capture : error != nil ? .playback : .none)
     }
     func copyDiagnostics() {
@@ -361,10 +361,12 @@ final class Studio: ObservableObject {
         panel.allowsMultipleSelection = false
         panel.message = "Choose a haptic pattern for this audio file. Embedded audio is skipped."
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        Task { await attachPattern(url) }
+        let expectedSource = source
+        Task { await attachPattern(url, expectedSource: expectedSource) }
     }
-    func attachPattern(_ url: URL) async {
+    func attachPattern(_ url: URL, expectedSource: PlaybackSource? = nil) async {
         guard case .file = source else { return }
+        if let expectedSource, expectedSource != source { return }
         let attachedSource = source
         let request = UUID()
         patternRequest = request
@@ -380,7 +382,10 @@ final class Studio: ObservableObject {
                 patternNote = pattern.skippedAudio > 0 ? "Haptics only · embedded audio skipped" : "Haptics follow this file’s playback clock"
                 loadedPattern = pattern
                 engine.setPattern(pattern)
-        } catch { self.error = error.localizedDescription }
+        } catch {
+            guard source == attachedSource, patternRequest == request else { return }
+            self.error = error.localizedDescription
+        }
     }
 
     @Published var link = ""

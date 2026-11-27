@@ -14,7 +14,10 @@ enum TrackCatalog {
     static func videoCover(_ id: String?) async -> Data? { nil }
 }
 enum ListeningDiagnostics { static let macModel = "Mac16,13"; static func outputRoute() -> DiagnosticRoute { .builtIn } }
-enum PlaybackAccess { static func requestAudio() async throws {} }
+enum PlaybackAccess {
+    static var failure: String?
+    static func requestAudio() async throws { if let failure { throw GlassError(failure) } }
+}
 struct PartyBurst {
     static let length = 45.0, recovery = 60.0
     static func allowed(thermal: ProcessInfo.ThermalState) -> Bool { true }
@@ -90,6 +93,24 @@ final class Playback {
         studio.beginFirstSuccess(); studio.completeFirstSuccess()
         precondition(studio.source == file && studio.active && Playback.runs.last?.source == file && Playback.runs.last?.position == 37)
         studio.stop()
+        let other = PlaybackSource.file(URL(fileURLWithPath: "/tmp/songwave-other-fixture.m4a"))
+        studio.start(other)
+        await studio.attachPattern(patternURL, expectedSource: file)
+        precondition(studio.patternName == nil && Playback.pattern == nil,
+            "A deferred pattern selection must not attach to a different source.")
+        studio.stop()
+        studio.markFirstSuccessPending()
+        PlaybackAccess.failure = "Denied /Users/private"
+        _ = await studio.prepareAudioAccess()
+        studio.finishPlaybackAccess()
+        precondition(!studio.active && studio.audioAccessHealth.requiresRecovery && studio.healthSnapshot.capture == .failed)
+        PlaybackAccess.failure = nil
+        _ = await studio.prepareAudioAccess()
+        let deadline = Date(timeIntervalSinceNow: 2)
+        while !studio.verifyingSetup && Date() < deadline { try? await Task.sleep(nanoseconds: 5_000_000) }
+        precondition(studio.verifyingSetup && !studio.requestingAudioAccess && Playback.runs.last?.haptics == false,
+            "A successful permission retry must enter non-actuating verification after the check settles.")
+        studio.completeFirstSuccess()
         print("Real Studio restores paused/playing file context, keeps preview non-actuating, rejects stopped/closed test callbacks, and persists explicit confirmation.")
     }
 }
