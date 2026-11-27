@@ -9,7 +9,8 @@ struct PlayerTrack { var id: String; var info: TrackInfo; var duration: Double; 
 struct YouTubeState { var browser = ""; var title = ""; var position = 0.0; var duration: Double?; var videoID: String? }
 enum TrackCatalog {
     static func metadata(for: PlaybackSource) async -> TrackInfo? { nil }
-    static func playing(_ provider: Provider) async -> PlayerTrack? { nil }
+    static var playingResult: PlayerTrack?
+    static func playing(_ provider: Provider) async -> PlayerTrack? { playingResult }
     static func cover(for: PlayerTrack, provider: Provider) async -> Data? { nil }
     static func videoCover(_ id: String?) async -> Data? { nil }
 }
@@ -33,7 +34,7 @@ struct PartyBurst {
 struct PlaybackUpdate {
     var signal = SignalFrame.empty; var elapsed = 0.0; var duration: Double?; var device: String?
     var waiting = false; var video: YouTubeState?; var appBundle: String?; var detection: String?
-    var processingDelay = 0.0; var partyOverheated = false; var finished = false; var error: String?
+    var processingDelay = 0.0; var dictationActive = false; var partyOverheated = false; var finished = false; var error: String?
 }
 final class Playback {
     struct Run { let source: PlaybackSource; let mode: OutputMode; let haptics: Bool; let position: Double }
@@ -43,6 +44,7 @@ final class Playback {
     static var testCompletion: ((String?) -> Void)?
     static var tests = 0
     static var probes = 0
+    static var confirmedBundle: String?
     static var probeDevice: String? = "Mock trackpad"
     static var probeFailure: String?
     func start(_ source: PlaybackSource, tuning: Tuning, mode: OutputMode, playerPath: String?, startAt: Double,
@@ -57,7 +59,7 @@ final class Playback {
     func setMacMode(_ mode: OutputMode) {}
     func setHaptics(_ enabled: Bool) {}
     func party(until: Double) {}
-    func confirmPlayer(_ bundle: String?) {}
+    func confirmPlayer(_ bundle: String?) { Self.confirmedBundle = bundle }
     func stop() {}
     func shutDown(_ completion: @escaping () -> Void) { completion() }
     func probe(_ result: @escaping (String?, String?) -> Void) { Self.probes += 1; result(Self.probeDevice, Self.probeFailure) }

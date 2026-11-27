@@ -22,11 +22,11 @@ struct VisualActivityPresentation {
         level = decibels.map { min(1, max(0, 1 + $0 / 60)) } ?? 0
         let beat = visible && signal.hasAudio && beat.isFinite ? min(1, max(0, beat)) : 0
         beatDetected = visible && signal.hasAudio && (reduceMotion ? recentBeat : beat > 0)
-        scale = reduceMotion ? 1 : 1 + beat * 0.25
-        opacity = reduceMotion ? 0.55 : 0.22 + beat * 0.68
+        scale = 1
+        opacity = reduceMotion ? 0.55 : 0.28 + beat * 0.34
         animates = visible && signal.hasAudio && !reduceMotion
         accessibilityValue = "\(signal.hasAudio ? "Audio detected" : "No audio"). Level \(Int(level * 100)) percent. \(beatDetected ? "Recent beat detected." : "No recent beat.")"
-        rhythmText = !signal.hasAudio ? "No signal" : beatDetected ? "Detected" : "Between beats"
+        rhythmText = signal.hasAudio ? "Following music" : "Waiting for music"
         decibelText = decibels.map { "\(Int($0.rounded())) dB" } ?? "— dB"
     }
 }

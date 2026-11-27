@@ -2,6 +2,14 @@
 
 Every public release is listed here, newest first. Each version has a short explanation and expandable developer notes.
 
+## [1.0.0 — Keep listening](docs/releases/1.0.0.md)
+
+November 27, 2026 · Mac build 24
+
+Smaller signed updates, hourly checks with installation approval, updated onboarding and upgrade orientation, a calmer Beat cue and Ultra glow, Dictation continuity, low-bass tracking and recovery fixes. Isolation and listening modes stay unchanged. Apple notarization and broader hardware/listener validation remain open.
+
+[Download](https://github.com/Bryce-Whittsette/songwave/releases/tag/v1.0.0) · [Full notes and validation](docs/releases/1.0.0.md)
+
 ## [0.5.13 — Grouped listening tools](docs/releases/0.5.13.md)
 
 Public Preview · November 27, 2026

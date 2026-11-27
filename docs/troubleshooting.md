@@ -27,7 +27,7 @@ macOS may treat a replacement ad hoc preview as a new binary. Granting access to
 
 ## The beat feels early or late
 
-Open **Tools… → Fine Tune** in Speakers + haptics. Leave **Match audio output timing** enabled, then adjust **Timing offset**. Positive values make haptics later; negative values reduce the automatic added delay. Bluetooth and external audio devices can have different delays. Real-time beat recognition and reported output latency are estimates.
+Open **Tools… → Sound → Fine Tune** in Speakers + haptics. Leave **Match audio output timing** enabled, then adjust **Timing offset**. Positive values make haptics later; negative values reduce the automatic added delay. Bluetooth and external audio devices can have different delays. Real-time beat recognition and reported output latency are estimates.
 
 ## Song title or cover is missing
 

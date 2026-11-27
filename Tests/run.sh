@@ -64,6 +64,7 @@ xcrun swiftc -swift-version 5 -O "$display"/*.swift -o "$display/check"
 "$display/check"
 
 xcrun swift "$project/Tools/verify-update.swift" --self-test
+python3 "$project/Tests/UpdateDeltaRegression.py"
 
 bash "$project/Tests/test-mobile-core.sh"
 

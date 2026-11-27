@@ -93,6 +93,8 @@ struct AudioClient {
     let id: AudioObjectID
     let bundle: String
     let isCall: Bool
+    let isDictationService: Bool
+    let dictationInputActive: Bool
 
     init?(id: AudioObjectID) {
         var output: UInt32 = 0
@@ -118,7 +120,12 @@ struct AudioClient {
             "soundsource"].contains(where: identity.contains) { return nil }
         let browser = ["safari", "webkit", "chrome", "firefox", "mozilla", "msedge", "brave"].contains(where: identity.contains)
         let call = (input != 0 && browser) || callIDs.contains(where: identity.contains)
-        guard output != 0 || call else { return nil }
+        // CoreSpeech is macOS Dictation, not a music source. Read its activity
+        // only; never create a tap for its microphone or speech-service output.
+        let dictation = bundle.caseInsensitiveCompare("com.apple.CoreSpeech") == .orderedSame
+        guard output != 0 || call || (dictation && input != 0) else { return nil }
+        isDictationService = dictation
+        dictationInputActive = dictation && input != 0
         self.id = id
         if identity.contains("com.spotify.client") || identity.contains("/spotify.app/") { self.bundle = "com.spotify.client" }
         else if identity.contains("com.apple.music ") || identity.contains("/music.app/") { self.bundle = "com.apple.Music" }
@@ -169,6 +176,8 @@ final class MacMusicInput {
     private var retryAfter: [AudioObjectID: Double] = [:]
     private var scanAfter = 0.0
     private var callActive = false
+    private(set) var dictationActive = false
+    private var dictationUntil = -Double.infinity
     private(set) var status = "Listening for music"
     private(set) var activeBundle: String?
     private var selected: AudioObjectID?
@@ -184,13 +193,16 @@ final class MacMusicInput {
             tabs = YouTubeState.playing()
             let clients = AudioHardware.processList().compactMap(AudioClient.init)
             callActive = CallAudioPolicy.active(in: clients)
-            let eligible = callActive ? [] : clients.map(\.id)
+            if clients.contains(where: \.dictationInputActive) { dictationUntil = now + 2 }
+            dictationActive = now < dictationUntil
+            let sources = clients.filter { !$0.isDictationService }
+            let eligible = callActive ? [] : sources.map(\.id)
             let allowed = Set(eligible)
             feeds = feeds.filter { allowed.contains($0.key) }
             if let selected, feeds[selected] == nil { self.selected = nil }
             retryAfter = retryAfter.filter { allowed.contains($0.key) }
             if !callActive {
-                for client in clients where feeds[client.id] == nil && now >= retryAfter[client.id, default: 0] {
+                for client in sources where feeds[client.id] == nil && now >= retryAfter[client.id, default: 0] {
                     do { feeds[client.id] = try MusicFeed(process: client.id, bundle: client.bundle) }
                     catch { retryAfter[client.id] = now + 3; status = error.localizedDescription }
                 }

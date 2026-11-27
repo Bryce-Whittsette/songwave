@@ -23,7 +23,7 @@ mkdir -p "$stage/disk" "$stage/unpacked"
 ditto --norsrc --noextattr "$app" "$stage/disk/SongWave.app"
 ln -s /Applications "$stage/disk/Applications"
 cat > "$stage/disk/Install SongWave.txt" <<'TXT'
-SongWave — Public Preview
+SongWave
 
 1. Drag SongWave into the Applications folder in this window.
 2. Open SongWave from Applications, finish setup, and allow System Audio Recording.
@@ -31,7 +31,7 @@ SongWave — Public Preview
 
 Requires Apple silicon, macOS 14.2 or later, and a Force Touch trackpad.
 
-This preview has not been notarized by Apple. If macOS blocks it and you choose
+This app has not been notarized by Apple. If macOS blocks it and you choose
 to proceed, first try opening SongWave, then use System Settings > Privacy &
 Security > Open Anyway. Confirm that the app name is SongWave.
 

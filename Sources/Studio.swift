@@ -87,7 +87,7 @@ final class Studio: ObservableObject {
         if !confirmed { UserDefaults.standard.set(false, forKey: "firstSuccessConfirmed") }
         afterAudioAccess = nil; showPlaybackAccess = false
         if !restoreCheckContext(resume: true) && launchListen && audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady) {
-            autoStarted = true; start(.macAudio)
+            autoStarted = true; start(.macAudio, initialBypass: localBypass)
         }
     }
     func retryListening() {
@@ -144,6 +144,7 @@ final class Studio: ObservableObject {
         checkPrior = nil
         artworkTask?.cancel(); artworkTask = nil
         source = prior.source; labelSource(prior.source); elapsed = prior.elapsed; duration = prior.duration; metadata = prior.info
+        localBypass = prior.bypass
         if let pattern = checkPriorPattern {
             loadedPattern = pattern.0; patternName = pattern.1; patternNote = pattern.2
             engine.setPattern(pattern.0)
@@ -660,7 +661,7 @@ final class Studio: ObservableObject {
             if let error = update.error {
                 if self.priorPlayback != nil { self.cancelParty() } else { self.stop() }
                 self.error = error
-                self.captureHealth = .failed
+                if update.detection == "Cannot capture audio · check recording permission" { self.captureHealth = .failed }
                 if verification { self.firstSuccess.recover() }
                 self.captureHelp = source.isLive
                 return
@@ -693,7 +694,13 @@ final class Studio: ObservableObject {
 
     private func refreshLiveInfo(_ update: PlaybackUpdate, source: PlaybackSource, token: UUID) {
         let bundle: String?
-        if case .player(let link) = source { bundle = link.provider.bundle } else { bundle = update.appBundle }
+        if case .player(let link) = source { bundle = link.provider.bundle }
+        else {
+            let knownPlayer = detectedApp.flatMap { previous in
+                Provider.allCases.contains(where: { $0.bundle == previous }) ? previous : nil
+            }
+            bundle = update.appBundle ?? (update.dictationActive ? knownPlayer : nil)
+        }
         if detectedApp != bundle {
             detectedApp = bundle
             selectedDiagnosticApp = ListeningHealthSnapshot.app(bundle: bundle, localFile: false)
@@ -738,6 +745,10 @@ final class Studio: ObservableObject {
             guard !Task.isCancelled, let self, self.operation == token, self.detectedApp == app else { return }
             self.liveInfoTask = nil
             let previous = self.playerTrack
+            // Dictation can briefly disrupt classifier/player metadata delivery.
+            // Keep an existing verified player; a new podcast/non-music result
+            // still revokes confirmation, and actual calls remain engine-gated.
+            if track == nil && update.dictationActive && previous != nil { return }
             self.playerTrack = track
             let confirmed = track.map { provider == .apple || $0.id.contains(":track:") || $0.id.contains("/track/") } ?? false
             self.engine.confirmPlayer(confirmed ? app : nil)
@@ -780,7 +791,6 @@ final class Studio: ObservableObject {
         playerTrack = nil
         if source?.isLive == true { duration = nil; elapsed = 0 }
         operation = UUID()
-        localBypass = false
         liveInfoTask?.cancel()
         liveInfoTask = nil
         if source == .macAudio { metadata = nil; detectedApp = nil }

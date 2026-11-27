@@ -12,6 +12,7 @@ struct PlaybackUpdate {
     var appBundle: String?
     var detection: String?
     var processingDelay: Double = 0
+    var dictationActive = false
     var partyOverheated = false
     var finished = false
     var error: String?
@@ -588,7 +589,7 @@ private final class Session {
                 publish(PlaybackUpdate(signal: visual, elapsed: min(elapsed, duration ?? elapsed), duration: duration,
                                        device: motor.name, waiting: waiting, video: macMusic?.video, appBundle: macMusic?.activeBundle,
                                        detection: playerCallActive ? "Paused for call audio" : isolationActive && !outputSuppressed ? (isolator?.status ?? "Waiting for vocals") : macMusic?.status,
-                                       processingDelay: isolator?.latency ?? 0, finished: finished))
+                                       processingDelay: isolator?.latency ?? 0, dictationActive: macMusic?.dictationActive ?? false, finished: finished))
             }
             if finished { stop() }
         } catch {

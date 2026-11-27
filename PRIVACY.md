@@ -2,7 +2,7 @@
 
 SongWave processes captured audio on your Mac. It keeps audio in bounded memory and does not save recordings or upload audio for analysis. The vocal model is bundled; it requires no account or runtime model download.
 
-**System Audio Recording** lets the app capture audio from other processes. Source selection, music recognition and call filtering happen locally. Filtering is approximate and should not be treated as a privacy boundary around which audio macOS makes available to the app.
+**System Audio Recording** lets the app capture audio from other processes. Source selection, music recognition and call filtering happen locally. Dictation continuity uses CoreSpeech process-activity flags; SongWave does not record microphone input. Filtering is approximate and should not be treated as a privacy boundary around which audio macOS makes available to the app.
 
 **Automation** access to Spotify or Music is optional and reads the current song, artwork address and playback position. It is requested from Playback Access.
 

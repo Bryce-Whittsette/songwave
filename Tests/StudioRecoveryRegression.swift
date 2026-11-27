@@ -144,6 +144,39 @@ import Foundation
         await Task.yield()
         precondition(!studio.verifyingSetup && !studio.active && Playback.runs.count == runsBeforeClose)
         precondition(studio.audioAccessHealth.status == .checked)
+        let dismissal = Studio()
+        dismissal.start(file, initialBypass: true)
+        dismissal.beginFirstSuccess()
+        dismissal.finishPlaybackAccess()
+        precondition(dismissal.localBypass && !dismissal.active, "Closing setup must retain the previous haptics-off selection without resuming.")
+        dismissal.completeFirstSuccess()
+        dismissal.retryListening()
+        precondition(dismissal.localBypass && Playback.runs.last?.haptics == false)
+        dismissal.stop()
+        let genericFailure = Studio()
+        genericFailure.start(.macAudio)
+        Playback.lastUpdate?(PlaybackUpdate(error: "Mock motor failure"))
+        precondition(genericFailure.healthSnapshot.error == .playback && genericFailure.healthSnapshot.capture != .failed,
+            "A generic playback or motor error is not proof that capture permission failed.")
+        genericFailure.stop()
+        TrackCatalog.playingResult = PlayerTrack(id: "spotify:track:verified", info: TrackInfo(title: "Fixture music"), duration: 180, position: 30, observed: 0)
+        let dictation = Studio()
+        dictation.start(.macAudio)
+        let musicUpdate = Playback.lastUpdate!
+        musicUpdate(PlaybackUpdate(appBundle: "com.spotify.client", detection: "Music detected"))
+        let confirmationDeadline = Date(timeIntervalSinceNow: 2)
+        while Playback.confirmedBundle != "com.spotify.client" && Date() < confirmationDeadline { await Task.yield() }
+        precondition(Playback.confirmedBundle == "com.spotify.client")
+        TrackCatalog.playingResult = nil
+        musicUpdate(PlaybackUpdate(detection: "Speech · haptics paused", dictationActive: true))
+        precondition(dictation.detectedApp == "com.spotify.client" && Playback.confirmedBundle == "com.spotify.client",
+            "Dictation's temporary source gap must not revoke verified player confirmation.")
+        musicUpdate(PlaybackUpdate(detection: "Paused for call audio", dictationActive: true))
+        precondition(dictation.healthSnapshot.pause == .call, "Dictation must never override an actual call pause.")
+        musicUpdate(PlaybackUpdate(detection: "Listening for music"))
+        precondition(dictation.detectedApp == nil && Playback.confirmedBundle == nil,
+            "Source retention must end when Dictation is no longer active.")
+        dictation.stop()
         print("Real Studio restores paused/playing file context, keeps preview non-actuating, rejects stopped/closed test callbacks, and persists explicit confirmation.")
         print("Recovery retries stay in place without actuation, retain file position/bypass, clear probe failures, report current audio honestly, and exclude private data from real controller diagnostics; closed permission requests cannot reopen setup.")
     }

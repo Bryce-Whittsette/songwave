@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   publish:
-    runs-on: macos-26
+    runs-on: macos-15
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ github.token }}
@@ -29,7 +29,7 @@ jobs:
         run: |
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
           mkdir -p "$RUNNER_TEMP/update"
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern appcast.xml --pattern SongWave-macOS.zip --dir "$RUNNER_TEMP/update"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern appcast.xml --pattern SongWave-macOS.zip --pattern "*.delta" --dir "$RUNNER_TEMP/update"
           xcrun swift Tools/verify-update.swift "$RUNNER_TEMP/update/appcast.xml" "$RUNNER_TEMP/update/SongWave-macOS.zip" "$RELEASE_TAG"
       - name: Advance the feed without downgrading installed clients
         run: |
