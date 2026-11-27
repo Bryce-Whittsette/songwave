@@ -112,9 +112,11 @@ import Foundation
         precondition(studio.retrySourceTitle == "Retry local file")
         studio.error = "Private title /Users/private/song.m4a"
         studio.metadata = TrackInfo(title: "Private title", artist: "Private artist")
+        studio.stop(); studio.probe(force: true)
+        precondition(studio.error == "Private title /Users/private/song.m4a", "Trackpad retry must not clear an unrelated playback error.")
         let report = studio.diagnosticsReport
         for secret in ["/Users", "Private title", "Private artist", "Private device", "song.m4a", "Denied private"] { precondition(!report.contains(secret)) }
-        precondition(report.contains("Selected app: Local file") && report.contains("Output route: Built-in audio"))
+        precondition(report.contains("Selected app: Local file") && report.contains("Output route: Built-in audio") && report.contains("Error state: playback"))
         studio.stop()
 
         // An explicit live retry that waits for permission must retain the

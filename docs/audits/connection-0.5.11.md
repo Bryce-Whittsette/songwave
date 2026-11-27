@@ -26,7 +26,7 @@ The four existing sections cover trackpad availability, capture result, selected
 
 Two observed problems were fixed: entering recovery retained the setup scroll offset and could hide the trackpad section, and Retry capture jumped back into setup. Recovery now starts at the top; capture, app and listening retries stay in recovery. A setup retry uses unmuted capture with haptic output disabled. Only Run setup check returns to the sensation flow. Existing call/speech/video filtering remains enforced.
 
-Code review also found that retrying a local file lost its position and manual haptics-off choice, and a previous recording-permission failure could label a file's capture status as failed. The candidate preserves position/bypass, including when a live retry waits for permission. Local files show that recording access is unnecessary; their capture retry is disabled and does not request permission. Retry labels match the selected source.
+Code review also found that retrying a local file lost its position and manual haptics-off choice, a previous recording-permission failure could label a file's capture status as failed, and a successful trackpad retry cleared unrelated playback errors. The candidate preserves position/bypass, including when a live retry waits for permission, and keeps independent errors intact. Local files show that recording access is unnecessary; their capture retry is disabled and does not request permission. Retry labels match the selected source.
 
 <details>
 <summary>Observed baseline: recovery entered partway down the page</summary>

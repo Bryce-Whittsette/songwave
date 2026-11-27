@@ -503,9 +503,12 @@ final class Studio: ObservableObject {
         guard force || !probed else { return }
         probed = true
         engine.probe { [weak self] device, error in
-            self?.device = device
-            self?.trackpadFailure = error
-            if self?.active == false { self?.error = error }
+            guard let self else { return }
+            let previousFailure = self.trackpadFailure
+            self.device = device
+            self.trackpadFailure = error
+            // Retrying hardware must not erase an unrelated playback error.
+            if !self.active && (self.error == nil || self.error == previousFailure) { self.error = error }
         }
     }
 
