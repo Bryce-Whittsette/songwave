@@ -58,7 +58,7 @@ struct PlaybackAccessContent: View {
             RecoveryContent(studio: studio, playerRequest: $playerRequest)
         }
       }
-      .background { PlayerWindowVisibility { studio.display.setVisible($0, owner: visualOwner) } }
+      .background { PlayerWindowVisibility { studio.display.setVisible($0, owner: visualOwner) }.accessibilityHidden(true) }
       .onDisappear {
           studio.display.setVisible(false, owner: visualOwner)
           if studio.testingTrackpad { studio.finishPlaybackAccess() }
@@ -88,6 +88,9 @@ struct PlaybackAccessSheet: View {
                     .disabled(studio.requestingAudioAccess || playerRequest != nil || studio.testingTrackpad)
             }
         }.padding(24).frame(width: 530)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Listening setup and help")
+            .accessibilityIdentifier("support.content")
             .transaction { AccessibleMotion.apply(to: &$0, reduced: reduceMotion) }
             .interactiveDismissDisabled(studio.requestingAudioAccess || playerRequest != nil || studio.testingTrackpad)
     }

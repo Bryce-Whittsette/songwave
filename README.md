@@ -38,7 +38,7 @@ Open **Tools…** for the editable EQ, optional keyboard-light pulses, and a 45-
 
 ## Music through touch
 
-SongWave explores a tactile way to experience music, including for Deaf and hard-of-hearing listeners. The goal is to offer another way to connect with rhythm and musical texture through touch. Voice, Beat and Both choices let listeners choose which part of the music to follow.
+SongWave explores another way for deaf and hard-of-hearing listeners to connect with music through touch and visual rhythm. Haptics follow musical texture, while an on-screen beat and level indicator provides visual feedback. Voice, Beat and Both choices let listeners choose which part of the music to follow.
 
 Accessibility is a design goal, and we haven't yet validated the experience with Deaf or hard-of-hearing users. [Feedback on comfort, clarity and useful controls](https://github.com/Bryce-Whittsette/songwave/issues/new/choose) will help guide the work.
 
