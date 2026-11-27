@@ -2,6 +2,14 @@
 
 Every public release is listed here, newest first. Each version has a short explanation and expandable developer notes.
 
+## [0.5.6 — Your music only](docs/releases/0.5.6.md)
+
+Public Preview · November 26, 2026
+
+Removed the built-in demo, Ultra demo option and generated audio playback. SongWave follows Mac audio or your chosen file.
+
+[Download](https://github.com/Bryce-Whittsette/songwave/releases/tag/v0.5.6) · [Full notes](docs/releases/0.5.6.md)
+
 ## [0.5.5 — Ultra response](docs/releases/0.5.5.md)
 
 Public Preview · November 26, 2026

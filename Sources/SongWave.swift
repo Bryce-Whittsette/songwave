@@ -51,7 +51,6 @@ struct SongWaveApp: App {
             }
             CommandMenu("Playback") {
                 Button("Toggle Speakers + Haptics", action: studio.toggleAssist)
-                Button("Play Demo", action: studio.playDemo).keyboardShortcut("d")
                 Button("Stop Trackpad", action: studio.stop).keyboardShortcut(".", modifiers: .command)
             }
         }
@@ -77,7 +76,6 @@ struct Console: View {
     @State private var accessAfterSetup = false
     @State private var showBurst = false
     @State private var burstLights = false
-    @State private var burstDemo = false
     @State private var startBurstAfterDismiss = false
     @AppStorage("setupComplete") private var didSetup = false
 
@@ -151,19 +149,18 @@ struct Console: View {
         .sheet(isPresented: $showBurst, onDismiss: {
             if startBurstAfterDismiss {
                 startBurstAfterDismiss = false
-                studio.startParty(lights: burstLights, useDemo: burstDemo)
+                studio.startParty(lights: burstLights)
             }
         }) {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Insane Ultra").font(.title.bold())
                 UltraNotice()
-                Toggle("Play the built-in demo", isOn: $burstDemo)
                 Toggle("Pulse keyboard backlight", isOn: $burstLights)
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
                     HStack {
                         Button("Cancel") { showBurst = false }.keyboardShortcut(.cancelAction)
                         Spacer()
-                        Button(studio.cooldown > 0 ? "Available in " + String(Int(ceil(studio.cooldown))) + "s" : (burstDemo ? "Play Ultra Demo" : "Start Ultra")) {
+                        Button(studio.cooldown > 0 ? "Available in " + String(Int(ceil(studio.cooldown))) + "s" : "Start Ultra") {
                             startBurstAfterDismiss = true
                             showBurst = false
                         }.disabled(studio.cooldown > 0)
@@ -235,7 +232,6 @@ struct Console: View {
                 .help("Automatically follow music from Spotify, Music, browsers, and other apps on this Mac.")
                 Spacer()
                 Button("Open File…", action: studio.chooseAudio)
-                Button("Play Demo", action: studio.playDemo)
             }
             HStack(alignment: .center, spacing: 10) {
                 HStack(alignment: .center, spacing: 9) {
@@ -422,7 +418,7 @@ struct Console: View {
                 Spacer()
                 Button(studio.partyEnd > 0 ? "Stop Ultra" : "Insane Ultra…") {
                     if studio.partyEnd > 0 { studio.cancelParty() }
-                    else { burstLights = !reduceMotion; burstDemo = false; showBurst = true }
+                    else { burstLights = !reduceMotion; showBurst = true }
                 }
             }
             if case .file = studio.source {

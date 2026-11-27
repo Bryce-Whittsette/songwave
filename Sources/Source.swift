@@ -69,16 +69,12 @@ struct MusicLink: Equatable {
 
 enum PlaybackSource: Equatable {
     case macAudio
-    case demo
-    case ultraBeat
     case file(URL)
     case player(MusicLink)
 
     var title: String {
         switch self {
         case .macAudio: return "Mac Audio"
-        case .demo: return "Sound Check"
-        case .ultraBeat: return "Ultra Demo"
         case .file(let url): return url.deletingPathExtension().lastPathComponent
         case .player(let link): return link.provider.rawValue
         }
@@ -87,8 +83,6 @@ enum PlaybackSource: Equatable {
     var detail: String {
         switch self {
         case .macAudio: return "Audio from apps on this Mac"
-        case .demo: return "Built-in demo · 12 seconds"
-        case .ultraBeat: return "Built-in beat · \(Int(PartyBurst.length)) seconds"
         case .file(let url): return "\(url.pathExtension.uppercased()) · Local audio"
         case .player(let link): return "Live audio from \(link.provider.appName)"
         }
@@ -97,7 +91,6 @@ enum PlaybackSource: Equatable {
     var icon: String {
         switch self {
         case .macAudio: return "speaker.wave.2"
-        case .demo, .ultraBeat: return "tuningfork"
         case .file: return "music.note"
         case .player(let link): return link.provider.icon
         }
@@ -106,7 +99,7 @@ enum PlaybackSource: Equatable {
     var isLive: Bool {
         switch self {
         case .player, .macAudio: return true
-        case .demo, .ultraBeat, .file: return false
+        case .file: return false
         }
     }
 }

@@ -116,7 +116,7 @@ struct SongWaveSettings: View {
         }
         Section("Insane Ultra") {
             UltraNotice()
-            Text("Start or stop Ultra from the player. It follows your current source unless you explicitly choose the built-in demo.")
+            Text("Start or stop Ultra from the player. It follows your current music or local file and stays quiet when nothing is playing.")
             Button("Open Player", action: openPlayer)
         }
         Section("YouTube music filter · Optional") {

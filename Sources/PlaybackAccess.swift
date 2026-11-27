@@ -31,7 +31,7 @@ struct PlaybackAccessContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Allow System Audio Recording to feel music from other apps. Local files and the demo already work.")
+            Text("Allow System Audio Recording to feel music from other apps. Local files work without capture permission.")
             HStack {
                 Button(studio.audioAccessHealth.failure != nil ? "Retry Audio Access" : studio.audioAccessReady ? "Check Audio Access" : "Allow System Audio…") {
                     message = nil
@@ -45,7 +45,7 @@ struct PlaybackAccessContent: View {
                 .font(.callout).foregroundStyle(.secondary)
             if let failure = studio.audioAccessHealth.failure {
                 Text(failure).font(.callout)
-                Text("To resume automatic listening, fix access and choose Retry Audio Access. Local files and the demo remain available.")
+                Text("To resume automatic listening, fix access and choose Retry Audio Access. Local files remain available.")
                     .font(.callout).foregroundStyle(.secondary)
             }
             Divider()

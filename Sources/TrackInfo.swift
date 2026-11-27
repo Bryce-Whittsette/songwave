@@ -29,7 +29,7 @@ enum TrackCatalog {
 
     static func metadata(for source: PlaybackSource) async -> TrackInfo? {
         switch source {
-        case .demo, .ultraBeat, .macAudio:
+        case .macAudio:
             return nil
         case .file(let url):
             return await localMetadata(url)

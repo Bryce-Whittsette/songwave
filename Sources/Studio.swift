@@ -102,7 +102,6 @@ final class Studio: ObservableObject {
         let duration: Double?
         let info: TrackInfo?
         let bypass: Bool
-        let resumeAfterSoundCheck: Bool
     }
     private var priorPlayback: PriorPlayback?
     private var partyID: UUID?
@@ -164,32 +163,29 @@ final class Studio: ObservableObject {
     var cooldown: Double {
         max(0, UserDefaults.standard.double(forKey: "nextBurst") - Date().timeIntervalSince1970)
     }
-    func startParty(lights: Bool, useDemo: Bool = false) {
+    func startParty(lights: Bool) {
         guard partyID == nil, cooldown == 0, PartyBurst.allowed(thermal: ProcessInfo.processInfo.thermalState) else {
             error = "Let the Mac cool down before starting another burst."
             return
         }
-        if !useDemo && !active && (!audioAccessReady || audioAccessHealth.requiresRecovery) {
+        if !active && (!audioAccessReady || audioAccessHealth.requiresRecovery) {
             afterAudioAccess = { [weak self] in self?.startParty(lights: lights) }
             showPlaybackAccess = true
             return
         }
-        if useDemo || !active {
+        if !active {
             priorPlayback = PriorPlayback(source: source ?? .macAudio, wasPlaying: active, elapsed: elapsed,
-                                          duration: duration, info: metadata, bypass: localBypass,
-                                          resumeAfterSoundCheck: resumeMacAfterDemo)
+                                          duration: duration, info: metadata, bypass: localBypass)
         }
-        restoreLocalBypass = !useDemo && localBypass
+        restoreLocalBypass = localBypass
         let id = UUID()
         partyID = id
         partyLights = lights
         partyEnd = ProcessInfo.processInfo.systemUptime + PartyBurst.length
         UserDefaults.standard.set(Date().timeIntervalSince1970 + PartyBurst.length + PartyBurst.recovery, forKey: "nextBurst")
         updateEffects()
-        if useDemo {
-            start(.ultraBeat, preserveParty: true)
-        } else if !active {
-            // Listening while idle can attach a tap. Only explicit demo playback creates a speaker player.
+        if !active {
+            // Starting Ultra never creates an audio player.
             start(.macAudio, preserveParty: true)
         }
         if localBypass { localBypass = false; engine.setHaptics(true) }
@@ -210,7 +206,6 @@ final class Studio: ObservableObject {
         guard let previous else { return }
         stop()
         if previous.wasPlaying {
-            resumeMacAfterDemo = previous.resumeAfterSoundCheck
             start(previous.source, from: previous.source.isLive ? 0 : previous.elapsed)
             if previous.bypass {
                 localBypass = true
@@ -300,7 +295,6 @@ final class Studio: ObservableObject {
     @Published var detection = "Listening for music"
     @Published var localBypass = false
     @Published var detectedApp: String?
-    private var resumeMacAfterDemo = false
     var assistEnabled: Bool { active && mode == .assist && !localBypass }
     @Published var metadata: TrackInfo?
     let display = SignalDisplay()
@@ -417,11 +411,6 @@ final class Studio: ObservableObject {
         }
     }
 
-    func playDemo() {
-        if source != .demo { resumeMacAfterDemo = source == .macAudio && active }
-        start(.demo)
-    }
-
     func start(_ source: PlaybackSource, openPlayer: Bool = false, from position: Double = 0, preserveParty: Bool = false) {
         resumeMacAfterWake = false
         if source.isLive && (!audioAccessReady || audioAccessHealth.requiresRecovery) {
@@ -432,7 +421,6 @@ final class Studio: ObservableObject {
         if !preserveParty { endParty() }
         let token = UUID()
         operation = token
-        if source != .demo { resumeMacAfterDemo = false }
         localBypass = false
         detectedApp = nil
         playerTrack = nil
@@ -517,18 +505,7 @@ final class Studio: ObservableObject {
             if self.device != update.device { self.device = update.device }
             let help = (source != .macAudio || update.detection == "Waiting for Mac audio") && update.waiting && (self.startedAt.map { Date().timeIntervalSince($0) > 8 } ?? false)
             if self.captureHelp != help { self.captureHelp = help }
-            if update.finished {
-                if source == .ultraBeat { self.cancelParty(); return }
-                let resume = source == .demo && self.resumeMacAfterDemo
-                self.stop()
-                if source == .demo {
-                    self.source = .macAudio
-                    self.elapsed = 0
-                    self.duration = nil
-                    self.metadata = nil
-                    if resume { self.start(.macAudio) }
-                }
-            }
+            if update.finished { self.stop() }
         }
     }
 
@@ -603,12 +580,7 @@ final class Studio: ObservableObject {
     }
 
     func toggle() {
-        if active, source == .ultraBeat { cancelParty(); return }
-        if active, source == .demo {
-            let resume = resumeMacAfterDemo
-            stop()
-            if resume { start(.macAudio) }
-        } else if active { stop() }
+        if active { stop() }
         else if let source { start(source, from: source.isLive || elapsed >= (duration ?? 0) ? 0 : elapsed) }
         else { routeMacAudio() }
     }
@@ -625,14 +597,6 @@ final class Studio: ObservableObject {
         playerTrack = nil
         if source?.isLive == true { duration = nil; elapsed = 0 }
         operation = UUID()
-        if source == .demo || source == .ultraBeat {
-            source = .macAudio
-            metadata = nil
-            elapsed = 0
-            duration = nil
-            artworkTask?.cancel()
-        }
-        resumeMacAfterDemo = false
         localBypass = false
         liveInfoTask?.cancel()
         liveInfoTask = nil

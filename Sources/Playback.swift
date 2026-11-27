@@ -86,7 +86,6 @@ final class Playback {
     func start(_ source: PlaybackSource, tuning: Tuning, mode: OutputMode, playerPath: String?,
                startAt: Double, partyDeadline: Double = 0, update: @escaping (PlaybackUpdate) -> Void) {
         queue.async {
-            if source == .ultraBeat && partyDeadline <= ProcessInfo.processInfo.systemUptime { return }
             self.session?.stop()
             self.session = nil
             do {
@@ -97,7 +96,6 @@ final class Playback {
                 run.lighting = self.keyboard
                 run.partyLighting = self.partyKeyboard
                 run.partyEnd = partyDeadline
-                if source == .ultraBeat && partyDeadline <= ProcessInfo.processInfo.systemUptime { return }
                 self.session = run
                 run.start(on: self.queue)
             } catch {
@@ -200,11 +198,6 @@ private final class Session {
         self.mode = mode
         self.update = update
         switch source {
-        case .demo, .ultraBeat:
-            let length = source == .ultraBeat ? PartyBurst.length : 12
-            duration = length
-            try setupSpectrum(rate: 24_000)
-            if mode == .assist { speaker = try AVAudioPlayer(data: Self.demoWave(length: length)) }
         case .file(let url):
             let input = try AVAudioFile(forReading: url, commonFormat: .pcmFormatFloat32, interleaved: false)
             guard input.length > 0, input.processingFormat.sampleRate > 0,
@@ -346,12 +339,6 @@ private final class Session {
             }
             var advanced = count > 0
             switch source {
-            case .demo, .ultraBeat:
-                guard let duration else { throw GlassError("The built-in beat has no duration.") }
-                let end = min(position + Int64(count), Int64(duration * sourceRate))
-                advanced = end > position
-                for index in position..<end { append(Self.demoSample(at: Double(index) / sourceRate, length: duration)) }
-                position = end
             case .file:
                 if count > 0, let file, let buffer, file.framePosition < file.length {
                     try file.read(into: buffer, frameCount: AVAudioFrameCount(min(Int(buffer.frameCapacity), count)))
@@ -477,16 +464,9 @@ private final class Session {
             }
             if followVolume && now >= nextVolume { volume = OutputVolume.read(); nextVolume = now + 0.4 }
             let outputTime = ProcessInfo.processInfo.systemUptime
-            if source == .ultraBeat && partyEnd > 0 && outputTime >= partyEnd {
-                stop()
-                publish(PlaybackUpdate(elapsed: duration ?? PartyBurst.length, duration: duration,
-                                       device: motor.name, finished: true))
-                return
-            }
             if partyEnd > outputTime && !PartyBurst.allowed(thermal: ProcessInfo.processInfo.thermalState) {
                 partyEnd = 0
                 keyboard = nil
-                if source == .ultraBeat { stop() }
                 publish(PlaybackUpdate(partyOverheated: true))
                 return
             }
@@ -543,51 +523,4 @@ private final class Session {
         }
     }
 
-    // An in-memory PCM WAV keeps the speaker demo and the actuator source identical.
-    private static func demoWave(length: Double) -> Data {
-        let rate = 24_000
-        let count = Int(length * Double(rate))
-        var data = Data()
-        data.reserveCapacity(44 + count * 2)
-        func append<T: FixedWidthInteger>(_ value: T) {
-            var little = value.littleEndian
-            withUnsafeBytes(of: &little) { data.append(contentsOf: $0) }
-        }
-        data.append(contentsOf: "RIFF".utf8)
-        append(UInt32(36 + count * 2))
-        data.append(contentsOf: "WAVEfmt ".utf8)
-        append(UInt32(16))
-        append(UInt16(1))
-        append(UInt16(1))
-        append(UInt32(rate))
-        append(UInt32(rate * 2))
-        append(UInt16(2))
-        append(UInt16(16))
-        data.append(contentsOf: "data".utf8)
-        append(UInt32(count * 2))
-        for index in 0..<count {
-            append(Int16(demoSample(at: Double(index) / Double(rate), length: length) * Float(Int16.max)))
-        }
-        return data
-    }
-
-    private static func demoSample(at time: Double, length: Double) -> Float {
-        let beat = 60.0 / 120.0
-        let step = Int(time / (beat / 2))
-        let local = time.truncatingRemainder(dividingBy: beat / 2)
-        let kickTime = time.truncatingRemainder(dividingBy: beat)
-        let bar = Int(time / (beat * 4))
-        let melody: [Double] = [329.63, 493.88, 392.0, 587.33, 440.0, 659.25, 523.25, 392.0,
-                                293.66, 440.0, 349.23, 523.25, 392.0, 587.33, 493.88, 329.63]
-        let roots: [Double] = [110.0, 130.81, 98.0, 146.83, 110.0, 130.81]
-        let pitch = melody[step % melody.count]
-        let root = roots[bar % roots.count]
-        let attack = min(1, local / 0.012)
-        let envelope = attack * exp(-local * 7.5)
-        let note = (sin(2 * .pi * pitch * local) + 0.38 * sin(4 * .pi * pitch * local)) * envelope * 0.19
-        let bass = sin(2 * .pi * root * time) * (0.07 + 0.10 * envelope)
-        let kick = sin(2 * .pi * (123 * kickTime + 3.3 * (1 - exp(-24 * kickTime)))) * exp(-kickTime * 22) * 0.25
-        let top = sin(2 * .pi * 1947 * local) * sin(2 * .pi * 367 * local) * exp(-local * 116) * 0.067
-        return Float((note + bass + kick + top) * min(1, max(0, (length - time) * 3.5)))
-    }
 }
