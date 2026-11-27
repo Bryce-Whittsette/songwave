@@ -4,11 +4,11 @@ project="$(cd "$(dirname "$0")/.." && pwd)"
 folder="${1:?Usage: bash Tools/publish-release.sh /path/to/packaged-release [--publish] [--full-only]}"
 shift
 publish=""
-prepare_flags=()
+full_only=false
 for option in "$@"; do
   case "$option" in
     --publish) publish=--publish ;;
-    --full-only) prepare_flags+=(--full-only) ;;
+    --full-only) full_only=true ;;
     *) printf 'Unknown option: %s\n' "$option" >&2; exit 1 ;;
   esac
 done
@@ -19,7 +19,11 @@ folder="$(cd "$folder" && pwd)"
 [[ "$(unzip -p "$folder/SongWave-macOS.zip" SongWave.app/Contents/Resources/BuildRevision.txt)" == "$(git rev-parse HEAD)" ]] || {
   printf 'Rebuild and package from this exact clean commit before publishing.\n' >&2; exit 1;
 }
-python3 "$project/Tools/prepare-update.py" "$folder" "${prepare_flags[@]}"
+if [[ "$full_only" == true ]]; then
+  python3 "$project/Tools/prepare-update.py" "$folder" --full-only
+else
+  python3 "$project/Tools/prepare-update.py" "$folder"
+fi
 version="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)"
 tag="v$version"
 notes="$project/docs/releases/$version.md"
