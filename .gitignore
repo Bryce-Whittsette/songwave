@@ -6,3 +6,8 @@ artifacts/
 *.dmg
 *.dSYM/
 __pycache__/
+
+# Per-developer Xcode state and build products
+DerivedData/
+xcuserdata/
+*.xcuserstate

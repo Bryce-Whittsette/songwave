@@ -77,6 +77,7 @@ struct Console: View {
     @State private var showBurst = false
     @State private var burstLights = false
     @State private var startBurstAfterDismiss = false
+    @State private var playerVisible = false
     @AppStorage("setupComplete") private var didSetup = false
 
     var body: some View {
@@ -122,6 +123,16 @@ struct Console: View {
         .font(.system(size: 14))
         .background(Color(nsColor: .underPageBackgroundColor))
         .tint(colorScheme == .dark ? Color.white : Color.black)
+        .background {
+            PlayerWindowVisibility { visible in
+                if playerVisible != visible { playerVisible = visible }
+                studio.display.setVisible(visible)
+            }
+        }
+        .onDisappear {
+            playerVisible = false
+            studio.display.setVisible(false)
+        }
         .onAppear {
             if didSetup { studio.launchIfConfigured() } else { showSetup = true }
         }
@@ -156,7 +167,7 @@ struct Console: View {
                 Text("Insane Ultra").font(.title.bold())
                 UltraNotice()
                 Toggle("Pulse keyboard backlight", isOn: $burstLights)
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                TimelineView(.animation(minimumInterval: 1, paused: !playerVisible)) { _ in
                     HStack {
                         Button("Cancel") { showBurst = false }.keyboardShortcut(.cancelAction)
                         Spacer()
@@ -200,7 +211,7 @@ struct Console: View {
                 .font(.callout).foregroundStyle(.secondary)
             Menu {
                 Button("Share via Messages…", action: ProjectShare.message)
-                    .disabled(NSSharingService(named: .composeMessage) == nil)
+                    .disabled(!ProjectShare.canMessage)
                 Button("Copy Repository Link", action: ProjectShare.copy)
             } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
@@ -320,7 +331,7 @@ struct Console: View {
             .accessibilityLabel(studio.active ? "Stop trackpad output" : "Play through trackpad")
             }
             if studio.partyEnd > 0 {
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                TimelineView(.animation(minimumInterval: 1, paused: !playerVisible)) { _ in
                     let seconds = max(0, Int(ceil(studio.partyEnd - ProcessInfo.processInfo.systemUptime)))
                     Label("\(seconds)s", systemImage: "sparkles")
                         .font(.caption.monospacedDigit()).foregroundStyle(.purple)
@@ -338,7 +349,7 @@ struct Console: View {
                     .foregroundStyle(.secondary)
                     .font(.callout)
                 if studio.partyEnd > 0 {
-                    TimelineView(.animation(minimumInterval: reduceMotion ? 0.25 : 0.05)) { _ in
+                    TimelineView(.animation(minimumInterval: reduceMotion ? 0.25 : 0.05, paused: !playerVisible)) { _ in
                         Meter(value: max(0, min(1, 1 - (studio.partyEnd - ProcessInfo.processInfo.systemUptime) / PartyBurst.length)),
                               label: "Ultra burst progress", party: true).frame(height: 5)
                     }
@@ -353,7 +364,8 @@ struct Console: View {
                 Spacer(minLength: 8)
                 Toggle("Follow Mac volume", isOn: $studio.followVolume)
                     .toggleStyle(.checkbox)
-                    .help("Scale haptic strength with your current audio output's volume.")
+                    .disabled(studio.mode == .trackpad)
+                    .help("Follows Mac volume in Speakers + haptics. Trackpad only uses manual intensity.")
             }
             .font(.system(size: 13))
         }
@@ -395,8 +407,8 @@ struct Console: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Divider()
-            if studio.hapticFocus == .voice {
-                if studio.mode == .trackpad {
+            if studio.hapticFocus.includesVoice {
+                if studio.mode == .trackpad && studio.hapticFocus == .voice {
                 Picker("Vocal quality", selection: $studio.tuning.vocalQuality) {
                     ForEach(VocalQuality.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -405,7 +417,7 @@ struct Console: View {
                     .font(.system(size: 13)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    Text("Light vocal focus. AI Isolated is currently available in Trackpad only.")
+                    Text(studio.hapticFocus == .both ? "Both uses Light analysis. Your saved Isolated setting is kept for Voice → Trackpad only." : "Light vocal focus. AI Isolated is currently available in Trackpad only.")
                         .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 HStack {
@@ -490,17 +502,25 @@ struct Console: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Fine Tune").font(.title2.weight(.semibold))
             Text(studio.mode.rawValue).foregroundStyle(.secondary)
-            if studio.hapticFocus == .beat {
+            ScrollView {
+              VStack(alignment: .leading, spacing: 14) {
+            if studio.hapticFocus.includesBeat {
                 PrecisionWheel(title: "Bass sustain", value: $studio.tuning.bassSustain, range: 0...1, step: 0.01,
                                label: "\(Int((studio.tuning.bassSustain * 100).rounded()))%")
                     .help("Adds a softer continuous layer for detected low bass. Set to zero for taps only.")
+                PrecisionWheel(title: "Detail balance", value: $studio.tuning.detailBalance, range: 0...1, step: 0.01,
+                               label: "\(Int((studio.tuning.detailBalance * 100).rounded()))%")
+                    .disabled(studio.patternName != nil && studio.mode == .assist)
+                    .help("Lift detected mid/treble taps and briefly lower the bass rumble beneath them. Does not change your EQ or detect extra beats.")
+                Text("Detail balance brings softer percussion forward against the bass.")
+                    .font(.system(size: 13)).foregroundStyle(.secondary)
                 PrecisionWheel(title: "Transient emphasis", value: $studio.tuning.impact, range: 0...1, step: 0.01,
                                label: "\(Int((studio.tuning.impact * 100).rounded()))%")
                     .help("Changes the fade after a detected percussion hit. Higher values make shorter, crisper taps; lower values leave a longer tail. It does not change beat timing.")
                 Text("Higher emphasis makes drum taps shorter and crisper.")
                     .font(.system(size: 13)).foregroundStyle(.secondary)
             }
-            if studio.hapticFocus == .voice {
+            if studio.hapticFocus.includesVoice {
                 PrecisionWheel(title: "Tone balance", value: $studio.tuning.tone, range: -1...1, step: 0.01,
                             label: toneLabel)
                 PrecisionWheel(title: "Pitch smoothing", value: $studio.tuning.smoothing, range: 0...90, step: 1,
@@ -525,6 +545,10 @@ struct Console: View {
                 Text("Automatic timing uses the selected audio output’s reported latency.")
                     .font(.system(size: 13)).foregroundStyle(.secondary)
             }
+              }
+              .padding(.vertical, 2)
+            }
+            .frame(maxHeight: 480)
             HStack {
                 Button("Reset Tuning") {
                     let eq = studio.tuning.eq
@@ -640,7 +664,8 @@ private struct Monitor: View {
                     .font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
             }
             ZStack {
-                TimelineView(.animation(minimumInterval: reduceMotion ? 0.10 : 1.0 / 60, paused: !signal.hasAudio && !display.settling)) { _ in
+                TimelineView(.animation(minimumInterval: reduceMotion ? 0.10 : 1.0 / 60,
+                                        paused: !display.isVisible || (!signal.hasAudio && !display.settling))) { _ in
                     Trace(values: display.bands(at: ProcessInfo.processInfo.systemUptime))
                 }
                 .accessibilityHidden(true)
@@ -798,4 +823,89 @@ private func signedDB(_ value: Double) -> String { String(format: "%+.1f dB", va
 private func timestamp(_ seconds: Double) -> String {
     let time = Int(exactly: max(0, seconds).rounded(.down)) ?? 0
     return String(format: "%d:%02d", time / 60, time % 60)
+}
+
+// Window visibility is event-driven. This has no timer and never changes the
+// playback engine; it only enables visual publishing and animation schedules.
+private struct PlayerWindowVisibility: NSViewRepresentable {
+    let changed: (Bool) -> Void
+
+    func makeNSView(context: Context) -> VisibilityView {
+        let view = VisibilityView()
+        view.changed = changed
+        return view
+    }
+
+    func updateNSView(_ view: VisibilityView, context: Context) {
+        view.changed = changed
+        view.refresh()
+    }
+
+    static func dismantleNSView(_ view: VisibilityView, coordinator: ()) { view.detach() }
+
+    final class VisibilityView: NSView {
+        var changed: ((Bool) -> Void)?
+        private var closing = false
+        private var lastVisibility: Bool?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            NotificationCenter.default.removeObserver(self)
+            closing = false
+            guard let window else { publish(false); return }
+            let center = NotificationCenter.default
+            for name in [NSWindow.didChangeOcclusionStateNotification, NSWindow.didMiniaturizeNotification,
+                         NSWindow.didDeminiaturizeNotification, NSWindow.didBecomeKeyNotification,
+                         NSWindow.willCloseNotification] {
+                center.addObserver(self, selector: #selector(windowChanged(_:)), name: name, object: window)
+            }
+            for name in [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification,
+                         NSApplication.didHideNotification, NSApplication.didUnhideNotification] {
+                center.addObserver(self, selector: #selector(applicationChanged(_:)), name: name, object: NSApp)
+            }
+            refresh()
+        }
+
+        override func viewDidHide() { super.viewDidHide(); refresh() }
+        override func viewDidUnhide() { super.viewDidUnhide(); refresh() }
+
+        @objc private func windowChanged(_ notification: Notification) {
+            if notification.name == NSWindow.willCloseNotification { closing = true }
+            else if notification.name == NSWindow.didBecomeKeyNotification || notification.name == NSWindow.didDeminiaturizeNotification { closing = false }
+            refresh()
+        }
+
+        @objc private func applicationChanged(_ notification: Notification) { refresh() }
+
+        func refresh() {
+            let visible = window.map {
+                !closing && !isHiddenOrHasHiddenAncestor && !NSApp.isHidden &&
+                $0.isVisible && !$0.isMiniaturized && $0.occlusionState.contains(.visible)
+            } ?? false
+            publish(visible)
+        }
+
+        func detach() {
+            NotificationCenter.default.removeObserver(self)
+            closing = true
+            let wasVisible = lastVisibility == true
+            lastVisibility = false
+            let handler = changed
+            changed = nil
+            if wasVisible { DispatchQueue.main.async { handler?(false) } }
+        }
+
+        private func publish(_ visible: Bool) {
+            guard lastVisibility != visible else { return }
+            lastVisibility = visible
+            // NSView can move during a SwiftUI update. Deliver only the latest
+            // state after that transaction, without mutating view state inside it.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.lastVisibility == visible else { return }
+                self.changed?(visible)
+            }
+        }
+
+        deinit { NotificationCenter.default.removeObserver(self) }
+    }
 }

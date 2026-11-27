@@ -1,6 +1,13 @@
 # Preparing the broader launch
 
-0.5.4 is a public preview. Broader launch preparation continues. Readiness means someone new can install, understand, recover, and update the app reliably.
+0.5.8 is the Mac public preview. It adds energy work and a standalone iPhone source prototype. Broader launch preparation continues. Readiness means someone new can install, understand, recover, and update the app reliably.
+
+## Current work
+
+- [0.5.8 notes](releases/0.5.8.md): hidden-player suspension, cached sharing service and Beat detail balance. Full regression tests pass; controlled playback energy comparison is pending.
+- [iPhone prototype](mobile.md): unsigned Simulator/device compilation and bounded-queue tests pass. Signing, MusicKit service configuration and physical-device testing are required before TestFlight.
+- Keep the public download labeled **Mac**. Add a repository-hosted TestFlight link only after beta approval; do not advertise Spotify/cross-app capture on iPhone.
+- Before a broad announcement, recruit a small feedback group, including Deaf and hard-of-hearing listeners who choose to participate. Ask about clarity, comfort, missed details and setup friction without claiming a validated assistive benefit.
 
 ## Independent review baseline
 

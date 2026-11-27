@@ -12,4 +12,10 @@ The optional YouTube extension reads information about the playing YouTube video
 
 SongWave has no built-in advertising, analytics service or application account. GitHub has its own policies for release downloads and issue submissions. Sharing through Messages opens a draft; the user chooses the recipient and sends it.
 
-The 0.5.4 development candidate adds automatic update checks through Sparkle. The release feed and app downloads use GitHub hosting, which receives normal network connection information and the app's update request. Audio, song titles and listening history are not included. Sparkle system profiling is disabled. Checks can be turned off, and installation requires approval. See [Updates](docs/updates.md).
+SongWave includes automatic update checks through Sparkle. The release feed and app downloads use GitHub hosting, which receives normal network connection information and the app's update request. Audio, song titles and listening history are not included. Sparkle system profiling is disabled. Checks can be turned off, and installation requires approval. See [Updates](docs/updates.md).
+
+## iPhone development build
+
+Imported files are copied into temporary storage on the iPhone and analyzed locally. They are not uploaded. Temporary imports are removed on the next launch; preferences remain in local UserDefaults. Album art is read from file metadata or loaded from Apple's catalog.
+
+Apple Music access is optional and requested only when you choose Connect. Search, authorization and streaming use Apple's MusicKit services and their network requests. SongWave supplies the selected song's ISRC to the system Now Playing information for Apple's Music Haptics. It does not capture audio from Spotify or other iPhone apps. This prototype has no separate SongWave server or analytics service.

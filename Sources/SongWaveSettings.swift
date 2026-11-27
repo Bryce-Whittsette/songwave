@@ -108,7 +108,7 @@ struct SongWaveSettings: View {
     @ViewBuilder private var effects: some View {
         Section("Music response") {
             Toggle("Follow Mac volume", isOn: $studio.followVolume)
-            Text("Adjusts haptic strength with the selected audio output’s volume. Fixed-level outputs keep your manual intensity.")
+            Text("Adjusts haptic strength with the selected audio output’s volume in Speakers + haptics. Trackpad only always uses your manual intensity. Fixed-level outputs also keep manual intensity.")
                 .foregroundStyle(.secondary)
             Toggle("Sync keyboard light", isOn: $studio.keyboard)
             Text("Pulses a supported MacBook’s white backlight with detected beats. The previous brightness is restored when the effect stops. Ambient light can affect visibility.")
@@ -168,7 +168,7 @@ struct SongWaveSettings: View {
         Section("Share SongWave") {
             Link("SongWave on GitHub", destination: ProjectShare.url)
             Button("Share via Messages…", action: ProjectShare.message)
-                .disabled(NSSharingService(named: .composeMessage) == nil)
+                .disabled(!ProjectShare.canMessage)
             Button("Copy SongWave Link") { ProjectShare.copy(); copiedLink = true }
             if copiedLink { Text("SongWave link copied.").foregroundStyle(.secondary) }
         }

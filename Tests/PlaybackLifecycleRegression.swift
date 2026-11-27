@@ -23,10 +23,12 @@ enum LifecycleHardware {
     private static var muted = 0
     private static var motors = 0
     private static var failCapture = false
+    private static var volume = 1.0
     static func locked<T>(_ operation: () -> T) -> T { lock.lock(); defer { lock.unlock() }; return operation() }
     static func set(_ next: [UInt32: LifecycleClient]) { locked { clients = next } }
     static func snapshot() -> [UInt32: LifecycleClient] { locked { clients } }
     static func packet(_ level: Double) { locked { packets.append((ProcessInfo.processInfo.systemUptime, level)) } }
+    static var outputVolume: Double { get { locked { volume } } set { locked { volume = newValue } } }
     static var writes: [(time: Double, level: Double)] { locked { packets } }
     static var liveTaps: Int { locked { taps } }
     static var mutedTaps: Int { locked { muted } }
@@ -109,7 +111,7 @@ struct PartyBurst {
         elapsed >= 0 && elapsed < length && elapsed.truncatingRemainder(dividingBy: 0.36) < 0.12
     }
 }
-enum OutputVolume { static func read() -> Double { 1 } }
+enum OutputVolume { static func read() -> Double { LifecycleHardware.outputVolume } }
 enum OutputTiming {
     static func reportedDelay() -> Double { 0 }
     static func additionalDelay(reported: Double, analysisRate: Double, offsetMS: Double, focus: HapticFocus = .beat) -> Double { max(0, offsetMS / 1000) }
@@ -167,9 +169,12 @@ final class IsolatedVocals {
                 require(!CallAudioPolicy.active(in: AudioHardware.processList().compactMap(AudioClient.init)), "An idle FaceTime app is not a call")
                 let link = try MusicLink(provider == .spotify ? "spotify:track:0000000000000000000000" : "https://music.apple.com/us/song/test/123")
                 let engine = Playback()
+                LifecycleHardware.outputVolume = mode == .trackpad ? 0 : 1
+                engine.setEffects(followVolume: true, keyboard: false)
                 var tuning = mode.defaults
                 tuning.hapticFocus = focus
                 tuning.automaticTiming = false
+                tuning.delay = focus == .both ? 24 : 0
                 engine.start(.player(link), tuning: tuning, mode: mode, playerPath: "/Mock/Player.app", startAt: 0) { _ in }
                 wait("The explicit player route failed to produce output with inactive FaceTime open") { LifecycleHardware.writes.count > 12 }
                 require(LifecycleHardware.mutedTaps == (mode == .trackpad ? 1 : 0))

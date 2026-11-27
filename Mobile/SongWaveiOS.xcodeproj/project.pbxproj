@@ -1,0 +1,53 @@
+// !$*UTF8*$!
+{ archiveVersion = 1; classes = {}; objectVersion = 56; objects = {
+AAAA49F8F1E49F2E0B6478B9 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SongWaveiOS/MobileAudioCore.swift"; sourceTree = "<group>"; };
+AAAA697DEA2C459755BF9F53 = { isa = PBXBuildFile; fileRef = AAAA49F8F1E49F2E0B6478B9; };
+79FA49F8F1E49F2E0B6478B9 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SongWaveiOS/MobilePlayer.swift"; sourceTree = "<group>"; };
+A01B697DEA2C459755BF9F53 = { isa = PBXBuildFile; fileRef = 79FA49F8F1E49F2E0B6478B9; };
+8D2D19E60B849F9D7D49B8A7 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SongWaveiOS/SongWaveMobileApp.swift"; sourceTree = "<group>"; };
+90C8EF3D3FC4DC1EF5796B3E = { isa = PBXBuildFile; fileRef = 8D2D19E60B849F9D7D49B8A7; };
+CD4EFA6397C439DC05467C5E = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SongWaveiOS/MobileHaptics.swift"; sourceTree = "<group>"; };
+037710B31915ECEC5BA369EF = { isa = PBXBuildFile; fileRef = CD4EFA6397C439DC05467C5E; };
+59AF22CEBA4E5E4B5FC95503 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SongWaveiOS/LocalAudioEngine.swift"; sourceTree = "<group>"; };
+4A527E26A9ECE0DF6FC84E5C = { isa = PBXBuildFile; fileRef = 59AF22CEBA4E5E4B5FC95503; };
+CBB8398E13DD7C0A55253A8A = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../Sources/Signal.swift"; sourceTree = "<group>"; };
+25ABB8EB37C8F8AEEB2B7549 = { isa = PBXBuildFile; fileRef = CBB8398E13DD7C0A55253A8A; };
+C9C6D7101E2810AB13D7592D = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../Sources/Equalizer.swift"; sourceTree = "<group>"; };
+346BC7A23B1352133F5BF77B = { isa = PBXBuildFile; fileRef = C9C6D7101E2810AB13D7592D; };
+CA59DE0C35E20ABC3990FA55 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../Sources/RhythmDSP.swift"; sourceTree = "<group>"; };
+4802EFA3951B30880806D99D = { isa = PBXBuildFile; fileRef = CA59DE0C35E20ABC3990FA55; };
+D8839CCFB8CAA4D99BCC4A6C = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../Sources/VocalFocus.swift"; sourceTree = "<group>"; };
+09863C5B4A0C4EB75A42ED7A = { isa = PBXBuildFile; fileRef = D8839CCFB8CAA4D99BCC4A6C; };
+A8792157CB4F27FB949C035F = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SongWave.app; sourceTree = BUILT_PRODUCTS_DIR; };
+0D6E4079E36703EBD37C0072 = { isa = PBXGroup; children = (AAAA49F8F1E49F2E0B6478B9,79FA49F8F1E49F2E0B6478B9,8D2D19E60B849F9D7D49B8A7,CD4EFA6397C439DC05467C5E,59AF22CEBA4E5E4B5FC95503,CBB8398E13DD7C0A55253A8A,C9C6D7101E2810AB13D7592D,CA59DE0C35E20ABC3990FA55,D8839CCFB8CAA4D99BCC4A6C,0A3E27B8CA818264D75C8D81); sourceTree = "<group>"; };
+0A3E27B8CA818264D75C8D81 = { isa = PBXGroup; children = (A8792157CB4F27FB949C035F); name = Products; sourceTree = "<group>"; };
+878A52FC5FF6A57D50B7B870 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (AAAA697DEA2C459755BF9F53,A01B697DEA2C459755BF9F53,90C8EF3D3FC4DC1EF5796B3E,037710B31915ECEC5BA369EF,4A527E26A9ECE0DF6FC84E5C,25ABB8EB37C8F8AEEB2B7549,346BC7A23B1352133F5BF77B,4802EFA3951B30880806D99D,09863C5B4A0C4EB75A42ED7A); runOnlyForDeploymentPostprocessing = 0; };
+E2AA269EB967A8853A258BFA = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+41D311A605520FC7B8B9A980 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+09AA38CEF3EA53936A20C858 = { isa = XCBuildConfiguration; name = Debug; buildSettings = { SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 18.0; CLANG_ENABLE_MODULES = YES; SWIFT_VERSION = 5.0; }; };
+719A98D8A89F95FDBAF28C7F = { isa = XCBuildConfiguration; name = Debug; buildSettings = {
+ PRODUCT_NAME = SongWave; PRODUCT_BUNDLE_IDENTIFIER = studio.songwave.mobile;
+ GENERATE_INFOPLIST_FILE = YES; INFOPLIST_FILE = SongWaveiOS/Info.plist;
+ INFOPLIST_KEY_CFBundleDisplayName = SongWave; INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
+ MARKETING_VERSION = 0.1.0; CURRENT_PROJECT_VERSION = 1;
+ CODE_SIGN_STYLE = Automatic; TARGETED_DEVICE_FAMILY = "1,2"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+ SWIFT_VERSION = 5.0; IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+ SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_STRICT_CONCURRENCY = minimal;
+ LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks");
+ }; };
+2C51B24F1BD0E37CCD3A85CD = { isa = XCBuildConfiguration; name = Release; buildSettings = { SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 18.0; CLANG_ENABLE_MODULES = YES; SWIFT_VERSION = 5.0; }; };
+27FD49470A253B08B94E0E4B = { isa = XCBuildConfiguration; name = Release; buildSettings = {
+ PRODUCT_NAME = SongWave; PRODUCT_BUNDLE_IDENTIFIER = studio.songwave.mobile;
+ GENERATE_INFOPLIST_FILE = YES; INFOPLIST_FILE = SongWaveiOS/Info.plist;
+ INFOPLIST_KEY_CFBundleDisplayName = SongWave; INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
+ MARKETING_VERSION = 0.1.0; CURRENT_PROJECT_VERSION = 1;
+ CODE_SIGN_STYLE = Automatic; TARGETED_DEVICE_FAMILY = "1,2"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+ SWIFT_VERSION = 5.0; IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+ SWIFT_OPTIMIZATION_LEVEL = "-O"; SWIFT_STRICT_CONCURRENCY = minimal;
+ LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks");
+ }; };
+AAB2723FF2C8E6D1C298C1E4 = { isa = XCConfigurationList; buildConfigurations = (09AA38CEF3EA53936A20C858,2C51B24F1BD0E37CCD3A85CD); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+04229C262AC03CB8C1234C52 = { isa = XCConfigurationList; buildConfigurations = (719A98D8A89F95FDBAF28C7F,27FD49470A253B08B94E0E4B); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+34A04005BCAF206EEC990BD9 = { isa = PBXNativeTarget; buildConfigurationList = 04229C262AC03CB8C1234C52; buildPhases = (878A52FC5FF6A57D50B7B870,E2AA269EB967A8853A258BFA,41D311A605520FC7B8B9A980); buildRules = (); dependencies = (); name = SongWaveMobile; productName = SongWave; productReference = A8792157CB4F27FB949C035F; productType = "com.apple.product-type.application"; };
+244210E48437B6556980A702 = { isa = PBXProject; attributes = { LastUpgradeCheck = 2700; }; buildConfigurationList = AAB2723FF2C8E6D1C298C1E4; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = 0D6E4079E36703EBD37C0072; productRefGroup = 0A3E27B8CA818264D75C8D81; projectDirPath = ""; projectRoot = ""; targets = (34A04005BCAF206EEC990BD9); };
+}; rootObject = 244210E48437B6556980A702; }

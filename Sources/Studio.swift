@@ -3,37 +3,6 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 @MainActor
-final class SignalDisplay: ObservableObject {
-    private var origin = SignalFrame.empty.bands
-    private var timestamp = ProcessInfo.processInfo.systemUptime
-    @Published private(set) var settling = false
-    private var releaseTask: Task<Void, Never>?
-    @Published var frame = SignalFrame.empty {
-        willSet {
-            let now = ProcessInfo.processInfo.systemUptime
-            origin = bands(at: now)
-            timestamp = now
-            if frame.hasAudio && !newValue.hasAudio {
-                settling = true
-                releaseTask?.cancel()
-                releaseTask = Task { [weak self] in
-                    try? await Task.sleep(for: .milliseconds(750))
-                    if !Task.isCancelled { self?.settling = false }
-                }
-            } else if newValue.hasAudio && settling { releaseTask?.cancel(); settling = false }
-        }
-    }
-
-    func bands(at now: Double) -> [Double] {
-        let elapsed = max(0, now - timestamp)
-        return zip(origin, frame.bands).map { start, target in
-            let duration = target > start ? 0.065 : 0.18
-            return target + (start - target) * exp(-elapsed / duration)
-        }
-    }
-}
-
-@MainActor
 final class Studio: ObservableObject {
     @Published var showPlaybackAccess = false
     private var afterAudioAccess: (() -> Void)?
@@ -450,7 +419,7 @@ final class Studio: ObservableObject {
         elapsed = position
         duration = nil
         processingDelay = 0
-        display.frame = .empty
+        display.submit(.empty)
         active = true
         waiting = source.isLive
         captureHelp = false
@@ -499,7 +468,7 @@ final class Studio: ObservableObject {
                 self.captureHelp = source.isLive
                 return
             }
-            if update.signal.hasAudio || self.display.frame.hasAudio { self.display.frame = update.signal }
+            self.display.submit(update.signal)
             if let reason = update.detection, reason != self.detection { self.detection = reason }
             if source.isLive { self.refreshLiveInfo(update, source: source, token: token) }
             if self.waiting != update.waiting { self.waiting = update.waiting }
@@ -611,7 +580,7 @@ final class Studio: ObservableObject {
         active = false
         waiting = false
         captureHelp = false
-        display.frame = .empty
+        display.submit(.empty)
         engine.stop()
     }
 
