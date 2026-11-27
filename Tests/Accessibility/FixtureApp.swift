@@ -42,5 +42,6 @@ import SwiftUI
                     }
                 }
         }
+        .defaultSize(width: 600, height: 800)
     }
 }

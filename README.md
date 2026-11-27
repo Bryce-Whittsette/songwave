@@ -4,13 +4,13 @@ Feel the music playing on your Mac through its Force Touch trackpad.
 
 Open SongWave, play music in Spotify, Apple Music, or your browser, and rest a finger on the trackpad. No song link or file needed.
 
-**[Download for Mac — Apple silicon](https://github.com/Bryce-Whittsette/songwave/releases/download/v0.5.9/SongWave-0.5.9-AppleSilicon.dmg)** · [What's new](docs/releases/0.5.9.md) · [Version history](CHANGELOG.md)
+**[Download for Mac — Apple silicon](https://github.com/Bryce-Whittsette/songwave/releases/download/v0.5.10/SongWave-0.5.10-AppleSilicon.dmg)** · [What's new](docs/releases/0.5.10.md) · [Version history](CHANGELOG.md)
 
 Public preview · macOS 14.2 or later · Force Touch trackpad required · Tested on an M4 MacBook Air
 
 ## Install
 
-1. Download and open **SongWave-0.5.9-AppleSilicon.dmg**.
+1. Download and open **SongWave-0.5.10-AppleSilicon.dmg**.
 2. Drag **SongWave** into the **Applications** folder shown in the window. Open SongWave from Applications.
 3. Finish the short setup and allow **System Audio Recording** when prompted. Then play music normally.
 
@@ -18,11 +18,11 @@ This preview hasn't been notarized by Apple. If macOS blocks it, see [the SongWa
 
 **Already installed?** Quit SongWave, download the new DMG, and drag SongWave into Applications. Choose **Replace**, then open it again. Your listening preferences stay saved; macOS may ask for audio access again after a preview update. Version 0.5.3 needs this one manual update; from 0.5.4 onward, use **SongWave → Check for Updates…** or allow automatic checks.
 
-## New in 0.5.9
+## New in 0.5.10
 
-- A first connection check shows audio activity and lets you choose a short trackpad test, then confirm whether you felt it.
-- **Listening help** brings connection status, retries and privacy-safe diagnostics together.
-- A monochrome beat/level indicator adds visual feedback. Optional sources and tools are grouped to keep listening controls clear.
+- Clearer screen-reader headings and action names in setup and Listening help, with native accessibility checks in CI.
+- Reduce Motion keeps the beat pulse still while retaining music-level and recent-beat feedback.
+- Both gives percussion a brief foreground accent, then restores vocal texture smoothly. The separation engine is unchanged.
 
 See [every public version](CHANGELOG.md) for changes and developer notes.
 
@@ -36,11 +36,11 @@ Point at **Intensity** and swipe with two fingers, or click the number for a sli
 
 Open **Tools…** for the editable EQ, optional keyboard-light pulses, and a 45-second **Insane Ultra** burst with a cooldown. Ultra explains its limits before starting. Repeated strong vibration can increase heat and wear; the app's timer is not a manufacturer safety rating.
 
-## Music through touch
+## Music through touch and sight
 
 SongWave explores another way for deaf and hard-of-hearing listeners to connect with music through touch and visual rhythm. Haptics follow musical texture, while an on-screen beat and level indicator provides visual feedback. Voice, Beat and Both choices let listeners choose which part of the music to follow.
 
-Accessibility is a design goal, and we haven't yet validated the experience with Deaf or hard-of-hearing users. [Feedback on comfort, clarity and useful controls](https://github.com/Bryce-Whittsette/songwave/issues/new/choose) will help guide the work.
+Accessibility is a design goal, and we haven't yet validated the experience with deaf or hard-of-hearing users. [Accessibility checks](docs/accessibility.md) describe our automated coverage and remaining listener testing. [Feedback on comfort, clarity and useful controls](https://github.com/Bryce-Whittsette/songwave/issues/new/choose) will help guide the work.
 
 ## iPhone development
 

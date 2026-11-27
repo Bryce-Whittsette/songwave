@@ -2,6 +2,14 @@
 
 Every public release is listed here, newest first. Each version has a short explanation and expandable developer notes.
 
+## [0.5.10 — Clarity and accessibility](docs/releases/0.5.10.md)
+
+Public Preview · November 27, 2026
+
+Native accessibility checks for setup and recovery, motion reduction without losing visual feedback, and a clearer percussion accent in Both. The isolation engine stays unchanged.
+
+[Download](https://github.com/Bryce-Whittsette/songwave/releases/tag/v0.5.10) · [Full notes and validation](docs/releases/0.5.10.md)
+
 ## [0.5.9 — First connection](docs/releases/0.5.9.md)
 
 Public Preview · November 27, 2026
