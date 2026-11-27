@@ -879,7 +879,7 @@ private struct PlayerWindowVisibility: NSViewRepresentable {
 
         func refresh() {
             let visible = window.map {
-                !closing && !isHiddenOrHasHiddenAncestor && NSApp.isActive && !NSApp.isHidden &&
+                !closing && !isHiddenOrHasHiddenAncestor && !NSApp.isHidden &&
                 $0.isVisible && !$0.isMiniaturized && $0.occlusionState.contains(.visible)
             } ?? false
             publish(visible)

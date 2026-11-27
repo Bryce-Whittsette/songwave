@@ -5,7 +5,7 @@ Mac 0.5.8 reduces avoidable interface work while keeping audio analysis and hapt
 ## Changes
 
 - Discover the Messages sharing service once per process, rather than during repeated SwiftUI player updates. A sample of the installed 0.5.7 app showed repeated ShareKit/XPC discovery on its main thread.
-- Pause signal-monitor publications and visual animation schedules when the player is hidden, minimized, covered or inactive. Keep only the latest packet and resume without replaying old frames.
+- Pause signal-monitor publications and visual animation schedules when the player is hidden, minimized or fully covered. Keep only the latest packet and resume without replaying old frames.
 - Continue audio capture, detection and haptic output independently. The energy fix does not slow the motor scheduler or add a larger analysis buffer.
 - On iPhone, stop custom analysis and PCM collection in the background, while paused, at zero intensity or on unsupported hardware. Artwork is downsampled and cached; foreground progress updates four times per second.
 
