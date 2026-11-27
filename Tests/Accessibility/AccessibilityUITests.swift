@@ -30,9 +30,13 @@ final class AccessibilityUITests: XCTestCase {
         let scopedNodes = owned
         try app.performAccessibilityAudit(for: [.sufficientElementDescription, .action, .parentChild]) { issue in
             if contentID != nil, let element = issue.element {
+                // Each XCUIElement property read can request a new remote AX
+                // snapshot. Take one per issue, then compare locally, so a
+                // longer sheet does not multiply audit queries by node count.
+                guard let candidate = try? element.snapshot() else { return false }
                 let belongs = scopedNodes.contains { node in
-                    node.elementType == element.elementType && node.identifier == element.identifier &&
-                    node.label == element.label && node.frame == element.frame
+                    node.elementType == candidate.elementType && node.identifier == candidate.identifier &&
+                    node.label == candidate.label && node.frame == candidate.frame
                 }
                 if !belongs { return true }
             }
