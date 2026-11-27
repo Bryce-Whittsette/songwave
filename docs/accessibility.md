@@ -37,3 +37,7 @@ The main-listening case also exercises a forced 810 × 640 content window in lig
 - Ask deaf and hard-of-hearing listeners who choose to participate about clarity, comfort, missed details and useful visual feedback. Record hardware and output route without collecting music history.
 
 Please report an interface problem through [GitHub issues](https://github.com/Bryce-Whittsette/songwave/issues/new/choose). Listening help can copy categorical connection diagnostics; it does not include song titles, recordings or personal paths.
+
+## Advanced controls
+
+The Tools category checks exercise Sound, Trackpad EQ and Experiments separately in light/dark and normal/reduced-motion fixtures. They check descriptive actions, category visibility, EQ/genre/intensity retention, band headings and opening/canceling Ultra without activation. Fine Tune cases cover Beat, Voice and Both in both outputs, heading order, unchanged Light selection, disabled volume following for Trackpad only, and reaching the last applicable section in a compact window. These are native hierarchy/action checks, not spoken VoiceOver or measured decision-time validation.

@@ -1,8 +1,10 @@
 # Preparing the broader launch
 
-0.5.12 is the Mac public preview. It makes existing main-view visual rhythm and level feedback clearer for listening with or without haptics. The first-connection and recovery work shipped in 0.5.11 remains in place. Broader launch preparation continues. Readiness means someone new can install, understand, recover, and update the app reliably.
+0.5.13 is the Mac public preview. It separates advanced tools into Sound, Trackpad EQ and Experiments and labels Fine Tune sections. The 0.5.12 visual feedback remains available with or without haptics. The first-connection and recovery work shipped in 0.5.11 remains in place. Broader launch preparation continues. Readiness means someone new can install, understand, recover, and update the app reliably.
 
 ## Current work
+
+- [0.5.13 notes](releases/0.5.13.md): focused tool categories, labeled fine-tuning sections, accessible band headings and unchanged audio/haptic behavior. [Advanced controls audit](audits/advanced-controls-0.5.13.md).
 
 - [0.5.12 notes](releases/0.5.12.md): larger main-view beat cue, separate Music level labeling, compact-window/haptics-off UI coverage, and unchanged audio/haptic engines. [Visual-listening audit](audits/visual-listening-0.5.12.md).
 

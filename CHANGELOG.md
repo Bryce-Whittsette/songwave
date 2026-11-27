@@ -2,6 +2,14 @@
 
 Every public release is listed here, newest first. Each version has a short explanation and expandable developer notes.
 
+## [0.5.13 — Grouped listening tools](docs/releases/0.5.13.md)
+
+Public Preview · November 27, 2026
+
+Tools separates Sound, Trackpad EQ and Experiments. Fine Tune labels Beat, Voice and Timing; EQ band settings keep accessible band headings and compact-window scrolling. Layout and grouping only: isolation, haptic rendering and saved control behavior are unchanged.
+
+[Download](https://github.com/Bryce-Whittsette/songwave/releases/tag/v0.5.13) · [Full notes and validation](docs/releases/0.5.13.md)
+
 ## [0.5.12 — Visual listening](docs/releases/0.5.12.md)
 
 Public Preview · November 27, 2026

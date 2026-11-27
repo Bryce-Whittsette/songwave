@@ -16,7 +16,11 @@ import SwiftUI
         scheme = env["SONGWAVE_AX_SCHEME"] == "light" ? .light : .dark
         UserDefaults.standard.setVolatileDomain(["setupComplete": screen == "player", "launchListen": false,
             "audioAccessConfigured": screen != "permission", "firstSuccessPending": false,
-            "outputMode": OutputMode.assist.rawValue], forName: UserDefaults.argumentDomain)
+            "outputMode": OutputMode.assist.rawValue,
+            "assistTuning": try! JSONEncoder().encode(OutputMode.assist.defaults),
+            "trackpadTuning": try! JSONEncoder().encode(OutputMode.trackpad.defaults),
+            "genre": ListeningGenre.mixed.rawValue, "keyboardSync": false, "followVolume": false,
+            "nextBurst": 0], forName: UserDefaults.argumentDomain)
         _studio = StateObject(wrappedValue: Studio())
     }
     var body: some Scene {
