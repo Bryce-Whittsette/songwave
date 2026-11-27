@@ -151,7 +151,7 @@ struct BeatLevelIndicator: View {
                 indicator(beat: 0)
             } else {
                 TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !display.isVisible || !display.frame.hasAudio)) { _ in
-                    indicator(beat: display.beat(at: ProcessInfo.processInfo.systemUptime))
+                    indicator(beat: display.beatPulse(at: ProcessInfo.processInfo.systemUptime))
                 }
             }
         }

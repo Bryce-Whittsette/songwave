@@ -88,6 +88,22 @@ import Foundation
         precondition(display.isVisible, "Closing the player must not pause a visible support indicator.")
         display.setVisible(false, owner: supportOwner)
         precondition(!display.isVisible, "Closing the last visual consumer must stop publishing.")
+        let visual = SignalDisplay(clock: { 0 })
+        visual.setVisible(true)
+        func onset(_ strength: Double) -> SignalFrame {
+            SignalFrame(tones: [], level: 0.2, bands: [], inputRMS: 0.05, hasAudio: true, beatStrength: strength)
+        }
+        visual.submit(onset(0.01))
+        let quietPulse = visual.beatPulse(at: 0)
+        precondition(quietPulse == 1 && visual.beat(at: 0) == 0.01)
+        visual.submit(onset(1))
+        precondition(visual.beatPulse(at: 0) == quietPulse, "Quiet detected events must remain as visible as strong ones.")
+        precondition(abs(visual.beatPulse(at: 0.11) - 0.5) < 1e-9 && visual.beatPulse(at: 0.23) == 0)
+        precondition(visual.beatPulse(at: -.infinity) == 0 && visual.beatPulse(at: .nan) == 0)
+        visual.submit(.empty)
+        precondition(visual.beatPulse(at: 0) == 0, "Silence must clear a visual event immediately.")
+        visual.setVisible(false)
         print("Display pause/resume, 10,000 hidden packets without publication, latest-frame recovery, silence/stalled input, cancelled release and foreground smoothing passed.")
+        print("Quiet/strong detected events retain their original strength while sharing a legible, bounded visual pulse; expiry and silence clear it.")
     }
 }

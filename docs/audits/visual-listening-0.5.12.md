@@ -10,7 +10,7 @@ November 27, 2026. Scope: beat and level feedback during ordinary listening, sep
 
 ## 2. Ordinary listening — clarified in the same monitor
 
-The main presentation now places two related items at the top of the Signal Monitor: a larger bounded Beat cue with Detected/Between beats text, and a labeled Music level bar retaining percentage and dB. The repeated bar is consolidated. The beat cue fades smoothly after detected events. It does not create a tempo estimate or additional beat events.
+The main presentation now places two related items at the top of the Signal Monitor: a larger bounded Beat cue with Detected/Between beats text, and a labeled Music level bar retaining percentage and dB. The repeated bar is consolidated. Detected events share a consistent visual pulse and smooth fade so low-strength reports remain legible; the separate meter communicates amplitude. This does not create a tempo estimate or additional beat events, or alter their reported strength.
 
 Placement keeps passive feedback separate from the Output/Intensity card and Stop action. For Fitts's-law concerns, existing action targets stay unoccluded; this display introduces no action target. For Miller-style grouping, rhythm and level form two labeled chunks inside one existing information area rather than another mode or panel. The beat's reserved frame prevents pulse size from moving controls. The cue precedes the technical trace so it stays visible in a compact window.
 
