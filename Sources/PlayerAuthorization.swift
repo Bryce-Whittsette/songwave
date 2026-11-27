@@ -20,4 +20,3 @@ enum PlaybackAccess {
         return AEDeterminePermissionToAutomateTarget(target.aeDesc, 0x636f7265, 0x67657464, ask)
     }
 }
-

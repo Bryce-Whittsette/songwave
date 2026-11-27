@@ -51,4 +51,3 @@ final class Playback {
     func shutDown(_ completion: @escaping () -> Void) { completion() }
     func probe(_ result: @escaping (String?, String?) -> Void) { result("Mock trackpad", nil) }
 }
-
