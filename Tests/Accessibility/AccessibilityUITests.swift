@@ -37,7 +37,8 @@ final class AccessibilityUITests: XCTestCase {
         func walk(_ element: AXUIElement, depth: Int) {
             guard depth < 40 else { return }
             nodes.append(["id": attribute(element, kAXIdentifierAttribute as CFString) as? String ?? "",
-                          "role": attribute(element, kAXRoleAttribute as CFString) as? String ?? ""])
+                          "role": attribute(element, kAXRoleAttribute as CFString) as? String ?? "",
+                          "valueDescription": attribute(element, kAXValueDescriptionAttribute as CFString) as? String ?? ""])
             for child in attribute(element, kAXChildrenAttribute as CFString) as? [AXUIElement] ?? [] { walk(child, depth: depth + 1) }
         }
         walk(root, depth: 0)
@@ -56,7 +57,7 @@ final class AccessibilityUITests: XCTestCase {
         let nodes = try nativeNodes(app)
         assertOrder(nodes, ids)
         XCTAssertEqual(spoken(app.buttons["setup.confirm"]), "I felt it")
-        XCTAssertTrue(app.staticTexts["music.activity"].exists)
+        XCTAssertTrue(app.progressIndicators["music.activity"].exists)
         XCTAssertFalse(app.buttons["music.activity"].exists, "Activity is information, not an action.")
         try audit(app)
         for id in ["support.heading", "setup.test.heading", "setup.confirm.heading"] {
@@ -97,9 +98,10 @@ final class AccessibilityUITests: XCTestCase {
             for scheme in ["light", "dark"] {
                 let app = launch(screen, motion: true, scheme: scheme)
                 if screen == "confirmation" {
-                    let activity = app.staticTexts["music.activity"]
+                    let activity = app.progressIndicators["music.activity"]
                     XCTAssertTrue(activity.exists)
-                    XCTAssertTrue((spoken(activity) + " " + (activity.value as? String ?? "")).contains("percent"))
+                    let nodes = try nativeNodes(app)
+                    XCTAssertTrue(nodes.first { $0["id"] == "music.activity" }?["valueDescription"]?.contains("percent") == true)
                 }
                 try audit(app)
                 app.terminate()
