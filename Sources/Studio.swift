@@ -40,6 +40,11 @@ final class Studio: ObservableObject {
     }
     func beginFirstSuccess() {
         guard !requestingAudioAccess, !testingTrackpad else { return }
+        if checkPrior == nil {
+            checkPrior = PriorPlayback(source: source ?? .macAudio, wasPlaying: active, elapsed: elapsed,
+                duration: duration, info: metadata, bypass: localBypass)
+            checkPriorPattern = (loadedPattern, patternName, patternNote)
+        }
         stop(); firstSuccess.begin(); markFirstSuccessPending(); showPlaybackAccess = true
         guard audioAccessReady, !audioAccessHealth.requiresRecovery else { firstSuccess.recover(); return }
         start(.macAudio, verification: true)
@@ -72,7 +77,7 @@ final class Studio: ObservableObject {
         UserDefaults.standard.set(false, forKey: "firstSuccessPending")
         if !confirmed { UserDefaults.standard.set(false, forKey: "firstSuccessConfirmed") }
         afterAudioAccess = nil; showPlaybackAccess = false
-        if launchListen && audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady) {
+        if !restoreCheckContext(resume: true) && launchListen && audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady) {
             autoStarted = true; start(.macAudio)
         }
     }
@@ -87,6 +92,38 @@ final class Studio: ObservableObject {
     func openRecovery() { showPlaybackAccess = true }
     func trackpadSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.Trackpad-Settings.extension") { NSWorkspace.shared.open(url) }
+    }
+
+    private func labelSource(_ source: PlaybackSource) {
+        switch source {
+        case .player(let link):
+            selectedAppLabel = link.provider.appName
+            selectedDiagnosticApp = ListeningHealthSnapshot.app(bundle: link.provider.bundle, localFile: false)
+        case .file: selectedAppLabel = "Local audio file"; selectedDiagnosticApp = .file
+        case .macAudio: selectedAppLabel = "Automatic Mac audio"; selectedDiagnosticApp = .macAudio
+        }
+    }
+
+    private var checkPrior: PriorPlayback?
+    private var checkPriorPattern: (HapticPattern?, String?, String?)?
+    private func restoreCheckContext(resume: Bool) -> Bool {
+        guard let prior = checkPrior else { return false }
+        checkPrior = nil
+        artworkTask?.cancel(); artworkTask = nil
+        source = prior.source; labelSource(prior.source); elapsed = prior.elapsed; duration = prior.duration; metadata = prior.info
+        if let pattern = checkPriorPattern {
+            loadedPattern = pattern.0; patternName = pattern.1; patternNote = pattern.2
+            engine.setPattern(pattern.0)
+        }
+        checkPriorPattern = nil
+        let shouldResume = prior.wasPlaying || (prior.source == .macAudio && launchListen)
+        let permitted = !prior.source.isLive || audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady)
+        if resume && shouldResume && permitted {
+            autoStarted = true
+            start(prior.source, from: prior.source.isLive ? 0 : prior.elapsed)
+            if prior.bypass { localBypass = true; engine.setHaptics(false) }
+        }
+        return true
     }
 
     private var afterAudioAccess: (() -> Void)?
@@ -134,6 +171,7 @@ final class Studio: ObservableObject {
     func finishPlaybackAccess() {
         if verifyingSetup || firstSuccessPending {
             stop(); testingTrackpad = false; firstSuccess.cancel()
+            _ = restoreCheckContext(resume: false)
             return
         }
         let pending = afterAudioAccess
@@ -308,12 +346,13 @@ final class Studio: ObservableObject {
     private func updateEffects() { engine.setEffects(followVolume: followVolume, keyboard: keyboard, partyKeyboard: partyLights) }
     func terminate(_ completion: @escaping () -> Void) { engine.shutDown(completion) }
 
+    private var loadedPattern: HapticPattern?
     private var patternRequest = UUID()
     @Published private(set) var patternName: String?
     @Published private(set) var patternNote: String?
     func clearPattern() {
         patternRequest = UUID()
-        patternName = nil; patternNote = nil; engine.setPattern(nil)
+        loadedPattern = nil; patternName = nil; patternNote = nil; engine.setPattern(nil)
     }
     func choosePattern() {
         guard case .file = source else { error = "Open a local audio file first, then attach its haptic pattern."; return }
@@ -322,11 +361,14 @@ final class Studio: ObservableObject {
         panel.allowsMultipleSelection = false
         panel.message = "Choose a haptic pattern for this audio file. Embedded audio is skipped."
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task { await attachPattern(url) }
+    }
+    func attachPattern(_ url: URL) async {
+        guard case .file = source else { return }
         let attachedSource = source
         let request = UUID()
         patternRequest = request
-        Task {
-            do {
+        do {
                 let pattern = try await Task.detached {
                     guard (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) <= 1_048_576 else {
                         throw GlassError("Choose an AHAP file smaller than 1 MB.")
@@ -336,9 +378,9 @@ final class Studio: ObservableObject {
                 guard source == attachedSource, patternRequest == request else { return }
                 patternName = url.deletingPathExtension().lastPathComponent
                 patternNote = pattern.skippedAudio > 0 ? "Haptics only · embedded audio skipped" : "Haptics follow this file’s playback clock"
+                loadedPattern = pattern
                 engine.setPattern(pattern)
-            } catch { self.error = error.localizedDescription }
-        }
+        } catch { self.error = error.localizedDescription }
     }
 
     @Published var link = ""
@@ -506,9 +548,7 @@ final class Studio: ObservableObject {
         detectedApp = nil
         playerTrack = nil
         detection = "Listening for music"
-        if case .player(let link) = source { selectedAppLabel = link.provider.appName; selectedDiagnosticApp = ListeningHealthSnapshot.app(bundle: link.provider.bundle, localFile: false) }
-        else if case .file = source { selectedAppLabel = "Local audio file"; selectedDiagnosticApp = .file }
-        else { selectedAppLabel = "Automatic Mac audio"; selectedDiagnosticApp = .macAudio }
+        labelSource(source)
         lastInfoCheck = .distantPast
         liveInfoTask?.cancel()
         liveInfoTask = nil
