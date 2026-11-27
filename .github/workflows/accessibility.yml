@@ -1,0 +1,25 @@
+name: Native accessibility
+on:
+  push:
+    branches: [main]
+    paths: ['Sources/**', 'Tests/Accessibility/**', 'Tests/Support/**', '.github/workflows/accessibility.yml']
+  pull_request:
+    paths: ['Sources/**', 'Tests/Accessibility/**', 'Tests/Support/**', '.github/workflows/accessibility.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: accessibility-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  macos:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Native AX descriptions, roles, navigation order, and reduced-motion fixtures
+        run: bash Tests/Accessibility/run.sh
+        env:
+          SONGWAVE_AX_RESULTS: ${{ runner.temp }}/Accessibility.xcresult

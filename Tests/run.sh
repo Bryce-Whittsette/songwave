@@ -75,6 +75,12 @@ xcrun swiftc -swift-version 5 -O "$health"/*.swift -o "$health/check"
 
 studio="$scratch/studio"
 mkdir -p "$studio"
-cp -X "$project"/Sources/{Studio,Source,ListeningSetup,GlassControls,Signal,Equalizer,RhythmDSP,VocalFocus,HapticPattern,SignalDisplay,ListeningHealth,AudioAccessHealth}.swift "$project/Tests/StudioRecoveryRegression.swift" "$studio/"
+cp -X "$project"/Sources/{Studio,Source,ListeningSetup,GlassControls,Signal,Equalizer,RhythmDSP,VocalFocus,HapticPattern,SignalDisplay,ListeningHealth,AudioAccessHealth}.swift "$project/Tests/StudioRecoveryRegression.swift" "$project/Tests/Support/StudioTestEdges.swift" "$studio/"
 xcrun swiftc -swift-version 5 -O "$studio"/*.swift -o "$studio/SongWaveStudioRegression"
 "$studio/SongWaveStudioRegression"
+
+motion="$scratch/motion"
+mkdir -p "$motion"
+cp -X "$project"/Sources/{MotionAccessibility,VisualActivity,Signal,Equalizer,RhythmDSP,VocalFocus,Trackpad}.swift "$project/Tests/MotionAccessibilityRegression.swift" "$motion/"
+xcrun swiftc -swift-version 5 -O "$motion"/*.swift -o "$motion/check"
+"$motion/check"

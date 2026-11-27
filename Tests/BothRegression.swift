@@ -26,6 +26,36 @@ import Foundation
             precondition(frame.level.isFinite && frame.level <= 1 && frame.tones.count <= 26)
             precondition(frame.tones.allSatisfy { $0.weight.isFinite && $0.weight >= 0 })
         }
+        func toneWeight(_ frame: SignalFrame, _ hz: Double) -> Double {
+            frame.tones.filter { abs($0.hertz - hz) < 1 }.reduce(0) { $0 + $1.weight }
+        }
+        let bed = SignalFrame(tones: [Tone(hertz: 220, weight: 1)], level: 1, bands: [], inputRMS: 0.1, hasAudio: true)
+        var contrast = AutomaticHaptics()
+        let before = contrast.frame(bed, mode: .assist, blocked: false, focus: .both, at: 5)
+        let onset = SignalFrame(tones: bed.tones, level: 1, bands: [], inputRMS: 0.1, hasAudio: true,
+            beatStrength: 0.25, beatFrequency: 125)
+        let hitFrame = contrast.frame(onset, mode: .assist, blocked: false, focus: .both, at: 5.008)
+        precondition(toneWeight(hitFrame, 220) < toneWeight(before, 220) * 0.3,
+            "A quiet drum must have foreground room against a loud vocal bed.")
+        precondition(toneWeight(hitFrame, 125) + toneWeight(hitFrame, 375) > toneWeight(hitFrame, 220) * 3)
+        precondition(hitFrame.level >= before.level && hitFrame.level <= before.level + 0.25 * 0.8,
+            "Clarity must avoid a dropout and stay within the previous blend's budget.")
+        let returned = contrast.frame(bed, mode: .assist, blocked: false, focus: .both, at: 5.128)
+        precondition(toneWeight(returned, 220) > toneWeight(before, 220) * 0.9,
+            "Vocal texture must return promptly between attacks.")
+        for carrier in [125.0, 250, 375] {
+            var collision = AutomaticHaptics()
+            let voice = SignalFrame(tones: [Tone(hertz: carrier, weight: 1)], level: 0.8, bands: [], inputRMS: 0.1, hasAudio: true)
+            _ = collision.frame(voice, mode: .assist, blocked: false, focus: .both, at: 6)
+            let tap = SignalFrame(tones: voice.tones, level: voice.level, bands: [], inputRMS: 0.1, hasAudio: true, beatStrength: 0.25, beatFrequency: carrier)
+            let textured = collision.frame(tap, mode: .assist, blocked: false, focus: .both, at: 6.008)
+            precondition(textured.tones.contains { abs($0.hertz - carrier) > 1 && $0.weight > 0.01 },
+                "A beat/vocal carrier collision must still have a distinct short texture.")
+            let released = collision.frame(voice, mode: .assist, blocked: false, focus: .both, at: 6.188)
+            precondition(released.tones.allSatisfy { abs($0.hertz - carrier) < 1 })
+            precondition(released.beatStrength == 0)
+        }
+        print("Both foregrounds quiet attacks, adds bounded complementary texture for carrier collisions, and restores the vocal bed without extra detected events.")
         // Exercise the actual one-FFT analyzer on mixed PCM, not a synthesized
         // output frame alone. This is a controlled fixture, not song recall.
         for rate in [16000.0, 24000, 48000] {

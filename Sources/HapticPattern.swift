@@ -164,6 +164,8 @@ struct AutomaticHaptics {
     private var percussion = MusicalEnvelope()
     private var previousMode: OutputMode?
     private var previousFocus: HapticFocus?
+    private var bothAccentAt = -Double.infinity
+    private var bothEdgeFrequency = 375.0
     private var previousTime: Double?
 
     mutating func frame(_ signal: SignalFrame, mode: OutputMode, blocked: Bool, focus: HapticFocus? = nil, impact: Double = 0.65, detailBalance: Double = 0, at now: Double) -> SignalFrame {
@@ -171,11 +173,12 @@ struct AutomaticHaptics {
         let focus = focus ?? (mode == .assist ? .beat : .voice)
         if previousMode != mode || previousFocus != focus || previousTime.map({ now < $0 || now - $0 > 0.2 }) == true {
             percussion = MusicalEnvelope()
+            bothAccentAt = -Double.infinity
         }
         previousMode = mode
         previousFocus = focus
         previousTime = now
-        guard !blocked else { percussion = MusicalEnvelope(); return .empty }
+        guard !blocked else { percussion = MusicalEnvelope(); bothAccentAt = -Double.infinity; return .empty }
         // Vocal harmonic/pitch shaping is performed on the live or isolated PCM.
         // Keep its frequencies intact; rhythm mode builds transient/release layers.
         guard focus.includesBeat else { return signal }
@@ -190,11 +193,30 @@ struct AutomaticHaptics {
             let level = frame.level.isFinite ? min(1, max(0, frame.level)) : 0
             return valid.map { Tone(hertz: $0.hertz, weight: $0.weight / total * level * mix) }
         }
-        let tones = layer(signal, mix: 0.55) + layer(beat, mix: 0.8)
+        if signal.beatStrength.isFinite && signal.beatStrength > 0 {
+            bothAccentAt = now
+            bothEdgeFrequency = signal.beatFrequency >= 250 ? 125 : 375
+        }
+        // A real onset briefly moves the vocal bed behind the percussion, then
+        // recovers in about 100 ms. No onset means no duck and no extra event.
+        let duck = 0.88 * exp(-max(0, now - bothAccentAt) / 0.032)
+        let voice = layer(signal, mix: 0.55)
+        let voiceLevel = voice.reduce(0) { $0 + $1.weight }
+        let percussion = layer(beat, mix: 0.8)
+        let edgeShare = 0.22 * exp(-max(0, now - bothAccentAt) / 0.010)
+        let edgeWeight = percussion.reduce(0) { $0 + $1.weight } * edgeShare
+        var tones = voice.map { Tone(hertz: $0.hertz, weight: $0.weight * (1 - duck)) }
+        tones += percussion.map { Tone(hertz: $0.hertz, weight: $0.weight * (1 - edgeShare)) }
+        // A brief complementary texture keeps a hit legible even when its main
+        // carrier matches a vocal. Redistribute weight; never add output gain.
+        if edgeWeight > 0.0001 { tones.append(Tone(hertz: bothEdgeFrequency, weight: edgeWeight)) }
         let total = tones.reduce(0) { $0 + $1.weight }
-        let scale = max(1, total)
-        return SignalFrame(tones: tones.map { Tone(hertz: $0.hertz, weight: $0.weight / scale) },
-            level: min(1, total), bands: signal.bands, inputRMS: signal.inputRMS,
+        // Preserve the bed's level rather than making a quiet hit feel like a
+        // dropout. This is never louder than the previous un-ducked blend.
+        let level = min(1, max(total, voiceLevel))
+        let scale = total > 0 ? level / total : 0
+        return SignalFrame(tones: tones.map { Tone(hertz: $0.hertz, weight: $0.weight * scale) },
+            level: level, bands: signal.bands, inputRMS: signal.inputRMS,
             hasAudio: signal.hasAudio || beat.hasAudio, beatStrength: signal.beatStrength,
             beatFrequency: signal.beatFrequency)
     }
