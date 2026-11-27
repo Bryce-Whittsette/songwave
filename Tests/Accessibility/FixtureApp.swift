@@ -15,7 +15,8 @@ import SwiftUI
         reduceMotion = env["SONGWAVE_AX_REDUCE_MOTION"] == "1"
         scheme = env["SONGWAVE_AX_SCHEME"] == "light" ? .light : .dark
         UserDefaults.standard.setVolatileDomain(["setupComplete": screen == "player", "launchListen": false,
-            "audioAccessConfigured": screen != "permission", "firstSuccessPending": false], forName: UserDefaults.argumentDomain)
+            "audioAccessConfigured": screen != "permission", "firstSuccessPending": false,
+            "outputMode": OutputMode.assist.rawValue], forName: UserDefaults.argumentDomain)
         _studio = StateObject(wrappedValue: Studio())
     }
     var body: some Scene {
