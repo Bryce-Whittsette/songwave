@@ -20,6 +20,10 @@ import Foundation
         check.finishTest(retry, succeeded: true)
         precondition(check.canConfirm && check.confirm())
         check.recover(); precondition(!check.confirm())
+        let stoppedTest = check.beginTest()!
+        check.recover()
+        check.finishTest(stoppedTest, succeeded: true)
+        precondition(check.phase == .recovery && !check.canConfirm, "Stop/recovery must invalidate a running test callback.")
 
         for cadence in [0.008, 0.02, 0.035] {
             var schedule = TrackpadCheckSequence(), pulses = 0

@@ -17,7 +17,7 @@ Open **Listening help** in the player for trackpad, capture, selected-app and pa
 3. Open **Settings → Listening Help** and check System Audio Recording access. In macOS, this may be under **Privacy & Security → Screen & System Audio Recording**. Reopen SongWave if macOS requests it.
 4. Play a song, choose **Speakers + haptics**, and rest a finger lightly on the trackpad. Raise Intensity gradually.
 
-Trackpad only follows vocals, so instrumental passages may be quiet. Isolated needs a brief model warmup. Some protected audio cannot be captured. Music detection also needs a moment when playback starts.
+Choose **Feel → Beat**, **Voice** or **Both** in either output. Voice can be quiet during instrumental passages. Isolated needs a brief model warmup. Some protected audio cannot be captured. Music detection also needs a moment when playback starts.
 
 No song link, imported pattern, or file is needed for normal use.
 

@@ -48,4 +48,4 @@ Offline stress checks exercised concurrent ring buffers with 2.56 million offere
 
 Updater tests use a disposable app and separate temporary key. Modified feeds and archives must be rejected; a valid update must replace/relaunch the test app and write its result marker. The production signing key is not exported for those tests. Public-feed automation has published and verified signed preview updates.
 
-[Build/tests](development.md) · [Update pipeline](updates.md) · [Release notes](releases/0.5.4.md)
+[Build/tests](development.md) · [Update pipeline](updates.md) · [Current release notes](releases/0.5.9.md)

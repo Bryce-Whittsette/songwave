@@ -681,6 +681,7 @@ final class Studio: ObservableObject {
     }
 
     func stop() {
+        if testingTrackpad { testingTrackpad = false; firstSuccess.recover() }
         resumeMacAfterWake = false
         if afterAudioAccess != nil {
             afterAudioAccess = nil
