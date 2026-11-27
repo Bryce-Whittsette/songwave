@@ -571,7 +571,10 @@ final class Studio: ObservableObject {
         guard verification || !verifyingSetup else { return }
         resumeMacAfterWake = false
         if source.isLive && (!audioAccessReady || audioAccessHealth.requiresRecovery) {
-            afterAudioAccess = { [weak self] in self?.start(source, openPlayer: openPlayer, from: position) }
+            afterAudioAccess = { [weak self] in
+                self?.start(source, openPlayer: openPlayer, from: position, preserveParty: preserveParty,
+                            verification: verification, initialBypass: initialBypass)
+            }
             showPlaybackAccess = true
             return
         }

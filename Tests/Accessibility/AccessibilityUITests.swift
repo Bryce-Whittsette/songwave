@@ -141,13 +141,13 @@ final class AccessibilityUITests: XCTestCase {
     @MainActor func testEverydayPlayerGroupsOptionalAndAdvancedControls() throws {
         let app = launch("player")
         defer { app.terminate() }
-        let link = app.descendants(matching: .any).matching(identifier: "source.link").firstMatch
-        XCTAssertFalse(link.exists)
+        let optionalFile = app.buttons["Open audio file…"]
+        XCTAssertFalse(optionalFile.exists)
         XCTAssertFalse(app.buttons["Fine Tune…"].exists)
         XCTAssertFalse(app.buttons["Insane Ultra…"].exists)
         XCTAssertFalse(app.staticTexts["Trackpad EQ"].exists)
         app.disclosureTriangles.firstMatch.click()
-        XCTAssertTrue(link.waitForExistence(timeout: 4))
+        XCTAssertTrue(optionalFile.waitForExistence(timeout: 4))
         app.buttons["tools.open"].click()
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "tools.heading").firstMatch.waitForExistence(timeout: 4))
         XCTAssertTrue(app.buttons["Fine Tune…"].exists)

@@ -38,7 +38,6 @@ struct FirstSuccessContent: View {
             Label(studio.firstSuccess.audioStatus,
                   systemImage: studio.firstSuccess.audioPresent ? "checkmark.circle" : "waveform")
                 .font(.headline)
-                .accessibilityIdentifier("setup.audio.status")
             BeatLevelIndicator(display: studio.display)
             Text("During this check, speakers stay unmuted and automatic haptics are paused.")
                 .font(.callout).foregroundStyle(.secondary)

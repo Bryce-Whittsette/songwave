@@ -4,13 +4,13 @@ Feel the music playing on your Mac through its Force Touch trackpad.
 
 Open SongWave, play music in Spotify, Apple Music, or your browser, and rest a finger on the trackpad. No song link or file needed.
 
-**[Download for Mac — Apple silicon](https://github.com/Bryce-Whittsette/songwave/releases/download/v0.5.10/SongWave-0.5.10-AppleSilicon.dmg)** · [What's new](docs/releases/0.5.10.md) · [Version history](CHANGELOG.md)
+**[Download for Mac — Apple silicon](https://github.com/Bryce-Whittsette/songwave/releases/download/v0.5.11/SongWave-0.5.11-AppleSilicon.dmg)** · [What's new](docs/releases/0.5.11.md) · [Version history](CHANGELOG.md)
 
 Public preview · macOS 14.2 or later · Force Touch trackpad required · Tested on an M4 MacBook Air
 
 ## Install
 
-1. Download and open **SongWave-0.5.10-AppleSilicon.dmg**.
+1. Download and open **SongWave-0.5.11-AppleSilicon.dmg**.
 2. Drag **SongWave** into the **Applications** folder shown in the window. Open SongWave from Applications.
 3. Finish the short setup and allow **System Audio Recording** when prompted. Then play music normally.
 
@@ -18,11 +18,11 @@ This preview hasn't been notarized by Apple. If macOS blocks it, see [the SongWa
 
 **Already installed?** Quit SongWave, download the new DMG, and drag SongWave into Applications. Choose **Replace**, then open it again. Your listening preferences stay saved; macOS may ask for audio access again after a preview update. Version 0.5.3 needs this one manual update; from 0.5.4 onward, use **SongWave → Check for Updates…** or allow automatic checks.
 
-## New in 0.5.10
+## New in 0.5.11
 
-- Clearer screen-reader headings and action names in setup and Listening help, with native accessibility checks in CI.
-- Reduce Motion keeps the beat pulse still while retaining music-level and recent-beat feedback.
-- Both gives percussion a brief foreground accent, then restores vocal texture smoothly. The separation engine is unchanged.
+- Connection retries stay together in **Listening help**, which opens at the first status.
+- Retrying a local file keeps your position and haptics-off choice. Local files never need recording access.
+- Setup distinguishes current audio from audio heard earlier. A finished permission check cannot reopen a check you closed.
 
 See [every public version](CHANGELOG.md) for changes and developer notes.
 

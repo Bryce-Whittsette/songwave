@@ -108,6 +108,15 @@ import Foundation
         precondition(report.contains("Selected app: Local file") && report.contains("Output route: Built-in audio"))
         studio.stop()
 
+        // An explicit live retry that waits for permission must retain the
+        // listener's haptics-off choice when that permission finally succeeds.
+        studio.source = .macAudio; studio.localBypass = true
+        studio.retryListening()
+        PlaybackAccess.failure = nil
+        await studio.retryCapture()
+        precondition(studio.active && studio.localBypass && Playback.runs.last?.haptics == false)
+        studio.stop()
+
         // Permission may finish after the window closes. Save its result, but
         // do not reopen verification or start a new audio/haptic session.
         PlaybackAccess.failure = nil

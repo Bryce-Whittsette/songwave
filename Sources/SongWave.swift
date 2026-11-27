@@ -266,7 +266,6 @@ struct Console: View {
                         .font(.body)
                         .lineLimit(1...3)
                         .accessibilityLabel("Spotify or Apple Music link")
-                        .accessibilityIdentifier("source.link")
                         .help(studio.link)
                     Button("Paste", action: studio.paste)
                         .buttonStyle(.borderless)

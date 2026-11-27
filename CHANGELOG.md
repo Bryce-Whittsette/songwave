@@ -2,6 +2,14 @@
 
 Every public release is listed here, newest first. Each version has a short explanation and expandable developer notes.
 
+## [0.5.11 — Connection and recovery](docs/releases/0.5.11.md)
+
+Public Preview · November 27, 2026
+
+Connection retries stay in one place, recovery opens at the top, local files retain position and bypass, and audio detection no longer implies music is still playing after it stops. Expanded native setup/recovery and grouped-control tests.
+
+[Download](https://github.com/Bryce-Whittsette/songwave/releases/tag/v0.5.11) · [Full notes and validation](docs/releases/0.5.11.md)
+
 ## [0.5.10 — Clarity and accessibility](docs/releases/0.5.10.md)
 
 Public Preview · November 27, 2026

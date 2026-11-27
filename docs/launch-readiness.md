@@ -1,8 +1,10 @@
 # Preparing the broader launch
 
-0.5.10 is the Mac public preview. It adds automated native accessibility checks, reduced-motion fixes and clearer Both-mode output to the first-connection and recovery work. Broader launch preparation continues. Readiness means someone new can install, understand, recover, and update the app reliably.
+0.5.11 is the Mac public preview. It closes first-connection and recovery gaps found after 0.5.10, with real-controller regressions and native end-to-end coverage. Broader launch preparation continues. Readiness means someone new can install, understand, recover, and update the app reliably.
 
 ## Current work
+
+- [0.5.11 notes](releases/0.5.11.md): in-place connection retries, recovery scroll reset, accurate current-audio status, file/bypass preservation and closed-permission cancellation. [Numbered flow audit and screenshots](audits/connection-0.5.11.md).
 
 - [0.5.10 notes](releases/0.5.10.md): native descriptions/roles/reading-order audits, reduced-motion policy checks, and temporal contrast in Both. [Accessibility scope and remaining listener checks](accessibility.md).
 
@@ -37,8 +39,8 @@ The hiring rubric weighted technical depth 30%, validation 25%, maintainability 
 ## Remaining launch order
 
 1. **Finish the distribution identity.** Sign with Developer ID, notarize and staple. Verify a clean-account installation and a second update using the same identity. OS permissions remain under macOS control. No Developer ID identity is installed locally; submission/stapling automation and signed-build validation are also unfinished. Credentials alone are not a verified final blocker.
-2. **Confirm first success — implemented in 0.5.9; listener validation pending.** After access setup, show audio detection and an explicit, short trackpad test. Let the listener confirm a sensation or enter recovery. Make the test silent unless they deliberately select audio. Keep the normal view focused on listening state, mode and intensity; group optional link/file and experimental controls.
-3. **Make recovery one place — implemented in 0.5.9; novice/assistive-technology validation pending.** Show trackpad availability, capture result, selected app and pause reason with the relevant Retry/Settings action. A privacy-safe diagnostics copy should contain app/build, Mac/OS, output route and error state, excluding song titles, recordings and personal paths.
+2. **Confirm first success — implemented in 0.5.9, audited and regression-covered in 0.5.11; listener validation pending.** After access setup, show audio detection and an explicit, short trackpad test. Let the listener confirm a sensation or enter recovery. Make the test silent unless they deliberately select audio. Keep the normal view focused on listening state, mode and intensity; group optional link/file and experimental controls.
+3. **Make recovery one place — implemented in 0.5.9, audited and regression-covered in 0.5.11; novice/assistive-technology validation pending.** Show trackpad availability, capture result, selected app and pause reason with the relevant Retry/Settings action. A privacy-safe diagnostics copy should contain app/build, Mac/OS, output route and error state, excluding song titles, recordings and personal paths.
 4. **Collect physical and novice evidence.** Test multiple Apple-silicon MacBooks and supported OS versions, speakers/wired/Bluetooth routes, sleep/wake, app switching, permission denial, calls, keyboard restoration and repeated relaunches. Measure whole-app CPU/RAM/energy and observed sync in both vocal modes. Watch several new users install and reach a working state; record failures before claiming a completion time.
 5. **Show the work.** Publish a short recording of the actual app, a compact hardware matrix, clear current limits and the [development decisions](project-decisions.md). Describe Bryce's product/tuning/testing role and AI assistance accurately. A small download/demo page can follow; GitHub release assets should remain the versioned download source.
 
@@ -50,4 +52,4 @@ Offline stress checks exercised concurrent ring buffers with 2.56 million offere
 
 Updater tests use a disposable app and separate temporary key. Modified feeds and archives must be rejected; a valid update must replace/relaunch the test app and write its result marker. The production signing key is not exported for those tests. Public-feed automation has published and verified signed preview updates.
 
-[Build/tests](development.md) · [Update pipeline](updates.md) · [Current release notes](releases/0.5.10.md)
+[Build/tests](development.md) · [Update pipeline](updates.md) · [Current release notes](releases/0.5.11.md)
