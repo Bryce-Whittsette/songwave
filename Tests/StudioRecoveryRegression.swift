@@ -90,6 +90,15 @@ import Foundation
         precondition(studio.healthSnapshot.trackpadAvailable && studio.trackpadFailure == nil)
         studio.completeFirstSuccess()
 
+        // Recovery entered directly from permission/setup must save context
+        // before its first non-actuating retry replaces the selected source.
+        studio.start(file, from: 49); studio.localBypass = true
+        studio.firstSuccessRecovery(); studio.retryListening()
+        precondition(studio.firstSuccess.phase == .recovery && Playback.runs.last?.haptics == false)
+        studio.completeFirstSuccess()
+        precondition(studio.source == file && Playback.runs.last?.position == 49 && studio.localBypass)
+        studio.stop()
+
         // Local-file retries keep position and manual bypass. Capture is not
         // involved even if system recording permission previously failed.
         studio.start(file, from: 51); studio.localBypass = true

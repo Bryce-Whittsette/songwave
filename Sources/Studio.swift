@@ -44,14 +44,17 @@ final class Studio: ObservableObject {
     }
     func beginFirstSuccess() {
         guard !requestingAudioAccess, !testingTrackpad else { return }
+        rememberCheckContext()
+        stop(); firstSuccess.begin(); markFirstSuccessPending(); showPlaybackAccess = true
+        guard audioAccessReady, !audioAccessHealth.requiresRecovery else { firstSuccess.recover(); return }
+        start(.macAudio, verification: true)
+    }
+    private func rememberCheckContext() {
         if checkPrior == nil {
             checkPrior = PriorPlayback(source: source ?? .macAudio, wasPlaying: active, elapsed: elapsed,
                 duration: duration, info: metadata, bypass: localBypass)
             checkPriorPattern = (loadedPattern, patternName, patternNote)
         }
-        stop(); firstSuccess.begin(); markFirstSuccessPending(); showPlaybackAccess = true
-        guard audioAccessReady, !audioAccessHealth.requiresRecovery else { firstSuccess.recover(); return }
-        start(.macAudio, verification: true)
     }
     func testTrackpad() {
         guard !testingTrackpad, let token = firstSuccess.beginTest() else { return }
@@ -66,6 +69,7 @@ final class Studio: ObservableObject {
         }
     }
     func firstSuccessRecovery() {
+        rememberCheckContext()
         if testingTrackpad { stop(); testingTrackpad = false }
         firstSuccess.recover()
     }
