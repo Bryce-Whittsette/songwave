@@ -164,7 +164,10 @@ final class Spectrum {
         let rms = sqrt(max(0, power))
         let releasing = rms < previousRMS * 0.85
         previousRMS = rms
-        guard filled >= analysisSize, rms > 0.00025 else {
+        // Low-level percussion can remain audible after vocals drop out.
+        // Keep the vocal floor unchanged; transient/flux checks still qualify beats.
+        let silenceFloor = mode == .assist ? 0.00005 : 0.00025
+        guard filled >= analysisSize, rms > silenceFloor else {
             previousTones.removeAll(keepingCapacity: true)
             previousLevel = 0
             vocalFocus = VocalFocus()

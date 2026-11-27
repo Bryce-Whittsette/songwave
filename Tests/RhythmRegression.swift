@@ -51,6 +51,9 @@ struct RhythmRegression {
         }
         print("8 isolated narrow-band attack fixtures from 65 to 2500 Hz were detected once each; this does not establish mixed-song recall.")
         try quietDetails()
+        try quietDetails(includeVoice: false)
+        let belowFloor = try analyze(rate: 24000, mode: .assist) { time in Float(0.00003 * sin(2 * .pi * 300 * time)) }
+        precondition(belowFloor.isEmpty, "Sub-floor input should remain silent.")
         try timing()
         captureGaps()
 
@@ -85,7 +88,7 @@ struct RhythmRegression {
         }
         return events
     }
-    static func quietDetails() throws {
+    static func quietDetails(includeVoice: Bool = true) throws {
         let rate = 24000.0
         let kicks = [0.4, 1.4, 2.4]
         let hats = [0.62, 0.73, 1.62, 1.73, 2.62, 2.73]
@@ -109,7 +112,7 @@ struct RhythmRegression {
                     sin(2 * .pi * (70 * kickAge + 1.5 * (1 - exp(-kickAge * 30))))
                 let hat = 0.004 * exp(-hatAge * 70) * (noise - low3500)
                 let mid = 0.004 * exp(-midAge * 45) * (low1800 - low250)
-                let voice = 0.07 * sin(2 * .pi * 224 * time) + 0.03 * sin(2 * .pi * 448 * time)
+                let voice = includeVoice ? 0.07 * sin(2 * .pi * 224 * time) + 0.03 * sin(2 * .pi * 448 * time) : 0
                 analyzer.append(Float(kick + hat + mid + voice))
             }
             let frame = analyzer.frame(tuning: OutputMode.assist.defaults, mode: .assist)

@@ -4,13 +4,13 @@ Feel the music playing on your Mac through its Force Touch trackpad.
 
 Open SongWave, play music in Spotify, Apple Music, or your browser, and rest a finger on the trackpad. No song link or file needed.
 
-**[Download for Mac — Apple silicon](https://github.com/Bryce-Whittsette/songwave/releases/download/v0.5.6/SongWave-0.5.6-AppleSilicon.dmg)** · [What's new](docs/releases/0.5.6.md) · [Version history](CHANGELOG.md)
+**[Download for Mac — Apple silicon](https://github.com/Bryce-Whittsette/songwave/releases/download/v0.5.7/SongWave-0.5.7-AppleSilicon.dmg)** · [What's new](docs/releases/0.5.7.md) · [Version history](CHANGELOG.md)
 
 Public preview · macOS 14.2 or later · Force Touch trackpad required · Tested on an M4 MacBook Air
 
 ## Install
 
-1. Download and open **SongWave-0.5.6-AppleSilicon.dmg**.
+1. Download and open **SongWave-0.5.7-AppleSilicon.dmg**.
 2. Drag **SongWave** into the **Applications** folder shown in the window. Open SongWave from Applications.
 3. Finish the short setup and allow **System Audio Recording** when prompted. Then play music normally.
 
@@ -18,9 +18,11 @@ This preview hasn't been notarized by Apple. If macOS blocks it, see [the SongWa
 
 **Already installed?** Quit SongWave, download the new DMG, and drag SongWave into Applications. Choose **Replace**, then open it again. Your listening preferences stay saved; macOS may ask for audio access again after a preview update. Version 0.5.3 needs this one manual update; from 0.5.4 onward, use **SongWave → Check for Updates…** or allow automatic checks.
 
-## New in 0.5.6
+## New in 0.5.7
 
-The built-in demo is gone. SongWave and Ultra follow your music or a file you choose. Ultra keeps its stronger temporary processing profile while your saved controls stay unchanged.
+- Choose **Voice** or **Beat** independently of Speakers + haptics or Trackpad only.
+- Quieter percussion can pass the Beat silence gate, improving the tested soft mid/high details when vocals drop out.
+- Voice with speakers uses timing compensation for its larger analysis window. The existing AI vocal-isolation engine is unchanged.
 
 See [every public version](CHANGELOG.md) for changes and developer notes.
 
