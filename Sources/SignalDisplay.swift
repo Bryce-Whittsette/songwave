@@ -14,6 +14,8 @@ final class SignalDisplay: ObservableObject {
     private var receivedAt: Double
     private var origin = SignalFrame.empty.bands
     private var timestamp: Double
+    private var beatReleaseTask: Task<Void, Never>?
+    @Published private(set) var recentBeat = false
     private var releaseTask: Task<Void, Never>?
     @Published private(set) var isVisible = false
     @Published private(set) var settling = false
@@ -31,6 +33,8 @@ final class SignalDisplay: ObservableObject {
         if value { visibleOwners.insert(owner) } else { visibleOwners.remove(owner) }
         let visible = !visibleOwners.isEmpty
         guard visible != isVisible else { return }
+        beatReleaseTask?.cancel(); beatReleaseTask = nil
+        if recentBeat { recentBeat = false }
         releaseTask?.cancel()
         releaseTask = nil
         if settling { settling = false }
@@ -44,6 +48,7 @@ final class SignalDisplay: ObservableObject {
             origin = resumed.bands
             timestamp = now
             frame = resumed
+            if fresh && resumed.hasAudio && resumed.beatStrength > 0 { retainBeat() }
         }
     }
 
@@ -54,6 +59,8 @@ final class SignalDisplay: ObservableObject {
         else if next.beatStrength.isFinite && next.beatStrength > 0 { beatAt = now; beatStrength = min(1, next.beatStrength) }
         receivedAt = now
         guard isVisible, frame.hasAudio || next.hasAudio else { return }
+        if !next.hasAudio { beatReleaseTask?.cancel(); beatReleaseTask = nil; if recentBeat { recentBeat = false } }
+        else if next.beatStrength.isFinite && next.beatStrength > 0 { retainBeat() }
         origin = bands(at: now)
         timestamp = now
         let releasing = frame.hasAudio && !next.hasAudio
@@ -74,6 +81,16 @@ final class SignalDisplay: ObservableObject {
         }
     }
 
+    private func retainBeat() {
+        if !recentBeat { recentBeat = true }
+        beatReleaseTask?.cancel()
+        beatReleaseTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            self?.recentBeat = false; self?.beatReleaseTask = nil
+        }
+    }
+
     func beat(at now: Double) -> Double {
         let age = now - beatAt
         guard isVisible, age >= 0, age < 0.22 else { return 0 }
@@ -88,5 +105,5 @@ final class SignalDisplay: ObservableObject {
         }
     }
 
-    deinit { releaseTask?.cancel() }
+    deinit { releaseTask?.cancel(); beatReleaseTask?.cancel() }
 }

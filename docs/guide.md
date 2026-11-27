@@ -6,7 +6,7 @@ New-user setup continues to System Audio Recording access, then a first connecti
 
 **Listening help** in the player or **Settings → Listening Help** shows trackpad availability, capture result, selected app and listening/pause state. Each has Retry or Settings actions. Retries preserve call, speech and video filtering. **Copy diagnostics** copies only app/build, hardware model, OS, output transport, app category and categorical states. It excludes song titles, filenames, personal paths, device names and recordings, and sends nothing automatically.
 
-The monochrome **Beat / Level** indicator shows analyzed music activity alongside the signal monitor. It does not prove physical actuator motion. Text and accessibility labels accompany the graphic; Reduce Motion removes pulse scaling. Visibility-aware scheduling pauses visual animation when hidden.
+The monochrome **Beat / Level** indicator shows analyzed music activity alongside the signal monitor. It does not prove physical actuator motion. Text and accessibility labels accompany the graphic; Reduce Motion keeps pulse size and brightness fixed and removes animated interpolation while preserving level and recent-beat text. Visibility-aware scheduling pauses visual animation when hidden. [Accessibility checks and remaining listener validation](accessibility.md).
 
 ## Playback and tuning
 
@@ -61,5 +61,7 @@ The genre adjustments are modest, editable starting points designed for this tra
 ## Voice, Beat and Both
 
 Use **Feel → Voice / Beat / Both** independently of the output choice. Voice follows pitch and texture; Beat follows bass and percussion; Both blends the two. Both shares one FFT and does not load an additional model. The selected focus is kept when changing output. Light processing is used for Beat, Both and Voice with speakers. The existing AI Isolated option remains available only with Voice and Trackpad only; its model and inference code are unchanged. Authored file patterns use their own content, so the focus selector is disabled while one is attached.
+
+In Both, a detected percussion attack briefly lowers the vocal layer, which returns smoothly over roughly a tenth of a second. A short, complementary tactile texture helps distinguish attacks that share a frequency with the vocal layer. These changes redistribute the existing output budget; they add no model, onset detector or lookahead. How clearly that contrast feels still needs listener feedback on real trackpads.
 
 **Tools… → Fine Tune → Detail balance** makes detected mid/treble percussion more prominent and briefly lowers the bass rumble beneath it. It does not change EQ, beat timing or detection sensitivity. Voice passes through unchanged.

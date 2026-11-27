@@ -90,6 +90,9 @@ final class Studio: ObservableObject {
         start(source ?? .macAudio)
     }
     func openRecovery() { showPlaybackAccess = true }
+    func automationSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") { NSWorkspace.shared.open(url) }
+    }
     func trackpadSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.Trackpad-Settings.extension") { NSWorkspace.shared.open(url) }
     }

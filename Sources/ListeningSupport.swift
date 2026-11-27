@@ -2,6 +2,9 @@ import SwiftUI
 
 struct AudioSetupContent: View {
     @ObservedObject var studio: Studio
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.songWaveAdditionalMotionReduction) private var additionalMotionReduction
+    private var reduceMotion: Bool { AccessibleMotion.reduced(system: systemReduceMotion, additional: additionalMotionReduction) }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Allow System Audio Recording so SongWave can follow music playing on this Mac. You won’t need to paste a song link.")
@@ -14,15 +17,19 @@ struct AudioSetupContent: View {
             if studio.audioAccessHealth.failure != nil {
                 Text("Audio access wasn’t available. Check the permission in System Settings, then retry.")
                     .font(.callout)
-                Button("Privacy Settings…", action: studio.permissions)
+                Button("Privacy Settings…", action: studio.permissions).accessibilityIdentifier("recovery.capture.settings")
             }
             Button("Open listening help", action: studio.firstSuccessRecovery).disabled(studio.requestingAudioAccess)
         }.font(.system(size: 14))
+            .transaction { AccessibleMotion.apply(to: &$0, reduced: reduceMotion) }
     }
 }
 
 struct FirstSuccessContent: View {
     @ObservedObject var studio: Studio
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.songWaveAdditionalMotionReduction) private var additionalMotionReduction
+    private var reduceMotion: Bool { AccessibleMotion.reduced(system: systemReduceMotion, additional: additionalMotionReduction) }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Play a song in your music app. Rest a finger lightly on the trackpad.")
@@ -33,28 +40,36 @@ struct FirstSuccessContent: View {
             Text("During this check, speakers stay unmuted and automatic haptics are paused.")
                 .font(.callout).foregroundStyle(.secondary)
             Divider()
-            Text("Try three short taps").font(.headline)
+            Text("Try three short taps").font(.headline).accessibilityAddTraits(.isHeader).accessibilityHeading(.h2).accessibilityIdentifier("setup.test.heading")
             Text("The test lasts less than a second and generates no speaker audio. You can test before music is detected.")
                 .font(.callout).foregroundStyle(.secondary)
             Button(studio.testingTrackpad ? "Testing trackpad…" : "Test trackpad", action: studio.testTrackpad)
                 .buttonStyle(.borderedProminent).disabled(studio.testingTrackpad)
+                .accessibilityIdentifier("setup.test")
             if studio.testingTrackpad { ProgressView().controlSize(.small).accessibilityLabel("Trackpad test in progress") }
             if studio.firstSuccess.canConfirm {
-                Text("Did you feel the taps?").font(.headline)
+                Text("Did you feel the taps?").font(.headline).accessibilityAddTraits(.isHeader).accessibilityHeading(.h2).accessibilityIdentifier("setup.confirm.heading")
                 HStack {
                     Button("I felt it", action: studio.confirmFirstSuccess).buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("setup.confirm")
                     Button("I didn’t feel anything", action: studio.firstSuccessRecovery)
+                        .accessibilityIdentifier("setup.recover")
                 }
             }
             Button("Open listening help", action: studio.firstSuccessRecovery).disabled(studio.testingTrackpad)
+                .accessibilityIdentifier("setup.help")
             Text("A moving meter confirms audio activity, not a physical sensation. Only your answer confirms the trackpad test.")
                 .font(.callout).foregroundStyle(.secondary)
         }.font(.system(size: 14))
+            .transaction { AccessibleMotion.apply(to: &$0, reduced: reduceMotion) }
     }
 }
 
 struct RecoveryContent: View {
     @ObservedObject var studio: Studio
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.songWaveAdditionalMotionReduction) private var additionalMotionReduction
+    private var reduceMotion: Bool { AccessibleMotion.reduced(system: systemReduceMotion, additional: additionalMotionReduction) }
     @Binding var playerRequest: Provider?
     @Environment(\.openSettings) private var openSettings
     @State private var showPlayerAccess = false
@@ -70,8 +85,8 @@ struct RecoveryContent: View {
             Text("Check each part of the connection. Retry never bypasses call or speech filtering.")
                 .font(.callout).foregroundStyle(.secondary)
             status("Trackpad", value: health.trackpadAvailable ? (studio.trackpadFailure != nil ? "Detected; tap test needs attention" : studio.device ?? "Available") : "Unavailable or not checked", icon: "trackpad") {
-                Button("Retry") { studio.probe(force: true) }.disabled(busy)
-                Button("Trackpad Settings…", action: studio.trackpadSettings)
+                Button("Retry trackpad") { studio.probe(force: true) }.disabled(busy).accessibilityIdentifier("recovery.trackpad.retry")
+                Button("Trackpad Settings…", action: studio.trackpadSettings).accessibilityIdentifier("recovery.trackpad.settings")
             }
             Divider()
             status("Audio capture", value: health.capture.rawValue, icon: "waveform") {
@@ -80,13 +95,13 @@ struct RecoveryContent: View {
                         let failure = await studio.prepareAudioAccess()
                         if failure == nil && !studio.firstSuccessPending && !studio.verifyingSetup { studio.retryListening() }
                     }
-                }.disabled(busy)
-                Button("Privacy Settings…", action: studio.permissions)
+                }.disabled(busy).accessibilityIdentifier("recovery.capture.retry")
+                Button("Privacy Settings…", action: studio.permissions).accessibilityIdentifier("recovery.capture.settings")
             }
             Divider()
             status("Selected app", value: studio.selectedAppLabel, icon: "app") {
-                Button("Scan / Retry", action: studio.retryListening).disabled(busy)
-                Button("Player access…") { showPlayerAccess = true }
+                Button("Rescan music apps", action: studio.retryListening).accessibilityIdentifier("recovery.app.retry").disabled(busy)
+                Button("Player access…") { showPlayerAccess = true }.accessibilityIdentifier("recovery.app.settings")
             }
             if showPlayerAccess {
                 PlayerConnectionControls(studio: studio, playerRequest: $playerRequest)
@@ -94,8 +109,8 @@ struct RecoveryContent: View {
             }
             Divider()
             status("Listening state", value: health.pause.rawValue, icon: "pause.circle") {
-                Button("Retry listening", action: studio.retryListening).disabled(busy)
-                Button("Filter settings…") { studio.requestedSettingsPage = "Effects"; openSettings() }
+                Button("Retry listening", action: studio.retryListening).accessibilityIdentifier("recovery.pause.retry").disabled(busy)
+                Button("Filter settings…") { studio.requestedSettingsPage = "Effects"; openSettings() }.accessibilityIdentifier("recovery.pause.settings")
             }
             if studio.trackpadFailure != nil {
                 Text("The trackpad check needs attention. Check the connection, then retry. End any active call before running the tap test.")
@@ -103,44 +118,60 @@ struct RecoveryContent: View {
             }
             Divider()
             HStack {
-                Button("Run setup check", action: studio.beginFirstSuccess).disabled(busy)
+                Button("Run setup check", action: studio.beginFirstSuccess).disabled(busy).accessibilityIdentifier("recovery.check")
                 Spacer()
-                Button(copied ? "Diagnostics copied" : "Copy diagnostics") { studio.copyDiagnostics(); copied = true }
+                Button(copied ? "Diagnostics copied" : "Copy diagnostics") { studio.copyDiagnostics(); copied = true }.accessibilityIdentifier("recovery.copy")
             }
             Text("Diagnostics contain app/build, Mac model, macOS, output transport, app category and connection states. No song titles, recordings, device names or personal paths are copied. Nothing is sent automatically.")
                 .font(.caption).foregroundStyle(.secondary)
         }.font(.system(size: 14))
+            .transaction { AccessibleMotion.apply(to: &$0, reduced: reduceMotion) }
     }
     private func status<Actions: View>(_ title: String, value: String, icon: String, @ViewBuilder actions: () -> Actions) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: icon).font(.headline)
+            Label(title, systemImage: icon).font(.headline).accessibilityAddTraits(.isHeader).accessibilityHeading(.h2)
+                .accessibilityIdentifier("recovery.heading." + title)
             Text(value).textSelection(.enabled)
             HStack(spacing: 12, content: actions).controlSize(.small)
         }.frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .contain).accessibilityLabel(title)
     }
 }
 
 // Small, local motion only. No full-screen flashes or color-coded states.
 struct BeatLevelIndicator: View {
     @ObservedObject var display: SignalDisplay
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.songWaveAdditionalMotionReduction) private var additionalMotionReduction
+    private var reduceMotion: Bool { AccessibleMotion.reduced(system: systemReduceMotion, additional: additionalMotionReduction) }
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !display.isVisible || !display.frame.hasAudio)) { _ in
-            let beat = display.beat(at: ProcessInfo.processInfo.systemUptime)
-            let signal = display.frame
-            let level = signal.inputRMS.isFinite && signal.inputRMS > 0 ? min(1, max(0, 1 + 20 * log10(signal.inputRMS) / 60)) : 0
-            HStack(spacing: 10) {
-                Circle().fill(.primary.opacity(beat > 0 ? 0.9 : 0.22))
-                    .frame(width: 12, height: 12)
-                    .scaleEffect(reduceMotion ? 1 : 1 + beat * 0.25)
-                    .frame(width: 20, height: 20).accessibilityHidden(true)
-                Text(beat > 0 ? "Beat detected" : "Beat").font(.callout).frame(width: 96, alignment: .leading)
-                ProgressView(value: level).tint(.primary)
-                Text("\(Int(level * 100))%").font(.caption.monospacedDigit()).frame(width: 36, alignment: .trailing)
+        Group {
+            if reduceMotion {
+                indicator(beat: 0)
+            } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !display.isVisible || !display.frame.hasAudio)) { _ in
+                    indicator(beat: display.beat(at: ProcessInfo.processInfo.systemUptime))
+                }
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Visual music activity")
-            .accessibilityValue("\(signal.hasAudio ? "Audio detected" : "No audio"). Level \(Int(level * 100)) percent. \(beat > 0 ? "Beat detected." : "")")
+        }
+        .transaction { AccessibleMotion.apply(to: &$0, reduced: reduceMotion) }
+    }
+    private func indicator(beat: Double) -> some View {
+        let state = VisualActivityPresentation(signal: display.frame, beat: beat, recentBeat: display.recentBeat,
+            reduceMotion: reduceMotion, visible: display.isVisible)
+        return HStack(spacing: 10) {
+            Circle().fill(.primary.opacity(state.opacity))
+                .frame(width: 12, height: 12).scaleEffect(state.scale)
+                .frame(width: 20, height: 20).accessibilityHidden(true)
+            Text(state.beatDetected ? "Beat detected" : "Beat").font(.callout).frame(width: 96, alignment: .leading)
+            ProgressView(value: state.level).tint(.primary)
+            Text("\(Int(state.level * 100))%").font(.caption.monospacedDigit()).frame(width: 36, alignment: .trailing)
+        }
+        .accessibilityRepresentation {
+            ProgressView(value: state.level)
+                .accessibilityLabel("Visual music activity")
+                .accessibilityValue(state.accessibilityValue)
+                .accessibilityIdentifier("music.activity")
         }
     }
 }
