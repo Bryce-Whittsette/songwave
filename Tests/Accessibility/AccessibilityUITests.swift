@@ -99,7 +99,7 @@ final class AccessibilityUITests: XCTestCase {
                 if screen == "confirmation" {
                     let activity = app.staticTexts["music.activity"]
                     XCTAssertTrue(activity.exists)
-                    XCTAssertTrue(spoken(activity).contains("percent"))
+                    XCTAssertTrue((spoken(activity) + " " + (activity.value as? String ?? "")).contains("percent"))
                 }
                 try audit(app)
                 app.terminate()

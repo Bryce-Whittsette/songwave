@@ -167,10 +167,10 @@ struct BeatLevelIndicator: View {
             ProgressView(value: state.level).tint(.primary)
             Text("\(Int(state.level * 100))%").font(.caption.monospacedDigit()).frame(width: 36, alignment: .trailing)
         }
-        .accessibilityRepresentation {
-            Text("Visual music activity: " + state.accessibilityValue)
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("music.activity")
-        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isStaticText)
+        .accessibilityLabel("Visual music activity")
+        .accessibilityValue(state.accessibilityValue)
+        .accessibilityIdentifier("music.activity")
     }
 }
