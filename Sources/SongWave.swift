@@ -187,6 +187,9 @@ struct Console: View {
                     }
                 }
             }.padding(24).frame(width: 400)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Insane Ultra confirmation")
+                .accessibilityIdentifier("ultra.content")
         }
         .sheet(isPresented: $showTools, onDismiss: {
             let target = pendingTool; pendingTool = nil
@@ -467,6 +470,9 @@ struct Console: View {
             .frame(height: 380)
             HStack { Spacer(); Button("Done") { showTools = false }.keyboardShortcut(.defaultAction) }
         }.padding(24).frame(width: 450)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Listening tools")
+            .accessibilityIdentifier("tools.content")
     }
 
     private var soundTools: some View {
@@ -475,7 +481,7 @@ struct Console: View {
                 .accessibilityIdentifier("tools.sound.heading")
             Picker("Genre", selection: Binding(get: { studio.genre }, set: studio.setGenre)) {
                 ForEach(ListeningGenre.allCases) { Text($0.rawValue).tag($0) }
-            }
+            }.accessibilityIdentifier("tools.genre")
             if studio.hapticFocus.includesVoice {
                 if studio.mode == .trackpad && studio.hapticFocus == .voice {
                     Picker("Vocal quality", selection: $studio.tuning.vocalQuality) {
@@ -612,6 +618,9 @@ struct Console: View {
             }
         }
         .padding(23).frame(width: 380)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Fine Tune")
+        .accessibilityIdentifier("tuning.content")
     }
 
     private var beatTuning: some View {
@@ -697,6 +706,9 @@ struct Console: View {
             }
         }
         .padding(23).frame(width: 390)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("EQ Band Settings")
+        .accessibilityIdentifier("eq.bands.content")
     }
 
     @ViewBuilder private var notice: some View {
