@@ -14,7 +14,7 @@ struct SongWaveSettings: View {
 
     private enum Page: String, CaseIterable, Identifiable {
         case general = "General"
-        case playback = "Playback Access"
+        case playback = "Listening Help"
         case effects = "Effects"
         case updates = "Updates"
         case help = "Help"
@@ -32,7 +32,7 @@ struct SongWaveSettings: View {
         var detail: String {
             switch self {
             case .general: return "Appearance, launch behavior and listening preferences."
-            case .playback: return "Set up Mac audio and optional song details."
+            case .playback: return "Connection status, setup check and privacy-safe diagnostics."
             case .effects: return "Volume following, keyboard light and music filtering."
             case .updates: return "Check for new versions and choose how to hear about them."
             case .help: return "Guides, support and the SongWave project."
@@ -54,6 +54,14 @@ struct SongWaveSettings: View {
         .font(.system(size: 14))
         .tint(colorScheme == .dark ? Color.white : Color.black)
         .frame(minWidth: 740, minHeight: 560)
+        .onAppear { applyRequestedPage() }
+        .onChange(of: studio.requestedSettingsPage) { _, _ in applyRequestedPage() }
+    }
+
+    private func applyRequestedPage() {
+        if let name = studio.requestedSettingsPage, let page = Page(rawValue: name) {
+            selection = page; studio.requestedSettingsPage = nil
+        }
     }
 
     @ViewBuilder private func sections(for page: Page) -> some View {
@@ -98,8 +106,7 @@ struct SongWaveSettings: View {
         Section {
             PlaybackAccessContent(studio: studio, playerRequest: $playerRequest)
         }
-        Section("If nothing plays") {
-            Text("Use Speakers + haptics and play a song in your music app. Rest a finger lightly on the trackpad. Voice focus can be quiet during instrumental passages. Choose Beat to follow bass and percussion.")
+        Section("Guide") {
             Button("Open Player", action: openPlayer)
             Link("Troubleshooting", destination: projectURL("docs/troubleshooting.md"))
         }
@@ -163,7 +170,7 @@ struct SongWaveSettings: View {
             Link("User guide", destination: projectURL("docs/guide.md"))
             Link("Troubleshooting", destination: projectURL("docs/troubleshooting.md"))
             Link("Report a problem", destination: URL(string: "https://github.com/Bryce-Whittsette/songwave/issues/new/choose")!)
-            Button("Playback Access") { selection = .playback }
+            Button("Listening Help") { selection = .playback }
         }
         Section("Share SongWave") {
             Link("SongWave on GitHub", destination: ProjectShare.url)

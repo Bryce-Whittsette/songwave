@@ -44,6 +44,56 @@ struct UserHapticsGain {
 final class Playback {
     private let queue = DispatchQueue(label: "songwave.playback", qos: .userInteractive)
     private var session: Session?
+    private var checkID = UUID()
+    private var checkTimer: DispatchSourceTimer?
+    private var checkMotor: Trackpad?
+    private func cancelCheck() { checkID = UUID(); checkTimer?.cancel(); checkTimer = nil; checkMotor = nil }
+
+    // Invoked only by the explicit Test trackpad action. No audio player exists.
+    func testTrackpad(_ result: @escaping (String?) -> Void) {
+        queue.async { [self] in
+            cancelCheck(); session?.stop(); session = nil
+            do {
+                guard !CallAudioPolicy.active(in: AudioHardware.processList().compactMap(AudioClient.init)) else {
+                    throw GlassError("End the call before testing the trackpad.")
+                }
+                checkMotor = try Trackpad()
+                let token = checkID
+                let started = ProcessInfo.processInfo.systemUptime
+                var sequence = TrackpadCheckSequence()
+                var played = 0
+                let timer = DispatchSource.makeTimerSource(queue: queue)
+                timer.schedule(deadline: .now(), repeating: .milliseconds(20), leeway: .milliseconds(1))
+                timer.setEventHandler { [weak self] in
+                    guard let self, self.checkID == token, let motor = self.checkMotor else { return }
+                    let elapsed = ProcessInfo.processInfo.systemUptime - started
+                    do {
+                        if elapsed >= TrackpadCheckSequence.duration {
+                            self.cancelCheck()
+                            let failure = played == 3 ? nil : "The test was interrupted. Retry when the Mac is less busy."
+                            DispatchQueue.main.async { result(failure) }; return
+                        }
+                        if sequence.pulse(at: elapsed) {
+                            guard !CallAudioPolicy.active(in: AudioHardware.processList().compactMap(AudioClient.init)) else {
+                                throw GlassError("End the call before testing the trackpad.")
+                            }
+                            try motor.play([Tone(hertz: 125, weight: 1)], for: 16, level: 0.35)
+                            played += 1
+                        }
+                    } catch {
+                        self.cancelCheck()
+                        let message = error.localizedDescription
+                        DispatchQueue.main.async { result(message) }
+                    }
+                }
+                checkTimer = timer; timer.resume()
+            } catch {
+                cancelCheck()
+                let message = error.localizedDescription
+                DispatchQueue.main.async { result(message) }
+            }
+        }
+    }
     private var followVolume = false
     private var keyboard = false
     private var partyKeyboard = false
@@ -65,6 +115,7 @@ final class Playback {
     func confirmPlayer(_ bundle: String?) { queue.async { self.session?.macMusic?.confirmedPlayer = bundle } }
     func shutDown(_ completion: @escaping () -> Void) {
         queue.async {
+            self.cancelCheck()
             self.session?.stop()
             self.session = nil
             DispatchQueue.main.async(execute: completion)
@@ -84,13 +135,15 @@ final class Playback {
     }
 
     func start(_ source: PlaybackSource, tuning: Tuning, mode: OutputMode, playerPath: String?,
-               startAt: Double, partyDeadline: Double = 0, update: @escaping (PlaybackUpdate) -> Void) {
+               startAt: Double, partyDeadline: Double = 0, hapticsEnabled: Bool = true, update: @escaping (PlaybackUpdate) -> Void) {
         queue.async {
+            self.cancelCheck()
             self.session?.stop()
             self.session = nil
             do {
                 let run = try Session(source: source, playerPath: playerPath, tuning: tuning, mode: mode,
                                       startAt: startAt, update: update)
+                run.hapticsEnabled = hapticsEnabled
                 run.patternPlayer = self.pattern.map(HapticPattern.Player.init)
                 run.followVolume = self.followVolume
                 run.lighting = self.keyboard
@@ -107,6 +160,7 @@ final class Playback {
 
     func stop() {
         queue.async {
+            self.cancelCheck()
             self.session?.stop()
             self.session = nil
         }
@@ -178,6 +232,8 @@ private final class Session {
     var endedAt: Double?
     var connectedProcesses: [AudioObjectID] = []
     var updateCounter = 0
+    private var visualBeat = 0.0
+    private var visualBeatFrequency = 125.0
     var delayedFrames: [(time: Double, signal: SignalFrame)] = []
     var assistTail = AssistTail()
     var patternPlayer: HapticPattern.Player?
@@ -521,9 +577,15 @@ private final class Session {
             if sourceEnded, endedAt == nil { endedAt = now }
             let tail = mode == .assist ? delay + (patternPlayer == nil ? 0.16 : 0) : 0
             let finished = endedAt.map { now - $0 >= tail && (!isolationActive || (isolationFinished && (isolator?.isDrained ?? true))) } ?? false
+            if outputSuppressed { visualBeat = 0 }
+            else if signal.beatStrength > visualBeat { visualBeat = signal.beatStrength; visualBeatFrequency = signal.beatFrequency }
             updateCounter += 1
             if updateCounter % (mode == .assist ? 4 : 2) == 0 || finished {
-                publish(PlaybackUpdate(signal: signal, elapsed: min(elapsed, duration ?? elapsed), duration: duration,
+                let visual = SignalFrame(tones: signal.tones, level: signal.level, bands: signal.bands,
+                    inputRMS: signal.inputRMS, hasAudio: signal.hasAudio || visualBeat > 0,
+                    beatStrength: visualBeat, beatFrequency: visualBeatFrequency, bassLevel: signal.bassLevel)
+                visualBeat = 0
+                publish(PlaybackUpdate(signal: visual, elapsed: min(elapsed, duration ?? elapsed), duration: duration,
                                        device: motor.name, waiting: waiting, video: macMusic?.video, appBundle: macMusic?.activeBundle,
                                        detection: playerCallActive ? "Paused for call audio" : isolationActive && !outputSuppressed ? (isolator?.status ?? "Waiting for vocals") : macMusic?.status,
                                        processingDelay: isolator?.latency ?? 0, finished: finished))

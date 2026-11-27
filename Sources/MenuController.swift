@@ -29,9 +29,11 @@ final class MenuController: NSObject, NSApplicationDelegate {
     func attach(to studio: Studio, show: Bool, openWindow: @escaping () -> Void) {
         self.studio = studio
         self.openWindow = openWindow
-        observer = Publishers.CombineLatest3(studio.$active, studio.$mode, studio.$localBypass)
+        observer = Publishers.CombineLatest4(studio.$active, studio.$mode, studio.$localBypass, studio.$firstSuccess)
             .receive(on: RunLoop.main)
-            .sink { [weak self] active, mode, bypass in self?.update(active && mode == .assist && !bypass) }
+            .sink { [weak self] active, mode, bypass, check in
+                self?.update(active && mode == .assist && !bypass && (check.phase == .idle || check.phase == .confirmed))
+            }
         setVisible(show)
         let notifications = NSWorkspace.shared.notificationCenter
         notifications.removeObserver(self, name: NSWorkspace.willSleepNotification, object: nil)

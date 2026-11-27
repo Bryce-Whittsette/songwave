@@ -6,11 +6,15 @@ The public preview is ad hoc signed and has not been notarized by Apple. If you 
 
 If you prefer, [build the source yourself](development.md). No Terminal command that disables macOS security checks is required.
 
+## Connection status and a short test
+
+Open **Listening help** in the player for trackpad, capture, selected-app and pause status. **Run setup check** shows music activity and offers an explicit short tap test. Confirm only if you felt the taps. **Copy diagnostics** excludes songs, personal paths and device names; paste it into a bug report only if you choose.
+
 ## No vibration
 
 1. Use a Mac with a Force Touch trackpad. The public download is for Apple silicon.
 2. Open SongWave and choose **Listen to Mac audio**. The button says **Stop listening** while listening.
-3. Open **Settings → Playback Access** and check System Audio Recording access. In macOS, this may be under **Privacy & Security → Screen & System Audio Recording**. Reopen SongWave if macOS requests it.
+3. Open **Settings → Listening Help** and check System Audio Recording access. In macOS, this may be under **Privacy & Security → Screen & System Audio Recording**. Reopen SongWave if macOS requests it.
 4. Play a song, choose **Speakers + haptics**, and rest a finger lightly on the trackpad. Raise Intensity gradually.
 
 Trackpad only follows vocals, so instrumental passages may be quiet. Isolated needs a brief model warmup. Some protected audio cannot be captured. Music detection also needs a moment when playback starts.
@@ -23,11 +27,11 @@ macOS may treat a replacement ad hoc preview as a new binary. Granting access to
 
 ## The beat feels early or late
 
-Open **Fine Tune** in Speakers + haptics. Leave **Match audio output timing** enabled, then adjust **Timing offset**. Positive values make haptics later; negative values reduce the automatic added delay. Bluetooth and external audio devices can have different delays. Real-time beat recognition and reported output latency are estimates.
+Open **Tools… → Fine Tune** in Speakers + haptics. Leave **Match audio output timing** enabled, then adjust **Timing offset**. Positive values make haptics later; negative values reduce the automatic added delay. Bluetooth and external audio devices can have different delays. Real-time beat recognition and reported output latency are estimates.
 
 ## Song title or cover is missing
 
-Open Spotify or Music, then use **Playback Access → Connect Spotify / Connect Apple Music** to allow optional player details. Audio routing does not require this connection. Other sources may show only the playing app.
+Open Spotify or Music, then use **Listening Help → Player access… → Connect Spotify / Connect Apple Music** to allow optional player details. Audio routing does not require this connection. Other sources may show only the playing app.
 
 ## Talking videos vibrate
 

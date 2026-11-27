@@ -2,6 +2,14 @@
 
 Every public release is listed here, newest first. Each version has a short explanation and expandable developer notes.
 
+## [0.5.9 — First connection](docs/releases/0.5.9.md)
+
+Public Preview · November 27, 2026
+
+An explicit first-success check, unified Listening help with privacy-safe diagnostics, a visual beat/level indicator, and a focused player with grouped Sources and Tools.
+
+[Download](https://github.com/Bryce-Whittsette/songwave/releases/tag/v0.5.9) · [Full notes and validation](docs/releases/0.5.9.md)
+
 ## [0.5.8 — Energy and detail](docs/releases/0.5.8.md)
 
 Public Preview · November 27, 2026
