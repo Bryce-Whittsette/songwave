@@ -2,7 +2,7 @@
 
 ## Public preview
 
-Public releases started with v0.5.2. The current Mac public preview is v0.5.12. Previews are GitHub prereleases; the README links directly to the current DMG because GitHub's latest-release shortcut may exclude prereleases. [Version history](../CHANGELOG.md) covers every public version.
+Public releases started with v0.5.2. The current Mac public preview is v0.5.13. Previews are GitHub prereleases; the README links directly to the current DMG because GitHub's latest-release shortcut may exclude prereleases. [Version history](../CHANGELOG.md) covers every public version.
 
 The DMG is the primary download. The ZIP is an alternative. The source archive and checksums are for developers and users who want to inspect the release. The app is Apple silicon, ad hoc signed and unnotarized. Do not describe it as Apple-verified or universally hardware-tested.
 

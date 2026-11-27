@@ -70,7 +70,11 @@ struct Console: View {
     @ObservedObject var studio: Studio
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    private enum ToolPage: String, CaseIterable {
+        case sound = "Sound", equalizer = "Trackpad EQ", experiments = "Experiments"
+    }
     @State private var showTools = false
+    @State private var toolPage: ToolPage = .sound
     @State private var showSources = false
     @State private var pendingTool: String?
     @State private var showTuning = false
@@ -168,7 +172,8 @@ struct Console: View {
             }
         }) {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Insane Ultra").font(.title.bold())
+                Text("Insane Ultra").font(.title.bold()).accessibilityAddTraits(.isHeader)
+                    .accessibilityIdentifier("ultra.heading")
                 UltraNotice()
                 Toggle("Pulse keyboard backlight", isOn: $burstLights)
                 TimelineView(.animation(minimumInterval: 1, paused: !playerVisible)) { _ in
@@ -182,6 +187,9 @@ struct Console: View {
                     }
                 }
             }.padding(24).frame(width: 400)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Insane Ultra confirmation")
+                .accessibilityIdentifier("ultra.content")
         }
         .sheet(isPresented: $showTools, onDismiss: {
             let target = pendingTool; pendingTool = nil
@@ -439,23 +447,50 @@ struct Console: View {
     }
 
     private var toolsSheet: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Listening tools").font(.title2.weight(.semibold)).accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("tools.heading")
-            Text("Adjust the feel or try an optional effect. Your everyday listening controls stay in the player.")
+            Text("Shape your listening or try an optional effect. Playback and intensity stay in the player.")
                 .font(.callout).foregroundStyle(.secondary)
+            Picker("Tool category", selection: $toolPage) {
+                ForEach(ToolPage.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("tools.category")
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("Tuning and effects").font(.headline)
+                    switch toolPage {
+                    case .sound: soundTools
+                    case .equalizer: equalizer
+                    case .experiments: experimentalTools
+                    }
+                }.padding(2).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .id(toolPage)
+            .frame(height: 380)
+            HStack { Spacer(); Button("Done") { showTools = false }.keyboardShortcut(.defaultAction) }
+        }.padding(24).frame(width: 450)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Listening tools")
+            .accessibilityIdentifier("tools.content")
+    }
+
+    private var soundTools: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Sound shaping").font(.headline).accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("tools.sound.heading")
+            Picker("Genre", selection: Binding(get: { studio.genre }, set: studio.setGenre)) {
+                ForEach(ListeningGenre.allCases) { Text($0.rawValue).tag($0) }
+            }.accessibilityLabel("Genre").accessibilityIdentifier("tools.genre")
             if studio.hapticFocus.includesVoice {
                 if studio.mode == .trackpad && studio.hapticFocus == .voice {
-                Picker("Vocal quality", selection: $studio.tuning.vocalQuality) {
-                    ForEach(VocalQuality.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                Text(studio.tuning.vocalQuality.description)
-                    .font(.system(size: 13)).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Picker("Vocal quality", selection: $studio.tuning.vocalQuality) {
+                        ForEach(VocalQuality.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    Text(studio.tuning.vocalQuality.description)
+                        .font(.system(size: 13)).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text(studio.hapticFocus == .both ? "Both uses Light analysis. Your saved Isolated setting is kept for Voice → Trackpad only." : "Light vocal focus. AI Isolated is currently available in Trackpad only.")
                         .font(.system(size: 13)).foregroundStyle(.secondary)
@@ -469,18 +504,37 @@ struct Console: View {
                     .labelsHidden().fixedSize().help(studio.tuning.profile.description)
                 }
             }
-            Picker("Genre", selection: Binding(get: { studio.genre }, set: studio.setGenre)) {
-                ForEach(ListeningGenre.allCases) { Text($0.rawValue).tag($0) }
+            Toggle("Follow Mac volume", isOn: $studio.followVolume)
+                .toggleStyle(.checkbox)
+                .disabled(studio.mode == .trackpad)
+                .help("Follows Mac volume in Speakers + haptics. Trackpad only uses manual intensity.")
+            Divider()
+            Button("Fine Tune…") { pendingTool = "tuning"; showTools = false }
+                .accessibilityIdentifier("tools.tuning.open")
+            Text("Beat, voice and timing adjustments for your current output and feel.")
+                .font(.callout).foregroundStyle(.secondary)
+        }
+    }
+
+    private var experimentalTools: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Optional effects").font(.headline).accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("tools.experiments.heading")
+            Toggle("Keyboard light", isOn: $studio.keyboard)
+                .toggleStyle(.checkbox)
+                .help("Pulse a supported keyboard backlight with detected beats.")
+            Divider()
+            Text("Insane Ultra").font(.headline).accessibilityAddTraits(.isHeader)
+            Button(studio.partyEnd > 0 ? "Stop Ultra" : "Insane Ultra…") {
+                if studio.partyEnd > 0 { studio.cancelParty() }
+                else { pendingTool = "ultra"; showTools = false }
             }
-            HStack {
-                Button("Fine Tune…") { pendingTool = "tuning"; showTools = false }
-                Spacer()
-                Button(studio.partyEnd > 0 ? "Stop Ultra" : "Insane Ultra…") {
-                    if studio.partyEnd > 0 { studio.cancelParty() }
-                    else { pendingTool = "ultra"; showTools = false }
-                }
-            }
+            .accessibilityIdentifier("tools.ultra.open")
+            Text("Review the temporary effect and hardware-wear notice before starting.")
+                .font(.callout).foregroundStyle(.secondary)
             if case .file = studio.source {
+                Divider()
+                Text("Local haptic patterns").font(.headline).accessibilityAddTraits(.isHeader)
                 HStack {
                     Button("Attach Pattern…", action: studio.choosePattern)
                         .disabled(studio.mode != .assist)
@@ -491,28 +545,14 @@ struct Console: View {
                 Text("Optional authored haptics for this local audio file.")
                     .font(.system(size: 13)).foregroundStyle(.secondary)
             }
-            HStack(spacing: 16) {
-                Toggle("Keyboard light", isOn: $studio.keyboard)
-                    .toggleStyle(.checkbox)
-                    .help("Pulse a supported keyboard backlight with detected beats.")
-                Spacer(minLength: 8)
-                Toggle("Follow Mac volume", isOn: $studio.followVolume)
-                    .toggleStyle(.checkbox)
-                    .disabled(studio.mode == .trackpad)
-                    .help("Follows Mac volume in Speakers + haptics. Trackpad only uses manual intensity.")
-            }
-            .font(.system(size: 13))
-                    equalizer
-                }.padding(2)
-            }.frame(maxHeight: 520)
-            HStack { Spacer(); Button("Done") { showTools = false }.keyboardShortcut(.defaultAction) }
-        }.padding(24).frame(width: 450)
+        }
     }
 
     private var equalizer: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack {
                 Text("Trackpad EQ").font(.system(size: 16, weight: .semibold)).accessibilityAddTraits(.isHeader)
+                    .accessibilityIdentifier("tools.eq.heading")
                 Spacer()
                 Toggle("Enable trackpad equalizer", isOn: $studio.tuning.eq.enabled)
                     .labelsHidden().toggleStyle(.switch).controlSize(.mini)
@@ -549,53 +589,21 @@ struct Console: View {
 
     private var tuningSheet: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Fine Tune").font(.title2.weight(.semibold))
+            Text("Fine Tune").font(.title2.weight(.semibold)).accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("tuning.heading")
             Text(studio.mode.rawValue).foregroundStyle(.secondary)
             ScrollView {
-              VStack(alignment: .leading, spacing: 14) {
-            if studio.hapticFocus.includesBeat {
-                PrecisionWheel(title: "Bass sustain", value: $studio.tuning.bassSustain, range: 0...1, step: 0.01,
-                               label: "\(Int((studio.tuning.bassSustain * 100).rounded()))%")
-                    .help("Adds a softer continuous layer for detected low bass. Set to zero for taps only.")
-                PrecisionWheel(title: "Detail balance", value: $studio.tuning.detailBalance, range: 0...1, step: 0.01,
-                               label: "\(Int((studio.tuning.detailBalance * 100).rounded()))%")
-                    .disabled(studio.patternName != nil && studio.mode == .assist)
-                    .help("Lift detected mid/treble taps and briefly lower the bass rumble beneath them. Does not change your EQ or detect extra beats.")
-                Text("Detail balance brings softer percussion forward against the bass.")
-                    .font(.system(size: 13)).foregroundStyle(.secondary)
-                PrecisionWheel(title: "Transient emphasis", value: $studio.tuning.impact, range: 0...1, step: 0.01,
-                               label: "\(Int((studio.tuning.impact * 100).rounded()))%")
-                    .help("Changes the fade after a detected percussion hit. Higher values make shorter, crisper taps; lower values leave a longer tail. It does not change beat timing.")
-                Text("Higher emphasis makes drum taps shorter and crisper.")
-                    .font(.system(size: 13)).foregroundStyle(.secondary)
-            }
-            if studio.hapticFocus.includesVoice {
-                PrecisionWheel(title: "Tone balance", value: $studio.tuning.tone, range: -1...1, step: 0.01,
-                            label: toneLabel)
-                PrecisionWheel(title: "Pitch smoothing", value: $studio.tuning.smoothing, range: 0...90, step: 1,
-                            label: "\(Int(studio.tuning.smoothing)) ms")
-                    .help("Smooth sustained notes. Lower values react faster to pitch changes.")
-                Stepper(value: $studio.tuning.partials, in: 2...8) {
-                    LabeledContent("Maximum tones", value: "\(studio.tuning.partials)")
-                        .monospacedDigit()
-                }
-                .help("More tones preserve more of a dense mix. Fewer tones give each note more strength.")
-            }
-            if studio.mode == .assist {
-                Toggle("Match audio output timing", isOn: $studio.tuning.automaticTiming)
-                    .onChange(of: studio.tuning.automaticTiming) { _, automatic in
-                        if !automatic { studio.tuning.delay = max(0, studio.tuning.delay) }
+                VStack(alignment: .leading, spacing: 14) {
+                    if studio.hapticFocus.includesBeat { beatTuning }
+                    if studio.hapticFocus.includesVoice {
+                        if studio.hapticFocus.includesBeat { Divider() }
+                        voiceTuning
                     }
-                PrecisionWheel(title: studio.tuning.automaticTiming ? "Timing offset" : "Haptic delay",
-                               value: $studio.tuning.delay,
-                               range: studio.tuning.automaticTiming ? -100...300 : 0...300, step: 2,
-                               label: String(format: "%+.0f ms", studio.tuning.delay))
-                    .help("Positive values add delay. Negative values reduce the automatic delay.")
-                Text("Automatic timing uses the selected audio output’s reported latency.")
-                    .font(.system(size: 13)).foregroundStyle(.secondary)
-            }
-              }
-              .padding(.vertical, 2)
+                    if studio.mode == .assist {
+                        Divider()
+                        timingTuning
+                    }
+                }.padding(.vertical, 2)
             }
             .frame(maxHeight: 480)
             HStack {
@@ -610,28 +618,97 @@ struct Console: View {
             }
         }
         .padding(23).frame(width: 380)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Fine Tune")
+        .accessibilityIdentifier("tuning.content")
+    }
+
+    private var beatTuning: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Beat").font(.headline).accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("tuning.beat.heading")
+            PrecisionWheel(title: "Bass sustain", value: $studio.tuning.bassSustain, range: 0...1, step: 0.01,
+                           label: "\(Int((studio.tuning.bassSustain * 100).rounded()))%")
+                .help("Adds a softer continuous layer for detected low bass. Set to zero for taps only.")
+            PrecisionWheel(title: "Detail balance", value: $studio.tuning.detailBalance, range: 0...1, step: 0.01,
+                           label: "\(Int((studio.tuning.detailBalance * 100).rounded()))%")
+                .disabled(studio.patternName != nil && studio.mode == .assist)
+                .help("Lift detected mid/treble taps and briefly lower the bass rumble beneath them. Does not change your EQ or detect extra beats.")
+            Text("Detail balance brings softer percussion forward against the bass.")
+                .font(.system(size: 13)).foregroundStyle(.secondary)
+            PrecisionWheel(title: "Transient emphasis", value: $studio.tuning.impact, range: 0...1, step: 0.01,
+                           label: "\(Int((studio.tuning.impact * 100).rounded()))%")
+                .help("Changes the fade after a detected percussion hit. Higher values make shorter, crisper taps; lower values leave a longer tail. It does not change beat timing.")
+            Text("Higher emphasis makes drum taps shorter and crisper.")
+                .font(.system(size: 13)).foregroundStyle(.secondary)
+        }
+    }
+
+    private var voiceTuning: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Voice").font(.headline).accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("tuning.voice.heading")
+            PrecisionWheel(title: "Tone balance", value: $studio.tuning.tone, range: -1...1, step: 0.01,
+                        label: toneLabel)
+            PrecisionWheel(title: "Pitch smoothing", value: $studio.tuning.smoothing, range: 0...90, step: 1,
+                        label: "\(Int(studio.tuning.smoothing)) ms")
+                .help("Smooth sustained notes. Lower values react faster to pitch changes.")
+            Stepper(value: $studio.tuning.partials, in: 2...8) {
+                LabeledContent("Maximum tones", value: "\(studio.tuning.partials)")
+                    .monospacedDigit()
+            }
+            .accessibilityLabel("Maximum tones")
+            .help("More tones preserve more of a dense mix. Fewer tones give each note more strength.")
+        }
+    }
+
+    private var timingTuning: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Timing").font(.headline).accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("tuning.timing.heading")
+            Toggle("Match audio output timing", isOn: $studio.tuning.automaticTiming)
+                .onChange(of: studio.tuning.automaticTiming) { _, automatic in
+                    if !automatic { studio.tuning.delay = max(0, studio.tuning.delay) }
+                }
+            PrecisionWheel(title: studio.tuning.automaticTiming ? "Timing offset" : "Haptic delay",
+                           value: $studio.tuning.delay,
+                           range: studio.tuning.automaticTiming ? -100...300 : 0...300, step: 2,
+                           label: String(format: "%+.0f ms", studio.tuning.delay))
+                .help("Positive values add delay. Negative values reduce the automatic delay.")
+            Text("Automatic timing uses the selected audio output’s reported latency.")
+                .font(.system(size: 13)).foregroundStyle(.secondary)
+        }
     }
 
     private var eqSheet: some View {
         VStack(alignment: .leading, spacing: 13) {
-            Text("EQ Band Settings").font(.title2.weight(.semibold))
-            EQCurve(eq: studio.tuning.eq, wetMix: studio.tuning.eq.enabled ? 1 : 0).frame(height: 80).accessibilityHidden(true)
-            ForEach(Band.allCases) { band in
-                let binding = bandBinding(band)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(band.rawValue).font(.headline)
-                    PrecisionWheel(title: "\(band.rawValue) frequency", value: binding.frequency,
-                                range: band.range, step: 1, label: "\(Int(binding.frequency.wrappedValue)) Hz")
-                    PrecisionWheel(title: "\(band.rawValue) width (Q)", value: binding.q,
-                                range: 0.35...3.5, step: 0.05, label: String(format: "%.2f", binding.q.wrappedValue))
-                }
-            }
+            Text("EQ Band Settings").font(.title2.weight(.semibold)).accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("eq.bands.heading")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    EQCurve(eq: studio.tuning.eq, wetMix: studio.tuning.eq.enabled ? 1 : 0).frame(height: 80).accessibilityHidden(true)
+                    ForEach(Band.allCases) { band in
+                        let binding = bandBinding(band)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(band.rawValue).font(.headline).accessibilityAddTraits(.isHeader)
+                                .accessibilityIdentifier("eq.band." + band.rawValue)
+                            PrecisionWheel(title: "\(band.rawValue) frequency", value: binding.frequency,
+                                        range: band.range, step: 1, label: "\(Int(binding.frequency.wrappedValue)) Hz")
+                            PrecisionWheel(title: "\(band.rawValue) width (Q)", value: binding.q,
+                                        range: 0.35...3.5, step: 0.05, label: String(format: "%.2f", binding.q.wrappedValue))
+                        }
+                    }
+                }.padding(.vertical, 2)
+            }.frame(maxHeight: 440)
             HStack {
                 Spacer()
                 Button("Done") { showEQDetails = false }.keyboardShortcut(.defaultAction)
             }
         }
         .padding(23).frame(width: 390)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("EQ Band Settings")
+        .accessibilityIdentifier("eq.bands.content")
     }
 
     @ViewBuilder private var notice: some View {

@@ -4,13 +4,13 @@ Feel the music playing on your Mac through its Force Touch trackpad.
 
 Open SongWave, play music in Spotify, Apple Music, or your browser, and rest a finger on the trackpad. No song link or file needed.
 
-**[Download for Mac — Apple silicon](https://github.com/Bryce-Whittsette/songwave/releases/download/v0.5.12/SongWave-0.5.12-AppleSilicon.dmg)** · [What's new](docs/releases/0.5.12.md) · [Version history](CHANGELOG.md)
+**[Download for Mac — Apple silicon](https://github.com/Bryce-Whittsette/songwave/releases/download/v0.5.13/SongWave-0.5.13-AppleSilicon.dmg)** · [What's new](docs/releases/0.5.13.md) · [Version history](CHANGELOG.md)
 
 Public preview · macOS 14.2 or later · Force Touch trackpad required · Tested on an M4 MacBook Air
 
 ## Install
 
-1. Download and open **SongWave-0.5.12-AppleSilicon.dmg**.
+1. Download and open **SongWave-0.5.13-AppleSilicon.dmg**.
 2. Drag **SongWave** into the **Applications** folder shown in the window. Open SongWave from Applications.
 3. Finish the short setup and allow **System Audio Recording** when prompted. Then play music normally.
 
@@ -18,11 +18,11 @@ This preview hasn't been notarized by Apple. If macOS blocks it, see [the SongWa
 
 **Already installed?** Quit SongWave, download the new DMG, and drag SongWave into Applications. Choose **Replace**, then open it again. Your listening preferences stay saved; macOS may ask for audio access again after a preview update. Version 0.5.3 needs this one manual update; from 0.5.4 onward, use **SongWave → Check for Updates…** or allow automatic checks.
 
-## New in 0.5.12
+## New in 0.5.13
 
-- A larger **Beat** cue and labeled **Music level** meter sit at the top of the Signal Monitor, separate from listening controls.
-- Visual feedback keeps working while listening with **Haptics** off. Reduce Motion keeps the pulse still and retains text and level feedback.
-- The existing level percentage and dB reading remain available, with one clear level bar.
+- **Tools…** separates **Sound**, **Trackpad EQ**, and **Experiments** so you see one group at a time.
+- **Fine Tune** labels its existing **Beat**, **Voice**, and **Timing** sections. Band settings keep Bass, Mid, and Treble together.
+- Listening controls stay in the player. Audio isolation, haptic output, presets, and Ultra behavior are unchanged.
 
 See [every public version](CHANGELOG.md) for changes and developer notes.
 
@@ -34,7 +34,7 @@ Choose **Beat** for bass and percussion, **Voice** for vocal pitch and texture, 
 
 Point at **Intensity** and swipe with two fingers, or click the number for a slider. The waveform in the menu bar toggles speaker-mode haptics. SongWave can keep listening with its window closed and reconnect when it launches.
 
-Open **Tools…** for the editable EQ, optional keyboard-light pulses, and a 45-second **Insane Ultra** burst with a cooldown. Ultra explains its limits before starting. Repeated strong vibration can increase heat and wear; the app's timer is not a manufacturer safety rating.
+Open **Tools… → Sound** for genre and Fine Tune, **Trackpad EQ** for the editable bands, or **Experiments** for keyboard-light pulses and a 45-second **Insane Ultra** burst with a cooldown. Ultra explains its limits before starting. Repeated strong vibration can increase heat and wear; the app's timer is not a manufacturer safety rating.
 
 ## Music through touch and sight
 

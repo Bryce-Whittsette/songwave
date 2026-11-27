@@ -12,8 +12,40 @@ final class AccessibilityUITests: XCTestCase {
         return app
     }
     @MainActor private func spoken(_ element: XCUIElement) -> String { element.label.isEmpty ? element.title : element.label }
-    @MainActor private func audit(_ app: XCUIApplication) throws {
-        try app.performAccessibilityAudit(for: [.sufficientElementDescription, .action, .parentChild]) { issue in
+    @MainActor private func audit(_ app: XCUIApplication, contentID: String? = nil) throws {
+        // XCTest audits every window, including the player behind a modal sheet.
+        // For sheet tests, match issues to the owned content subtree; do not
+        // audit blocked background actions or AppKit's hosting/window wrappers.
+        var owned: [XCUIElementSnapshot] = []
+        if let contentID {
+            let content = app.descendants(matching: .any).matching(identifier: contentID).firstMatch
+            XCTAssertTrue(content.waitForExistence(timeout: 4), "Missing audit scope: " + contentID)
+            func walk(_ node: XCUIElementSnapshot) {
+                owned.append(node)
+                for child in node.children { walk(child) }
+            }
+            walk(try content.snapshot())
+            XCTAssertGreaterThan(owned.count, 3, "The active content must expose its children for auditing.")
+        }
+        let scopedNodes = owned
+        // Apple's action/parent-child passes inspect inactive windows and can
+        // report native menu issues without a resolvable element. Keep the
+        // existing full setup/recovery audits; advanced sheets use scoped
+        // description audits plus explicit menu/button navigation below.
+        let types: XCUIAccessibilityAuditType = contentID == nil ?
+            [.sufficientElementDescription, .action, .parentChild] : [.sufficientElementDescription]
+        try app.performAccessibilityAudit(for: types) { issue in
+            if contentID != nil, let element = issue.element {
+                // Each XCUIElement property read can request a new remote AX
+                // snapshot. Take one per issue, then compare locally, so a
+                // longer sheet does not multiply audit queries by node count.
+                guard let candidate = try? element.snapshot() else { return false }
+                let belongs = scopedNodes.contains { node in
+                    node.elementType == candidate.elementType && node.identifier == candidate.identifier &&
+                    node.label == candidate.label && node.frame == candidate.frame
+                }
+                if !belongs { return true }
+            }
             // The fixture has no Touch Bar UI. Xcode nevertheless audits its
             // empty system-provided TouchBar node on hosted Macs.
             if issue.element?.elementType == .touchBar { return true }
@@ -157,7 +189,106 @@ final class AccessibilityUITests: XCTestCase {
         app.buttons["tools.open"].click()
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "tools.heading").firstMatch.waitForExistence(timeout: 4))
         XCTAssertTrue(app.buttons["Fine Tune…"].exists)
-        XCTAssertTrue(app.staticTexts["Trackpad EQ"].exists)
+        XCTAssertFalse(app.staticTexts["tools.eq.heading"].exists)
+        app.radioButtons["Trackpad EQ"].click()
+        XCTAssertTrue(app.staticTexts["tools.eq.heading"].exists)
+    }
+    @MainActor func testAdvancedToolCategoriesPreserveSettingsAndRequireUltraConfirmation() throws {
+        for motion in [false, true] {
+            for scheme in ["light", "dark"] {
+                let app = launch("player", motion: motion, scheme: scheme, compact: true)
+                let intensity = app.buttons["Intensity"].value as? String
+                app.buttons["tools.open"].click()
+                XCTAssertTrue(app.staticTexts["tools.sound.heading"].waitForExistence(timeout: 4))
+                let genreControl = app.descendants(matching: .any).matching(identifier: "tools.genre").firstMatch
+                XCTAssertTrue(genreControl.isHittable)
+                genreControl.click()
+                let preset = app.menuItems["Rock / Metal"]
+                XCTAssertTrue(preset.waitForExistence(timeout: 4))
+                preset.click()
+                let genre = genreControl.value as? String
+                XCTAssertEqual(genre, "Rock / Metal")
+                XCTAssertFalse(app.buttons["tools.ultra.open"].exists)
+                XCTAssertFalse(app.buttons["Bass"].exists)
+                for title in ["Sound", "Trackpad EQ", "Experiments"] {
+                    XCTAssertTrue(app.radioButtons[title].isHittable)
+                }
+                try audit(app, contentID: "tools.content")
+                app.radioButtons["Trackpad EQ"].click()
+                XCTAssertTrue(app.staticTexts["tools.eq.heading"].waitForExistence(timeout: 4))
+                XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "tools.genre").firstMatch.exists)
+                XCTAssertFalse(app.buttons["tools.tuning.open"].exists)
+                XCTAssertFalse(app.buttons["tools.ultra.open"].exists)
+                let bass = app.buttons["Bass"].value as? String
+                XCTAssertTrue(app.buttons["Band Settings…"].isHittable)
+                try audit(app, contentID: "tools.content")
+                app.buttons["Band Settings…"].click()
+                XCTAssertTrue(app.staticTexts["eq.bands.heading"].waitForExistence(timeout: 4))
+                assertOrder(try hierarchyNodes(app), ["eq.bands.heading", "eq.band.Bass", "eq.band.Mid", "eq.band.Treble"])
+                XCTAssertTrue(app.buttons["Treble width (Q)"].isHittable)
+                try audit(app, contentID: "eq.bands.content")
+                app.buttons["Done"].click()
+                app.buttons["tools.open"].click()
+                XCTAssertTrue(app.staticTexts["tools.eq.heading"].waitForExistence(timeout: 4))
+                XCTAssertEqual(app.buttons["Bass"].value as? String, bass)
+                app.radioButtons["Experiments"].click()
+                XCTAssertTrue(app.staticTexts["tools.experiments.heading"].exists)
+                XCTAssertTrue(app.buttons["tools.ultra.open"].isHittable)
+                XCTAssertFalse(app.buttons["Bass"].exists)
+                XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "tools.genre").firstMatch.exists)
+                XCTAssertFalse(app.buttons["Start Ultra"].exists)
+                try audit(app, contentID: "tools.content")
+                app.buttons["tools.ultra.open"].click()
+                XCTAssertTrue(app.staticTexts["ultra.heading"].waitForExistence(timeout: 4))
+                XCTAssertTrue(app.buttons["Start Ultra"].isHittable)
+                XCTAssertTrue(app.buttons["Cancel"].isHittable)
+                try audit(app, contentID: "ultra.content")
+                app.buttons["Cancel"].click()
+                XCTAssertTrue(app.buttons["Listen to Mac audio"].waitForExistence(timeout: 4))
+                XCTAssertFalse(app.buttons["Stop Ultra"].exists)
+                XCTAssertEqual(app.buttons["Intensity"].value as? String, intensity)
+                app.buttons["tools.open"].click()
+                app.radioButtons["Sound"].click()
+                XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "tools.genre").firstMatch.value as? String, genre)
+                app.terminate()
+            }
+        }
+    }
+    @MainActor func testFineTuneChunksFollowFeelAndOutput() throws {
+        for output in ["Speakers + haptics", "Trackpad only"] {
+            for feel in ["Beat", "Voice", "Both"] {
+                let app = launch("player", compact: true)
+                app.buttons[output].click()
+                app.radioButtons[feel].click()
+                app.buttons["tools.open"].click()
+                XCTAssertTrue(app.buttons["tools.tuning.open"].waitForExistence(timeout: 4))
+                XCTAssertEqual(app.checkBoxes["Follow Mac volume"].isEnabled, output != "Trackpad only")
+                let quality = app.radioButtons["Isolated"]
+                if output == "Trackpad only" && feel == "Voice" {
+                    XCTAssertTrue(quality.exists)
+                    XCTAssertEqual((quality.value as? NSNumber)?.intValue ?? Int(quality.value as? String ?? ""), 0, "Grouping must not switch the saved isolation choice.")
+                } else { XCTAssertFalse(quality.exists) }
+                app.buttons["tools.tuning.open"].click()
+                XCTAssertTrue(app.staticTexts["tuning.heading"].waitForExistence(timeout: 4))
+                XCTAssertEqual(app.staticTexts["tuning.beat.heading"].exists, feel != "Voice")
+                XCTAssertEqual(app.staticTexts["tuning.voice.heading"].exists, feel != "Beat")
+                XCTAssertEqual(app.staticTexts["tuning.timing.heading"].exists, output != "Trackpad only")
+                var order = ["tuning.heading"]
+                if feel != "Voice" { order.append("tuning.beat.heading") }
+                if feel != "Beat" { order.append("tuning.voice.heading") }
+                if output != "Trackpad only" { order.append("tuning.timing.heading") }
+                assertOrder(try hierarchyNodes(app), order)
+                let last = output == "Trackpad only" ? (feel == "Beat" ? "Transient emphasis" : "Pitch smoothing") : "Timing offset"
+                app.descendants(matching: .any).matching(identifier: "tuning.content").firstMatch.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: -1000)
+                XCTAssertTrue(app.buttons[last].isHittable, "Every applicable section must remain reachable in a compact window.")
+                XCTAssertTrue(app.buttons["Reset Tuning"].isHittable)
+                XCTAssertTrue(app.buttons["Done"].isHittable)
+                try audit(app, contentID: "tuning.content")
+                app.buttons["Done"].click()
+                XCTAssertTrue(app.buttons["Listen to Mac audio"].waitForExistence(timeout: 4))
+                app.terminate()
+            }
+        }
     }
     @MainActor func testRecoveryStartsAtTopAfterScrollingSetup() throws {
         let app = launch("confirmation", compact: true)
