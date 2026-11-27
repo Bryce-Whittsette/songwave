@@ -33,12 +33,14 @@ final class MobileHaptics {
         guard let engine else { return }
         resetLock.lock(); let reset = needsReset; needsReset = false; resetLock.unlock()
         if reset { sustained = nil; running = false; lastLevel = -1; lastSharpness = -1 }
-        let level = min(0.7, max(0, (focus == .beat ? frame.bassLevel : frame.level) * gain))
-        if !running && (level > 0.005 || (focus == .beat && frame.beatStrength > 0)) { try engine.start(); running = true }
-        if focus == .beat && frame.beatStrength > 0 {
+        let budget = MobileHapticBudget(rhythm: focus.includesBeat, mixed: focus == .both, gain: gain)
+        let sustainedLevel = focus == .beat ? frame.bassLevel : focus == .both ? 0.55 * frame.level + 0.45 * frame.bassLevel : frame.level
+        let level = min(budget.continuous, max(0, sustainedLevel * gain))
+        if !running && (level > 0.005 || (focus.includesBeat && frame.beatStrength > 0)) { try engine.start(); running = true }
+        if focus.includesBeat && frame.beatStrength > 0 {
             let sharpness = min(1, max(0.15, (frame.beatFrequency - 100) / 300))
             let event = CHHapticEvent(eventType: .hapticTransient, parameters: [
-                .init(parameterID: .hapticIntensity, value: Float(min(0.7, frame.beatStrength * gain))),
+                .init(parameterID: .hapticIntensity, value: Float(min(budget.transient, frame.beatStrength * gain))),
                 .init(parameterID: .hapticSharpness, value: Float(sharpness))], relativeTime: 0)
             let player = try engine.makePlayer(with: CHHapticPattern(events: [event], parameters: []))
             try player.start(atTime: CHHapticTimeImmediate)
@@ -52,7 +54,7 @@ final class MobileHaptics {
         let frequency = frame.tones.max { $0.weight < $1.weight }?.hertz ?? 125
         let sharpness = focus == .beat ? 0.12 : min(1, max(0, log2(max(100, frequency) / 100) / 4))
         // The static event is bounded by the user's gain even before controls apply.
-        let ceiling = 0.7 * gain
+        let ceiling = budget.continuous
         let control = Float(min(1, level / ceiling))
         if sustained == nil {
             let event = CHHapticEvent(eventType: .hapticContinuous, parameters: [

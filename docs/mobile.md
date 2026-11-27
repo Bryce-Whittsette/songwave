@@ -6,7 +6,7 @@
 
 | Source | What SongWave does |
 | --- | --- |
-| Audio files opened inside SongWave | Plays audio with on-device **Beat** or **Voice** haptics. Includes intensity, audio on/off, artwork and progress. Light analysis can include other instruments; this is not AI stem isolation. |
+| Audio files opened inside SongWave | Plays audio with on-device **Beat**, **Voice** or **Both** haptics. Includes intensity, audio on/off, artwork and progress. Light analysis can include other instruments; this is not AI stem isolation. |
 | Apple Music played inside SongWave | Searches and plays songs through MusicKit. Uses Apple's Music Haptics for songs with matched haptic tracks, when enabled and available. Apple controls that haptic mix and intensity. |
 | Spotify, YouTube or another iPhone app | Not captured. This build has no universal system-audio capture. |
 

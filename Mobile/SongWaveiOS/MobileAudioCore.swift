@@ -39,3 +39,15 @@ enum MobileAnalysisPolicy {
         foreground && playing && supported && gain.isFinite && gain > 0
     }
 }
+
+// Concurrent Core Haptics events share a request budget. These are software
+// limits, not a device endurance or comfort rating.
+struct MobileHapticBudget {
+    let continuous: Double
+    let transient: Double
+    init(rhythm: Bool, mixed: Bool, gain: Double) {
+        let gain = gain.isFinite ? min(1, max(0, gain)) : 0
+        continuous = (rhythm ? (mixed ? 0.35 : 0.28) : 0.7) * gain
+        transient = (rhythm ? (mixed ? 0.35 : 0.42) : 0) * gain
+    }
+}

@@ -407,8 +407,8 @@ struct Console: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Divider()
-            if studio.hapticFocus == .voice {
-                if studio.mode == .trackpad {
+            if studio.hapticFocus.includesVoice {
+                if studio.mode == .trackpad && studio.hapticFocus == .voice {
                 Picker("Vocal quality", selection: $studio.tuning.vocalQuality) {
                     ForEach(VocalQuality.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -417,7 +417,7 @@ struct Console: View {
                     .font(.system(size: 13)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    Text("Light vocal focus. AI Isolated is currently available in Trackpad only.")
+                    Text(studio.hapticFocus == .both ? "Both uses Light analysis. Your saved Isolated setting is kept for Voice → Trackpad only." : "Light vocal focus. AI Isolated is currently available in Trackpad only.")
                         .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 HStack {
@@ -502,7 +502,9 @@ struct Console: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Fine Tune").font(.title2.weight(.semibold))
             Text(studio.mode.rawValue).foregroundStyle(.secondary)
-            if studio.hapticFocus == .beat {
+            ScrollView {
+              VStack(alignment: .leading, spacing: 14) {
+            if studio.hapticFocus.includesBeat {
                 PrecisionWheel(title: "Bass sustain", value: $studio.tuning.bassSustain, range: 0...1, step: 0.01,
                                label: "\(Int((studio.tuning.bassSustain * 100).rounded()))%")
                     .help("Adds a softer continuous layer for detected low bass. Set to zero for taps only.")
@@ -518,7 +520,7 @@ struct Console: View {
                 Text("Higher emphasis makes drum taps shorter and crisper.")
                     .font(.system(size: 13)).foregroundStyle(.secondary)
             }
-            if studio.hapticFocus == .voice {
+            if studio.hapticFocus.includesVoice {
                 PrecisionWheel(title: "Tone balance", value: $studio.tuning.tone, range: -1...1, step: 0.01,
                             label: toneLabel)
                 PrecisionWheel(title: "Pitch smoothing", value: $studio.tuning.smoothing, range: 0...90, step: 1,
@@ -543,6 +545,10 @@ struct Console: View {
                 Text("Automatic timing uses the selected audio output’s reported latency.")
                     .font(.system(size: 13)).foregroundStyle(.secondary)
             }
+              }
+              .padding(.vertical, 2)
+            }
+            .frame(maxHeight: 480)
             HStack {
                 Button("Reset Tuning") {
                     let eq = studio.tuning.eq

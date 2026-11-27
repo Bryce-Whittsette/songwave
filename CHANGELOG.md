@@ -6,10 +6,11 @@ Every public release is listed here, newest first. Each version has a short expl
 
 Not published. Mac review build 18; iPhone source prototype 0.1.0 (1).
 
+- Add **Feel → Both** to blend Voice and Beat using the shared Light analyzer.
 - Reduce hidden-player visual work and cache Messages service discovery. Battery savings still need a controlled playback comparison.
 - Add Beat detail balance, bringing detected mid/treble accents forward against bass rumble.
 - Keep Trackpad-only intensity independent of muted speaker volume.
-- Add an unsigned standalone iPhone prototype for local-file Voice/Beat haptics and Apple Music's matched haptic tracks. No mobile download yet; see [mobile status](docs/mobile.md).
+- Add an unsigned standalone iPhone prototype for local-file Voice/Beat/Both haptics and Apple Music's matched haptic tracks. No mobile download yet; see [mobile status](docs/mobile.md).
 
 <details>
 <summary>Developer notes</summary>

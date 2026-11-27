@@ -154,7 +154,9 @@ final class Spectrum {
 
     func frame(tuning: Tuning, mode: OutputMode) -> SignalFrame {
         let profile = tuning.profile
-        let analysisSize = mode == .assist && sampleRate <= 32000 ? 1024 : size
+        let both = tuning.hapticFocus == .both
+        // Both shares one FFT; retain the vocal window without another analyzer.
+        let analysisSize = mode == .assist && sampleRate <= 32000 && !both ? 1024 : size
         if analysisSize != lastAnalysisSize {
             lastAnalysisSize = analysisSize
             previousMagnitudes = Array(repeating: 0, count: size / 2)
@@ -293,6 +295,7 @@ final class Spectrum {
                                  trebleFlux: sqrt(fluxPower) / Double(analysisSize), at: totalSamples / sampleRate)
         if beat > 0 { tactilePitch = rhythm.frequency }
         previousMagnitudes = magnitudes
+        var sustain = 0.0
         if mode == .assist {
             previousTones.removeAll(keepingCapacity: true)
             let time = totalSamples / sampleRate
@@ -308,15 +311,15 @@ final class Spectrum {
             let curve = a - 2 * b + c
             let delta = abs(curve) > 1e-7 ? max(-0.5, min(0.5, 0.5 * (a - c) / curve)) : 0
             let lowPitch = (Double(lowPeak) + delta) * binWidth
-            let sustain = bassEnvelope.level(pitch: lowPitch,
+            sustain = bassEnvelope.level(pitch: lowPitch,
                 magnitude: Double(magnitudes[lowPeak]) / Double(analysisSize), at: time) * tuning.bassSustain
             let pitch = tactilePitch
-            return SignalFrame(tones: beatTail > 0.08 ? [Tone(hertz: pitch, weight: 1)] : [],
+            if !both { return SignalFrame(tones: beatTail > 0.08 ? [Tone(hertz: pitch, weight: 1)] : [],
                                level: max(sustain, beatTail * (0.80 + tuning.impact * 0.20)), bands: bands,
-                               inputRMS: rms, hasAudio: true, beatStrength: beat, beatFrequency: tactilePitch, bassLevel: sustain)
+                               inputRMS: rms, hasAudio: true, beatStrength: beat, beatFrequency: tactilePitch, bassLevel: sustain) }
         }
 
-        if tuning.vocalQuality == .light {
+        if tuning.vocalQuality == .light || both {
             let vocal = vocalFocus.frame(magnitudes: magnitudes, binWidth: binWidth,
                                          analysisSize: analysisSize, at: totalSamples / sampleRate, tuning: tuning)
             let vocalBands = (0..<44).map { index -> Double in
@@ -325,8 +328,8 @@ final class Spectrum {
                 let peak = vocal.tones.filter { $0.hertz >= lower && $0.hertz < upper }.map(\.weight).max() ?? 0
                 return min(1, log1p(peak * Double(analysisSize)) / 4.8)
             }
-            return SignalFrame(tones: vocal.tones, level: vocal.level, bands: vocalBands,
-                               inputRMS: rms, hasAudio: true, beatStrength: beat, beatFrequency: tactilePitch)
+            return SignalFrame(tones: vocal.tones, level: vocal.level, bands: both ? bands : vocalBands,
+                               inputRMS: rms, hasAudio: true, beatStrength: beat, beatFrequency: tactilePitch, bassLevel: sustain)
         }
 
         var bins: [(frequency: Double, weight: Double)] = []
@@ -473,11 +476,17 @@ enum OutputMode: String, CaseIterable, Identifiable {
 enum HapticFocus: String, CaseIterable, Identifiable, Codable {
     case beat = "Beat"
     case voice = "Voice"
+    case both = "Both"
     var id: Self { self }
-    var analysisMode: OutputMode { self == .beat ? .assist : .trackpad }
+    var includesBeat: Bool { self != .voice }
+    var includesVoice: Bool { self != .beat }
+    var analysisMode: OutputMode { includesBeat ? .assist : .trackpad }
     var description: String {
-        self == .beat ? "Feel bass and percussion. Dense mixes can still let vocals through."
-                      : "Follow vocal pitch and texture. Instrumental passages can be quiet."
+        switch self {
+        case .beat: return "Feel bass and percussion. Dense mixes can still let vocals through."
+        case .voice: return "Follow vocal pitch and texture. Instrumental passages can be quiet."
+        case .both: return "Blend vocal texture with bass and percussion. Uses Light analysis."
+        }
     }
 }
 

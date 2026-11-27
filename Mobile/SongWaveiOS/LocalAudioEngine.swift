@@ -59,6 +59,7 @@ final class LocalAudioEngine {
         queue.async { [self] in
             if self.focus != focus { spectrum = analysisRate > 0 ? try? Spectrum(sampleRate: analysisRate) : nil; haptics.stop() }
             self.focus = focus
+            tuning.hapticFocus = focus
             let nextGain = intensity.isFinite ? min(1, max(0, intensity)) : 0
             if gain != nextGain { haptics.stop() }
             gain = nextGain

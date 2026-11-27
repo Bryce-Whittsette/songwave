@@ -37,6 +37,19 @@ import Foundation
                 }
             }
         }
+        for rhythm in [false, true] {
+            for mixed in [false, true] {
+                for gain in [Double.nan, -Double.infinity, -1, 0, 0.1, 0.5, 1, 10] {
+                    let budget = MobileHapticBudget(rhythm: rhythm, mixed: mixed, gain: gain)
+                    let clamped = gain.isFinite ? min(1, max(0, gain)) : 0
+                    precondition(budget.continuous.isFinite && budget.transient.isFinite)
+                    precondition(budget.continuous >= 0 && budget.transient >= 0)
+                    precondition(budget.continuous + budget.transient <= 0.7 * clamped + 1e-12,
+                        "Concurrent haptic events must share the total intensity request budget.")
+                }
+            }
+        }
+        print("Concurrent mobile haptics stay within a shared gain-scaled request budget.")
         print("Mobile analysis sleeps while hidden, paused, unsupported or at zero intensity.")
         print("Mobile PCM stays bounded/recent, discards paused input, preserves antiphase stereo, and sanitizes nonfinite samples.")
     }

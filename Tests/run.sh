@@ -25,6 +25,12 @@ cp -X "$project"/Sources/{HapticPattern,Equalizer,Signal,RhythmDSP,VocalFocus,Tr
 xcrun swiftc -swift-version 5 -O "$patterns"/*.swift -o "$patterns/check"
 "$patterns/check" "$project/Examples/120bpm.ahap"
 
+both="$scratch/both"
+mkdir -p "$both"
+cp -X "$project"/Sources/{HapticPattern,Equalizer,Signal,RhythmDSP,VocalFocus,Trackpad}.swift "$project/Tests/BothRegression.swift" "$both/"
+xcrun swiftc -swift-version 5 -O "$both"/*.swift -o "$both/check"
+"$both/check"
+
 live="$scratch/live"
 mkdir -p "$live"
 cp -X "$project"/Sources/{MusicDetection,HapticPattern,Equalizer,Signal,RhythmDSP,VocalFocus}.swift "$project/Tests/LiveHapticsRegression.swift" "$live/"

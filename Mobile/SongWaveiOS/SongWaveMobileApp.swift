@@ -32,7 +32,7 @@ struct MobileContentView: View {
                     if player.source == .files {
                         Button { importing = true } label: { Label("Open audio file", systemImage: "doc.badge.plus") }
                             .buttonStyle(.borderedProminent).disabled(player.busy)
-                        Text("Files stay on this iPhone. Voice and Beat use lightweight analysis; no AI isolation model is loaded.")
+                        Text("Files stay on this iPhone. Voice, Beat and Both use lightweight analysis; no AI isolation model is loaded.")
                             .font(.footnote).foregroundStyle(.secondary)
                     } else {
                         if !player.connected {
@@ -89,7 +89,7 @@ struct MobileContentView: View {
                 NavigationStack {
                     Form {
                         Section("Supported sources") {
-                            Text("Imported mono/stereo audio files: SongWave Voice/Beat haptics on a supported physical iPhone.")
+                            Text("Imported mono/stereo audio files: SongWave Voice/Beat/Both haptics on a supported physical iPhone.")
                             Text("Apple Music: playback inside SongWave with Apple’s Music Haptics for supported songs and devices. App setup is required before this development build can connect.")
                             Text("Spotify and audio playing in other apps are not captured by this iPhone build.")
                         }

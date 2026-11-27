@@ -150,6 +150,7 @@ private final class Session {
     var renderMilliseconds: Int { analysisMode == .assist ? 8 : 16 }
     private var analysisMode: OutputMode { tuning.focus(for: mode).analysisMode }
     private var analyzedMode: OutputMode?
+    private var analyzedFocus: HapticFocus?
     private var sleeping = false
     private var motorEnvelope = MotorEnvelope()
     private var userHapticsGain = UserHapticsGain()
@@ -258,6 +259,7 @@ private final class Session {
         isolationFinished = false
         isolationActive = wantsIsolation
         analyzedMode = analysisMode
+        analyzedFocus = tuning.focus(for: mode)
         sourceRate = rate
         divisor = max(1, Int(rate / 24_000))
         decimationCount = 0
@@ -331,7 +333,7 @@ private final class Session {
         lastTick = now
         guard let motor else { return }
         do {
-            if wantsIsolation != isolationActive || analyzedMode != analysisMode {
+            if wantsIsolation != isolationActive || analyzedMode != analysisMode || analyzedFocus != tuning.focus(for: mode) {
                 try setupSpectrum(rate: sourceRate)
                 timer?.schedule(deadline: .now(), repeating: .milliseconds(renderMilliseconds), leeway: .milliseconds(1))
             }
@@ -461,7 +463,8 @@ private final class Session {
                 if beat > 0 {
                     // A delayed or late render can drain multiple frames. Keep the
                     // attack even when the last frame in the batch is its quiet tail.
-                    output = SignalFrame(tones: [Tone(hertz: frequency, weight: 1)], level: beatLevel,
+                    output = SignalFrame(tones: tuning.focus(for: mode) == .both ? output.tones : [Tone(hertz: frequency, weight: 1)],
+                                         level: tuning.focus(for: mode) == .both ? output.level : beatLevel,
                                          bands: output.bands, inputRMS: output.inputRMS,
                                          hasAudio: true, beatStrength: beat, beatFrequency: frequency, bassLevel: output.bassLevel)
                 }
@@ -480,7 +483,7 @@ private final class Session {
             }
             let userGain = userHapticsGain.level(enabled: hapticsEnabled, at: outputTime)
             let automatic = automaticHaptics.frame(haptics, mode: analysisMode,
-                blocked: outputSuppressed || userGain == 0, impact: tuning.impact, detailBalance: tuning.detailBalance, at: outputTime)
+                blocked: outputSuppressed || userGain == 0, focus: tuning.focus(for: mode), impact: tuning.impact, detailBalance: tuning.detailBalance, at: outputTime)
             let rendered: SignalFrame
             if mode == .assist, case .file = source, patternPlayer != nil,
                userGain > 0, !outputSuppressed {

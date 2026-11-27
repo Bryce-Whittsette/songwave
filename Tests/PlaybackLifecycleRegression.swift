@@ -170,6 +170,7 @@ final class IsolatedVocals {
                 var tuning = mode.defaults
                 tuning.hapticFocus = focus
                 tuning.automaticTiming = false
+                tuning.delay = focus == .both ? 24 : 0
                 engine.start(.player(link), tuning: tuning, mode: mode, playerPath: "/Mock/Player.app", startAt: 0) { _ in }
                 wait("The explicit player route failed to produce output with inactive FaceTime open") { LifecycleHardware.writes.count > 12 }
                 require(LifecycleHardware.mutedTaps == (mode == .trackpad ? 1 : 0))

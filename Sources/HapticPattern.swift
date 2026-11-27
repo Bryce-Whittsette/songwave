@@ -163,19 +163,40 @@ struct MusicalEnvelope {
 struct AutomaticHaptics {
     private var percussion = MusicalEnvelope()
     private var previousMode: OutputMode?
+    private var previousFocus: HapticFocus?
     private var previousTime: Double?
 
-    mutating func frame(_ signal: SignalFrame, mode: OutputMode, blocked: Bool, impact: Double = 0.65, detailBalance: Double = 0, at now: Double) -> SignalFrame {
+    mutating func frame(_ signal: SignalFrame, mode: OutputMode, blocked: Bool, focus: HapticFocus? = nil, impact: Double = 0.65, detailBalance: Double = 0, at now: Double) -> SignalFrame {
         guard now.isFinite else { self = AutomaticHaptics(); return .empty }
-        if previousMode != mode || previousTime.map({ now < $0 || now - $0 > 0.2 }) == true {
+        let focus = focus ?? (mode == .assist ? .beat : .voice)
+        if previousMode != mode || previousFocus != focus || previousTime.map({ now < $0 || now - $0 > 0.2 }) == true {
             percussion = MusicalEnvelope()
         }
         previousMode = mode
+        previousFocus = focus
         previousTime = now
         guard !blocked else { percussion = MusicalEnvelope(); return .empty }
         // Vocal harmonic/pitch shaping is performed on the live or isolated PCM.
         // Keep its frequencies intact; rhythm mode builds transient/release layers.
-        return mode == .assist ? percussion.frame(signal, impact: impact, detailBalance: detailBalance, at: now) : signal
+        guard focus.includesBeat else { return signal }
+        let beat = percussion.frame(signal, impact: impact, detailBalance: detailBalance, at: now)
+        guard focus == .both else { return beat }
+        // Reserve room for each layer. A stronger voice cannot erase the beat,
+        // and enabling Both never raises the existing output ceiling.
+        func layer(_ frame: SignalFrame, mix: Double) -> [Tone] {
+            let valid = frame.tones.filter { $0.hertz.isFinite && $0.hertz > 0 && $0.weight.isFinite && $0.weight > 0 }
+            let total = valid.reduce(0) { $0 + $1.weight }
+            guard total > 0 else { return [] }
+            let level = frame.level.isFinite ? min(1, max(0, frame.level)) : 0
+            return valid.map { Tone(hertz: $0.hertz, weight: $0.weight / total * level * mix) }
+        }
+        let tones = layer(signal, mix: 0.55) + layer(beat, mix: 0.8)
+        let total = tones.reduce(0) { $0 + $1.weight }
+        let scale = max(1, total)
+        return SignalFrame(tones: tones.map { Tone(hertz: $0.hertz, weight: $0.weight / scale) },
+            level: min(1, total), bands: signal.bands, inputRMS: signal.inputRMS,
+            hasAudio: signal.hasAudio || beat.hasAudio, beatStrength: signal.beatStrength,
+            beatFrequency: signal.beatFrequency)
     }
 }
 
