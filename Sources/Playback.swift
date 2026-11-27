@@ -442,7 +442,7 @@ private final class Session {
                 nextTiming = now + 1
             }
             let delay = tuning.automaticTiming ?
-                OutputTiming.additionalDelay(reported: reportedDelay, analysisRate: sourceRate / Double(divisor), offsetMS: tuning.delay) :
+                OutputTiming.additionalDelay(reported: reportedDelay, analysisRate: sourceRate / Double(divisor), offsetMS: tuning.delay, focus: tuning.focus(for: mode)) :
                 max(0, tuning.delay / 1000)
             let haptics: SignalFrame
             if mode == .assist, delay > 0 {

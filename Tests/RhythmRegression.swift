@@ -154,6 +154,9 @@ struct RhythmRegression {
 
     static func timing() throws {
         let base = OutputTiming.additionalDelay(reported: 0.2, analysisRate: 24000, offsetMS: 0)
+        let voiceTiming = OutputTiming.additionalDelay(reported: 0.2, analysisRate: 24000, offsetMS: 0, focus: .voice)
+        precondition(abs(base - voiceTiming - 512.0 / 24000) < 1e-9,
+                     "Voice timing must account for its larger analysis window.")
         let earlier = OutputTiming.additionalDelay(reported: 0.2, analysisRate: 24000, offsetMS: -50)
         let later = OutputTiming.additionalDelay(reported: 0.2, analysisRate: 24000, offsetMS: 50)
         precondition(abs(base - earlier - 0.05) < 1e-9 && abs(later - base - 0.05) < 1e-9)

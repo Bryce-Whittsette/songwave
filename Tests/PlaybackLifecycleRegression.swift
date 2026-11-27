@@ -112,7 +112,7 @@ struct PartyBurst {
 enum OutputVolume { static func read() -> Double { 1 } }
 enum OutputTiming {
     static func reportedDelay() -> Double { 0 }
-    static func additionalDelay(reported: Double, analysisRate: Double, offsetMS: Double) -> Double { max(0, offsetMS / 1000) }
+    static func additionalDelay(reported: Double, analysisRate: Double, offsetMS: Double, focus: HapticFocus = .beat) -> Double { max(0, offsetMS / 1000) }
 }
 final class KeyboardLight { init?() { return nil }; func update(beatStrength: Double, now: Double) {} }
 final class IsolatedVocals {
