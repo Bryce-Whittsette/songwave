@@ -73,12 +73,20 @@ struct PlaybackAccessSheet: View {
     private var reduceMotion: Bool { AccessibleMotion.reduced(system: systemReduceMotion, additional: additionalMotionReduction) }
     @Environment(\.dismiss) private var dismiss
     @State private var playerRequest: Provider?
+    private var page: String {
+        studio.firstSuccess.phase == .recovery ? "recovery" : studio.firstSuccessPending && !studio.audioAccessReady ? "permission" : studio.verifyingSetup ? "check" : "recovery"
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text(studio.firstSuccessPending && !studio.audioAccessReady && studio.firstSuccess.phase != .recovery ? "Connect Mac audio" : studio.verifyingSetup && studio.firstSuccess.phase != .recovery ? "Make your first connection" : "Listening help")
                 .font(.title2.weight(.semibold)).accessibilityAddTraits(.isHeader).accessibilityHeading(.h1).accessibilityIdentifier("support.heading")
-            ScrollView { PlaybackAccessContent(studio: studio, playerRequest: $playerRequest).frame(maxWidth: .infinity, alignment: .leading).padding(1) }
-                .frame(maxHeight: 540)
+            ScrollViewReader { scroll in
+                ScrollView {
+                    PlaybackAccessContent(studio: studio, playerRequest: $playerRequest)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(1).id("support.top")
+                }
+                .onChange(of: page) { _, _ in scroll.scrollTo("support.top", anchor: .top) }
+            }.frame(maxHeight: 540)
             HStack {
                 Spacer()
                 Button(studio.verifyingSetup || studio.firstSuccessPending ? "Continue without confirmation" : "Done") {

@@ -16,8 +16,15 @@ enum TrackCatalog {
 enum ListeningDiagnostics { static let macModel = "Mac16,13"; static func outputRoute() -> DiagnosticRoute { .builtIn } }
 enum PlaybackAccess {
     static var failure: String?
+    static var requests = 0
+    static var holdRequests = false
+    static var requestContinuation: CheckedContinuation<Void, Never>?
     static func playerStatus(_ pid: pid_t, ask: Bool) -> Int32 { 0 }
-    static func requestAudio() async throws { if let failure { throw GlassError(failure) } }
+    static func requestAudio() async throws {
+        requests += 1
+        if holdRequests { await withCheckedContinuation { requestContinuation = $0 } }
+        if let failure { throw GlassError(failure) }
+    }
 }
 struct PartyBurst {
     static let length = 45.0, recovery = 60.0
@@ -34,12 +41,16 @@ final class Playback {
     static var pattern: HapticPattern?
     static var lastUpdate: ((PlaybackUpdate) -> Void)?
     static var testCompletion: ((String?) -> Void)?
+    static var tests = 0
+    static var probes = 0
+    static var probeDevice: String? = "Mock trackpad"
+    static var probeFailure: String?
     func start(_ source: PlaybackSource, tuning: Tuning, mode: OutputMode, playerPath: String?, startAt: Double,
                partyDeadline: Double = 0, hapticsEnabled: Bool = true, update: @escaping (PlaybackUpdate) -> Void) {
         Self.lastUpdate = update
         Self.runs.append(Run(source: source, mode: mode, haptics: hapticsEnabled, position: startAt))
     }
-    func testTrackpad(_ result: @escaping (String?) -> Void) { Self.testCompletion = result }
+    func testTrackpad(_ result: @escaping (String?) -> Void) { Self.tests += 1; Self.testCompletion = result }
     func setEffects(followVolume: Bool, keyboard: Bool, partyKeyboard: Bool) {}
     func setPattern(_ pattern: HapticPattern?) { Self.pattern = pattern }
     func set(tuning: Tuning) {}
@@ -49,5 +60,12 @@ final class Playback {
     func confirmPlayer(_ bundle: String?) {}
     func stop() {}
     func shutDown(_ completion: @escaping () -> Void) { completion() }
-    func probe(_ result: @escaping (String?, String?) -> Void) { result("Mock trackpad", nil) }
+    func probe(_ result: @escaping (String?, String?) -> Void) { Self.probes += 1; result(Self.probeDevice, Self.probeFailure) }
+}
+
+// The Console fixture never sends a message or touches the user's clipboard.
+enum ProjectShare {
+    static let canMessage = false
+    static func message() {}
+    static func copy() {}
 }

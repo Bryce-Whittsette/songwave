@@ -266,6 +266,7 @@ struct Console: View {
                         .font(.body)
                         .lineLimit(1...3)
                         .accessibilityLabel("Spotify or Apple Music link")
+                        .accessibilityIdentifier("source.link")
                         .help(studio.link)
                     Button("Paste", action: studio.paste)
                         .buttonStyle(.borderless)
@@ -417,6 +418,7 @@ struct Console: View {
             Text("Point at a value and swipe with two fingers. Click for a slider.")
                 .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Button("Tools…") { showTools = true }
+                .accessibilityIdentifier("tools.open")
                 .help("EQ, Fine Tune, genre, keyboard light, local patterns and Insane Ultra")
             Text("EQ, tuning and optional effects").font(.caption).foregroundStyle(.secondary)
             if studio.partyEnd > 0 { Button("Stop Ultra", action: studio.cancelParty) }
@@ -427,7 +429,8 @@ struct Console: View {
 
     private var toolsSheet: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Listening tools").font(.title2.weight(.semibold))
+            Text("Listening tools").font(.title2.weight(.semibold)).accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("tools.heading")
             Text("Adjust the feel or try an optional effect. Your everyday listening controls stay in the player.")
                 .font(.callout).foregroundStyle(.secondary)
             ScrollView {

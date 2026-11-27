@@ -12,13 +12,14 @@ final class Studio: ObservableObject {
     @Published private(set) var testingTrackpad = false
     @Published private(set) var selectedAppLabel = "Automatic Mac audio"
     private var selectedDiagnosticApp = DiagnosticApp.macAudio
+    private var supportOperation = UUID()
     @Published var requestedSettingsPage: String?
 
     var verifyingSetup: Bool { firstSuccess.phase != .idle && firstSuccess.phase != .confirmed }
     var healthSnapshot: ListeningHealthSnapshot {
         let local: Bool = { if case .file = source { return true }; return false }()
-        let capture: CaptureHealth = audioAccessHealth.failure != nil ? .failed :
-            requestingAudioAccess ? .checking : local ? .localFile : !audioAccessReady ? .notConfigured : captureHealth
+        let capture: CaptureHealth = local ? .localFile : audioAccessHealth.failure != nil ? .failed :
+            requestingAudioAccess ? .checking : !audioAccessReady ? .notConfigured : captureHealth
         let bundle: String? = { if case .player(let link) = source { return link.provider.bundle }; return detectedApp }()
         return ListeningHealthSnapshot(trackpadAvailable: device != nil, capture: capture,
             app: local ? .file : bundle == nil ? selectedDiagnosticApp : ListeningHealthSnapshot.app(bundle: bundle, localFile: false),
@@ -26,13 +27,16 @@ final class Studio: ObservableObject {
                 failure: error != nil || (capture == .failed && !local), detection: detection),
             error: trackpadFailure != nil ? .trackpad : capture == .failed ? .capture : error != nil ? .playback : .none)
     }
-    func copyDiagnostics() {
+    var diagnosticsReport: String {
         let info = Bundle.main.infoDictionary ?? [:]
         let report = SafeDiagnostics(version: info["CFBundleShortVersionString"] as? String ?? "",
             build: info["CFBundleVersion"] as? String ?? "", model: ListeningDiagnostics.macModel,
             os: ProcessInfo.processInfo.operatingSystemVersion, route: ListeningDiagnostics.outputRoute(), health: healthSnapshot)
+        return report.text
+    }
+    func copyDiagnostics() {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(report.text, forType: .string)
+        NSPasteboard.general.setString(diagnosticsReport, forType: .string)
     }
     func markFirstSuccessPending() {
         firstSuccessPending = true
@@ -71,6 +75,7 @@ final class Studio: ObservableObject {
         completeFirstSuccess()
     }
     func completeFirstSuccess() {
+        supportOperation = UUID()
         // Continuing without a tactile confirmation remains explicitly unverified.
         let confirmed = firstSuccess.phase == .confirmed
         stop(); testingTrackpad = false; firstSuccess.cancel(); firstSuccessPending = false
@@ -83,11 +88,32 @@ final class Studio: ObservableObject {
     }
     func retryListening() {
         guard !testingTrackpad else { return }
-        if verifyingSetup || firstSuccessPending { beginFirstSuccess(); return }
+        if verifyingSetup || firstSuccessPending {
+            if firstSuccess.phase == .recovery && audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady) {
+                // Recheck the connection in place. Only Run setup check starts
+                // another sensation-confirmation flow; retries never actuate.
+                start(.macAudio, verification: true)
+            } else { beginFirstSuccess() }
+            return
+        }
         if let pending = afterAudioAccess {
             afterAudioAccess = nil; autoStarted = true; pending(); return
         }
-        start(source ?? .macAudio)
+        let target = source ?? .macAudio
+        start(target, from: target.isLive ? 0 : elapsed, initialBypass: localBypass)
+    }
+    var retrySourceTitle: String {
+        switch source {
+        case .file: return "Retry local file"
+        case .player(let link): return "Reconnect " + link.provider.appName
+        case .macAudio, .none: return "Rescan music apps"
+        }
+    }
+    func retryCapture() async {
+        if case .file = source { return }
+        let request = supportOperation
+        guard await prepareAudioAccess() == nil, request == supportOperation else { return }
+        if firstSuccess.phase == .recovery || (!firstSuccessPending && !verifyingSetup) { retryListening() }
     }
     func openRecovery() { showPlaybackAccess = true }
     func automationSettings() {
@@ -149,6 +175,7 @@ final class Studio: ObservableObject {
     func prepareAudioAccess() async -> String? {
         guard !requestingAudioAccess, audioAccessHealth.beginCheck() else { return "Audio access is already being checked." }
         requestingAudioAccess = true
+        let request = supportOperation
         defer { requestingAudioAccess = false }
         do {
             try await PlaybackAccess.requestAudio()
@@ -157,9 +184,9 @@ final class Studio: ObservableObject {
             audioAccessHealth.finishCheck(failure: nil)
             captureHealth = .ready
             // Defer until requestingAudioAccess has settled; never actuate here.
-            if firstSuccessPending { Task { [weak self] in
-                guard self?.firstSuccessPending == true else { return }
-                self?.beginFirstSuccess()
+            if request == supportOperation && firstSuccessPending && firstSuccess.phase != .recovery { Task { [weak self] in
+                guard let self, self.supportOperation == request, self.firstSuccessPending, self.firstSuccess.phase != .recovery else { return }
+                self.beginFirstSuccess()
             } }
             return nil
         } catch {
@@ -171,6 +198,7 @@ final class Studio: ObservableObject {
     }
 
     func finishPlaybackAccess() {
+        supportOperation = UUID()
         if verifyingSetup || firstSuccessPending {
             stop(); testingTrackpad = false; firstSuccess.cancel()
             _ = restoreCheckContext(resume: false)
@@ -627,7 +655,7 @@ final class Studio: ObservableObject {
                 self.captureHelp = source.isLive
                 return
             }
-            if verification && update.signal.hasAudio && !self.firstSuccess.audioDetected { self.firstSuccess.observeAudio(true) }
+            if verification && self.firstSuccess.audioPresent != update.signal.hasAudio { self.firstSuccess.observeAudio(update.signal.hasAudio) }
             let capture: CaptureHealth = update.detection == "Cannot capture audio · check recording permission" ? .failed :
                 update.signal.hasAudio || ["Speech · haptics paused", "YouTube video · haptics paused"].contains(update.detection ?? "") ? .receiving : .waiting
             if self.captureHealth != capture { self.captureHealth = capture }
@@ -728,6 +756,8 @@ final class Studio: ObservableObject {
     }
 
     func stop() {
+        supportOperation = UUID()
+        if firstSuccess.audioPresent { firstSuccess.observeAudio(false) }
         if testingTrackpad { testingTrackpad = false; firstSuccess.recover() }
         resumeMacAfterWake = false
         if afterAudioAccess != nil {

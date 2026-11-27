@@ -59,7 +59,7 @@ import Foundation
         PlaybackAccess.failure = "Denied /Users/private"
         _ = await studio.prepareAudioAccess()
         studio.finishPlaybackAccess()
-        precondition(!studio.active && studio.audioAccessHealth.requiresRecovery && studio.healthSnapshot.capture == .failed)
+        precondition(!studio.active && studio.audioAccessHealth.requiresRecovery && studio.healthSnapshot.capture == .localFile)
         PlaybackAccess.failure = nil
         _ = await studio.prepareAudioAccess()
         let deadline = Date(timeIntervalSinceNow: 2)
@@ -67,6 +67,64 @@ import Foundation
         precondition(studio.verifyingSetup && !studio.requestingAudioAccess && Playback.runs.last?.haptics == false,
             "A successful permission retry must enter non-actuating verification after the check settles.")
         studio.completeFirstSuccess()
+        // Each recovery retry stays on the same screen and never substitutes
+        // permission success, capture activity or probing for a felt test.
+        studio.beginFirstSuccess(); studio.firstSuccessRecovery()
+        let testsBeforeRetry = Playback.tests
+        await studio.retryCapture()
+        await Task.yield()
+        precondition(studio.firstSuccess.phase == .recovery && Playback.tests == testsBeforeRetry)
+        precondition(Playback.runs.last?.haptics == false && Playback.runs.last?.mode == .assist)
+        let activeUpdate = Playback.lastUpdate!
+        activeUpdate(PlaybackUpdate(signal: SignalFrame(tones: [], level: 0.2, bands: [], inputRMS: 0.1, hasAudio: true), appBundle: "com.spotify.client", detection: "Music detected"))
+        precondition(studio.firstSuccess.audioPresent && !studio.firstSuccess.canConfirm)
+        activeUpdate(PlaybackUpdate(detection: "Waiting for Mac audio"))
+        precondition(!studio.firstSuccess.audioPresent && studio.firstSuccess.audioDetected && studio.firstSuccess.audioStatus.contains("earlier"))
+        studio.retryListening()
+        precondition(studio.firstSuccess.phase == .recovery && Playback.runs.last?.haptics == false)
+        Playback.probeDevice = nil; Playback.probeFailure = "Private trackpad failure /Users/private"
+        studio.probe(force: true)
+        precondition(!studio.healthSnapshot.trackpadAvailable && studio.healthSnapshot.error == .trackpad)
+        Playback.probeDevice = "Private device name"; Playback.probeFailure = nil
+        studio.probe(force: true)
+        precondition(studio.healthSnapshot.trackpadAvailable && studio.trackpadFailure == nil)
+        studio.completeFirstSuccess()
+
+        // Local-file retries keep position and manual bypass. Capture is not
+        // involved even if system recording permission previously failed.
+        studio.start(file, from: 51); studio.localBypass = true
+        PlaybackAccess.failure = "Denied private recording /Users/private/song.m4a"
+        _ = await studio.prepareAudioAccess()
+        let requests = PlaybackAccess.requests
+        await studio.retryCapture()
+        precondition(PlaybackAccess.requests == requests && studio.healthSnapshot.capture == .localFile)
+        studio.retryListening()
+        precondition(Playback.runs.last?.position == 51 && Playback.runs.last?.haptics == false && studio.localBypass)
+        precondition(studio.retrySourceTitle == "Retry local file")
+        studio.error = "Private title /Users/private/song.m4a"
+        studio.metadata = TrackInfo(title: "Private title", artist: "Private artist")
+        let report = studio.diagnosticsReport
+        for secret in ["/Users", "Private title", "Private artist", "Private device", "song.m4a", "Denied private"] { precondition(!report.contains(secret)) }
+        precondition(report.contains("Selected app: Local file") && report.contains("Output route: Built-in audio"))
+        studio.stop()
+
+        // Permission may finish after the window closes. Save its result, but
+        // do not reopen verification or start a new audio/haptic session.
+        PlaybackAccess.failure = nil
+        studio.source = .macAudio; studio.markFirstSuccessPending()
+        PlaybackAccess.holdRequests = true
+        let runsBeforeClose = Playback.runs.count
+        let permission = Task { await studio.prepareAudioAccess() }
+        while PlaybackAccess.requestContinuation == nil { await Task.yield() }
+        studio.finishPlaybackAccess()
+        let completion = PlaybackAccess.requestContinuation!
+        PlaybackAccess.requestContinuation = nil; PlaybackAccess.holdRequests = false
+        completion.resume()
+        _ = await permission.value
+        await Task.yield()
+        precondition(!studio.verifyingSetup && !studio.active && Playback.runs.count == runsBeforeClose)
+        precondition(studio.audioAccessHealth.status == .checked)
         print("Real Studio restores paused/playing file context, keeps preview non-actuating, rejects stopped/closed test callbacks, and persists explicit confirmation.")
+        print("Recovery retries stay in place without actuation, retain file position/bypass, clear probe failures, report current audio honestly, and exclude private data from real controller diagnostics; closed permission requests cannot reopen setup.")
     }
 }

@@ -2,12 +2,13 @@ import Foundation
 import XCTest
 
 final class AccessibilityUITests: XCTestCase {
-    @MainActor private func launch(_ screen: String, motion: Bool = false, scheme: String = "dark") -> XCUIApplication {
+    @MainActor private func launch(_ screen: String, motion: Bool = false, scheme: String = "dark", compact: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchEnvironment = ["SONGWAVE_AX_SCREEN": screen, "SONGWAVE_AX_REDUCE_MOTION": motion ? "1" : "0", "SONGWAVE_AX_SCHEME": scheme]
+        app.launchEnvironment = ["SONGWAVE_AX_SCREEN": screen, "SONGWAVE_AX_REDUCE_MOTION": motion ? "1" : "0", "SONGWAVE_AX_SCHEME": scheme, "SONGWAVE_AX_COMPACT": compact ? "1" : "0"]
+        app.launchArguments = ["-ApplePersistenceIgnoreState", "YES"]
         app.launch()
         app.activate()
-        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "support.heading").firstMatch.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: screen == "player" ? "tools.open" : "support.heading").firstMatch.waitForExistence(timeout: 8))
         return app
     }
     @MainActor private func spoken(_ element: XCUIElement) -> String { element.label.isEmpty ? element.title : element.label }
@@ -105,5 +106,61 @@ final class AccessibilityUITests: XCTestCase {
                 app.terminate()
             }
         }
+    }
+    @MainActor func testPermissionToExplicitSensationConfirmation() throws {
+        let app = launch("permission")
+        defer { app.terminate() }
+        XCTAssertFalse(app.buttons["setup.confirm"].exists)
+        app.buttons["setup.allow"].click()
+        XCTAssertTrue(app.buttons["setup.test"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["setup.confirm"].exists, "Permission success cannot imply sensation.")
+        XCTAssertTrue(app.progressIndicators["music.activity"].exists)
+        app.buttons["setup.test"].click()
+        XCTAssertFalse(app.buttons["setup.test"].isEnabled)
+        XCTAssertFalse(app.buttons["support.done"].isEnabled)
+        app.typeKey("t", modifierFlags: [.command, .shift])
+        XCTAssertTrue(app.buttons["setup.confirm"].waitForExistence(timeout: 5))
+        app.buttons["setup.confirm"].click()
+        XCTAssertTrue(app.buttons["recovery.check"].waitForExistence(timeout: 5))
+        XCTAssertEqual(spoken(app.buttons["support.done"]), "Done")
+        XCTAssertFalse(app.buttons["setup.confirm"].exists)
+    }
+    @MainActor func testRecoveryRetriesRemainInOnePlace() throws {
+        let app = launch("recovery")
+        defer { app.terminate() }
+        for id in ["recovery.trackpad.retry", "recovery.capture.retry", "recovery.app.retry", "recovery.pause.retry"] {
+            app.buttons[id].click()
+            XCTAssertTrue(app.buttons["recovery.check"].waitForExistence(timeout: 4))
+            XCTAssertFalse(app.buttons["setup.test"].exists, "Only Run setup check should leave recovery for another sensation check.")
+        }
+        app.buttons["recovery.check"].click()
+        XCTAssertTrue(app.buttons["setup.test"].waitForExistence(timeout: 4))
+        XCTAssertFalse(app.buttons["setup.confirm"].exists)
+        try audit(app)
+    }
+    @MainActor func testEverydayPlayerGroupsOptionalAndAdvancedControls() throws {
+        let app = launch("player")
+        defer { app.terminate() }
+        let link = app.descendants(matching: .any).matching(identifier: "source.link").firstMatch
+        XCTAssertFalse(link.exists)
+        XCTAssertFalse(app.buttons["Fine Tune…"].exists)
+        XCTAssertFalse(app.buttons["Insane Ultra…"].exists)
+        XCTAssertFalse(app.staticTexts["Trackpad EQ"].exists)
+        app.disclosureTriangles.firstMatch.click()
+        XCTAssertTrue(link.waitForExistence(timeout: 4))
+        app.buttons["tools.open"].click()
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "tools.heading").firstMatch.waitForExistence(timeout: 4))
+        XCTAssertTrue(app.buttons["Fine Tune…"].exists)
+        XCTAssertTrue(app.staticTexts["Trackpad EQ"].exists)
+    }
+    @MainActor func testRecoveryStartsAtTopAfterScrollingSetup() throws {
+        let app = launch("confirmation", compact: true)
+        defer { app.terminate() }
+        app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: -900)
+        XCTAssertTrue(app.buttons["setup.recover"].isHittable)
+        app.buttons["setup.recover"].click()
+        let retry = app.buttons["recovery.trackpad.retry"]
+        XCTAssertTrue(retry.waitForExistence(timeout: 4))
+        XCTAssertTrue(retry.isHittable, "Entering recovery must reveal the first connection status, not keep the previous scroll offset.")
     }
 }

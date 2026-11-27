@@ -5,8 +5,12 @@ struct FirstSuccessCheck {
     enum Phase: Equatable { case idle, listening, testing(UUID), awaitingConfirmation, confirmed, recovery }
     private(set) var phase: Phase = .idle
     private(set) var audioDetected = false
-    mutating func begin() { phase = .listening; audioDetected = false }
-    mutating func observeAudio(_ detected: Bool) { audioDetected = audioDetected || detected }
+    private(set) var audioPresent = false
+    mutating func begin() { phase = .listening; audioDetected = false; audioPresent = false }
+    mutating func observeAudio(_ detected: Bool) { audioPresent = detected; audioDetected = audioDetected || detected }
+    var audioStatus: String {
+        audioPresent ? "Audio detected" : audioDetected ? "Audio detected earlier; waiting for music" : "Waiting for music on your Mac"
+    }
     mutating func beginTest() -> UUID? {
         guard phase == .listening || phase == .awaitingConfirmation || phase == .recovery else { return nil }
         let token = UUID(); phase = .testing(token); return token
