@@ -50,4 +50,13 @@ cp -X "$project"/Sources/{Playback,Source,MusicDetection,HapticPattern,Signal,Eq
 xcrun swiftc -swift-version 5 -O "$lifecycle"/*.swift -o "$lifecycle/check"
 "$lifecycle/check"
 
+display="$scratch/display"
+mkdir -p "$display"
+cp -X "$project"/Sources/{SignalDisplay,Signal,Equalizer,RhythmDSP,VocalFocus,Trackpad}.swift \
+  "$project/Tests/DisplayRegression.swift" "$display/"
+xcrun swiftc -swift-version 5 -O "$display"/*.swift -o "$display/check"
+"$display/check"
+
 xcrun swift "$project/Tools/verify-update.swift" --self-test
+
+bash "$project/Tests/test-mobile-core.sh"

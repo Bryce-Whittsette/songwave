@@ -98,9 +98,13 @@ final class KeyboardLight {
 
 enum ProjectShare {
     static let url = URL(string: "https://github.com/Bryce-Whittsette/songwave")!
+    // Service discovery queries ShareKit and its extensions. Do it once, never
+    // every time a changing playback position recomputes a menu's view body.
+    @MainActor private static let messages = NSSharingService(named: .composeMessage)
+    @MainActor static var canMessage: Bool { messages != nil }
     @MainActor static func message() {
         let text = "Try SongWave. It lets you feel the music playing on your Mac through the trackpad. " + url.absoluteString
-        NSSharingService(named: .composeMessage)?.perform(withItems: [text])
+        messages?.perform(withItems: [text])
     }
     @MainActor static func copy() {
         NSPasteboard.general.clearContents()

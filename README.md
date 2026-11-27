@@ -42,6 +42,10 @@ SongWave explores a tactile way to experience music, including for Deaf and hard
 
 Accessibility is a design goal, and we haven't yet validated the experience with Deaf or hard-of-hearing users. [Feedback on comfort, clarity and useful controls](https://github.com/Bryce-Whittsette/songwave/issues/new/choose) will help guide the work.
 
+## iPhone development
+
+A standalone iPhone prototype is now in this repository: local audio with Voice/Beat feedback, plus Apple Music playback with Apple's available haptic tracks. **No iPhone download yet**; signing and physical-device testing are still required. It does not capture Spotify or audio from other iPhone apps. [Supported sources and beta preparation](docs/mobile.md).
+
 ## Need help?
 
 - [No vibration, permissions, or sync issues](docs/troubleshooting.md)
@@ -54,6 +58,6 @@ Music detection and vocal separation are approximate. Some protected audio canno
 
 [Product decisions and development credits](docs/project-decisions.md) · [Update pipeline](docs/updates.md)
 
-[Build and test](docs/development.md) · [How it works](docs/architecture.md) · [Streaming engine decisions](docs/streaming-engine.md) · [Mobile feasibility](docs/mobile.md) · [Release process](docs/releasing.md) · [Contributing](CONTRIBUTING.md) · [Privacy](PRIVACY.md)
+[Build and test](docs/development.md) · [How it works](docs/architecture.md) · [Streaming engine decisions](docs/streaming-engine.md) · [iPhone prototype](docs/mobile.md) · [Energy work and measurements](docs/energy.md) · [Release process](docs/releasing.md) · [Contributing](CONTRIBUTING.md) · [Privacy](PRIVACY.md)
 
 [MIT license](LICENSE). Third-party code and the bundled vocal model retain their [own notices](docs/credits.md). SongWave is an independent project, unaffiliated with Apple or Spotify.

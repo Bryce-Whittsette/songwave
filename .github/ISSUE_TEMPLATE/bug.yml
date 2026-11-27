@@ -12,14 +12,14 @@ body:
     id: environment
     attributes:
       label: Your setup
-      placeholder: M4 MacBook Air, macOS 27.3, SongWave 0.5.2
+      placeholder: Mac/iPhone model, OS version, SongWave version and build
     validations:
       required: true
   - type: input
     id: source
     attributes:
       label: Music source and mode
-      placeholder: Spotify desktop, Speakers + haptics
+      placeholder: Spotify desktop, Speakers + haptics, Beat, Light; or iPhone Files, Voice
   - type: textarea
     id: reproduce
     attributes:

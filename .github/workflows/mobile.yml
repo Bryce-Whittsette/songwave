@@ -1,0 +1,27 @@
+name: iPhone prototype
+on:
+  push:
+    branches: [main]
+    paths: ['Mobile/**', 'Sources/**', 'Tests/MobileRingRegression.swift', 'Tests/test-mobile-core.sh', '.github/workflows/mobile.yml']
+  pull_request:
+    paths: ['Mobile/**', 'Sources/**', 'Tests/MobileRingRegression.swift', 'Tests/test-mobile-core.sh', '.github/workflows/mobile.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  compile:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Bounded PCM and analysis-suspension tests
+        run: bash Tests/test-mobile-core.sh
+      - name: Compile Simulator target without signing
+        run: xcodebuild -project Mobile/SongWaveiOS.xcodeproj -scheme SongWaveMobile -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/SongWaveMobileSimulator" CODE_SIGNING_ALLOWED=NO build
+      - name: Compile device Release target without signing
+        run: xcodebuild -project Mobile/SongWaveiOS.xcodeproj -scheme SongWaveMobile -configuration Release -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/SongWaveMobileDevice" CODE_SIGNING_ALLOWED=NO build

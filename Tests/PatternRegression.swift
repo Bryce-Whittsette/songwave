@@ -37,6 +37,27 @@ import Foundation
             let invalid = json.replacingOccurrences(of: original, with: replacement)
             do { _ = try HapticPattern(data: Data(invalid.utf8)); preconditionFailure("Boolean accepted as an AHAP number") } catch {}
         }
+        let detailHit = SignalFrame(tones: [], level: 0.3, bands: [], inputRMS: 0.03, hasAudio: true,
+                                    beatStrength: 0.3, beatFrequency: 375, bassLevel: 0.28)
+        var plain = MusicalEnvelope(), clear = MusicalEnvelope()
+        let base = plain.frame(detailHit, detailBalance: 0, at: 1)
+        let raised = clear.frame(detailHit, detailBalance: 1, at: 1)
+        func weight(_ frame: SignalFrame, _ frequency: Double) -> Double { frame.tones.filter { $0.hertz == frequency }.reduce(0) { $0 + $1.weight } }
+        precondition(weight(raised, 375) > weight(base, 375) && weight(raised, 125) < weight(base, 125))
+        precondition(raised.beatStrength == base.beatStrength && raised.level <= 1)
+        let bassOnly = SignalFrame(tones: [], level: 0.28, bands: [], inputRMS: 0.03, hasAudio: true, bassLevel: 0.28)
+        let recovered = clear.frame(bassOnly, detailBalance: 1, at: 1.2)
+        precondition(abs(weight(recovered, 125) - 0.28) < 1e-9 && weight(recovered, 375) == 0)
+        for setting in [0.0, 0.35, 1, 100, -100, .nan, .infinity] {
+            var renderer = AutomaticHaptics()
+            let frame = renderer.frame(detailHit, mode: .assist, blocked: false, detailBalance: setting, at: 1)
+            precondition(frame.level.isFinite && (0...1).contains(frame.level))
+            precondition(renderer.frame(detailHit, mode: .assist, blocked: true, detailBalance: setting, at: 1.008).level == 0)
+            precondition(renderer.frame(.empty, mode: .assist, blocked: false, detailBalance: setting, at: 2).level == 0)
+            let voice = renderer.frame(detailHit, mode: .trackpad, blocked: false, detailBalance: setting, at: 3)
+            precondition(voice.level == detailHit.level && voice.beatStrength == detailHit.beatStrength)
+        }
+        print("Detail balance exposes high accents over rumble, restores bass, stays bounded, adds no beats, and preserves Voice/suppression.")
         var renderer = MusicalEnvelope()
         let hit = SignalFrame(tones: [], level: 1, bands: [], inputRMS: 0, hasAudio: true, beatStrength: 1)
         precondition(renderer.frame(hit, at: 1).level == 1)

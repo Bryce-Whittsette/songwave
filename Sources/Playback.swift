@@ -480,7 +480,7 @@ private final class Session {
             }
             let userGain = userHapticsGain.level(enabled: hapticsEnabled, at: outputTime)
             let automatic = automaticHaptics.frame(haptics, mode: analysisMode,
-                blocked: outputSuppressed || userGain == 0, impact: tuning.impact, at: outputTime)
+                blocked: outputSuppressed || userGain == 0, impact: tuning.impact, detailBalance: tuning.detailBalance, at: outputTime)
             let rendered: SignalFrame
             if mode == .assist, case .file = source, patternPlayer != nil,
                userGain > 0, !outputSuppressed {
@@ -490,7 +490,8 @@ private final class Session {
             let party = partyEnd > outputTime
             let accent = analysisMode == .assist || (party && PartyBurst.accent(elapsed: PartyBurst.length - (partyEnd - outputTime)))
             let response = party ? (accent ? UltraDynamics.level(rendered.level) : 0) : rendered.level * self.tuning.gain
-            let target = response * (followVolume ? volume : 1) * userGain
+            // Muted speaker volume must not silently disable trackpad-only output.
+            let target = response * (followVolume && mode == .assist ? volume : 1) * userGain
             let motorLevel = motorEnvelope.level(target: target,
                 transient: analysisMode == .assist && rendered.beatStrength > 0, at: outputTime)
             if !outputSuppressed && (!party || accent) && target > 0.001 {

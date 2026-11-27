@@ -2,6 +2,22 @@
 
 Every public release is listed here, newest first. Each version has a short explanation and expandable developer notes.
 
+## [0.5.8 — Development candidate](docs/releases/0.5.8.md)
+
+Not published. Mac review build 18; iPhone source prototype 0.1.0 (1).
+
+- Reduce hidden-player visual work and cache Messages service discovery. Battery savings still need a controlled playback comparison.
+- Add Beat detail balance, bringing detected mid/treble accents forward against bass rumble.
+- Keep Trackpad-only intensity independent of muted speaker volume.
+- Add an unsigned standalone iPhone prototype for local-file Voice/Beat haptics and Apple Music's matched haptic tracks. No mobile download yet; see [mobile status](docs/mobile.md).
+
+<details>
+<summary>Developer notes</summary>
+
+Display tests cover 10,000 hidden packets with no visual publications and fresh/stale resume. Mobile tests exercise bounded recent PCM and analysis-suspension policy. Simulator/device compile checks do not establish physical haptic quality, latency or energy use. The existing AI isolation engine is unchanged.
+
+</details>
+
 ## [0.5.7 — Voice and Beat](docs/releases/0.5.7.md)
 
 Public Preview · November 26, 2026

@@ -505,6 +505,7 @@ struct Tuning: Codable {
     var automaticTiming = true
     var hapticFocus: HapticFocus? = nil
     var vocalQuality = VocalQuality.light
+    var detailBalance = 0.35
     var bassSustain = 0.6
     var eq = EQ()
 }
@@ -525,6 +526,7 @@ extension Tuning {
         // Preserve a legacy nonzero delay as a manual setting, rather than adding
         // automatic compensation on top of an existing calibration.
         automaticTiming = try values.decodeIfPresent(Bool.self, forKey: .automaticTiming) ?? (delay == 0)
+        detailBalance = min(1, max(0, try values.decodeIfPresent(Double.self, forKey: .detailBalance) ?? 0.35))
         bassSustain = min(1, max(0, try values.decodeIfPresent(Double.self, forKey: .bassSustain) ?? 0.6))
         hapticFocus = try values.decodeIfPresent(HapticFocus.self, forKey: .hapticFocus)
         vocalQuality = try values.decodeIfPresent(VocalQuality.self, forKey: .vocalQuality) ?? .light
@@ -543,6 +545,7 @@ enum UltraDynamics {
         value.impact = 1
         value.smoothing = 12
         value.bassSustain = 0.85
+        value.detailBalance = 0.85
         value.eq = EQ()
         let voice = saved.focus(for: output) == .voice
         value.eq.bass.gain = voice ? 0 : 4

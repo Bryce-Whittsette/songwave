@@ -129,12 +129,14 @@ struct HapticPattern {
 // bounded and time-based, so timer jitter cannot stretch a pulse indefinitely.
 struct MusicalEnvelope {
     private var accents: [(time: Double, strength: Double, frequency: Double)] = []
-    mutating func frame(_ signal: SignalFrame, impact: Double = 0.65, at now: Double) -> SignalFrame {
+    mutating func frame(_ signal: SignalFrame, impact: Double = 0.65, detailBalance: Double = 0, at now: Double) -> SignalFrame {
         accents.removeAll { now - $0.time > 0.16 }
         if signal.beatStrength > 0 {
             if accents.count == 16 { accents.removeFirst() }
             accents.append((now, signal.beatStrength, signal.beatFrequency))
         }
+        let detail = detailBalance.isFinite ? min(1, max(0, detailBalance)) : 0
+        var detailActivity = 0.0
         var tones: [Tone] = []
         for accent in accents {
             let age = max(0, now - accent.time)
@@ -142,11 +144,12 @@ struct MusicalEnvelope {
             let shape = 1.325 - 0.5 * min(1, max(0, impact.isFinite ? impact : 0.65))
             let decay = (sharp ? 0.022 : 0.045) * shape
             let envelope = exp(-age / decay) * min(1, max(0, (0.16 - age) / 0.025))
-            let weight = accent.strength * envelope
+            if sharp { detailActivity = max(detailActivity, envelope) }
+            let weight = accent.strength * envelope * (sharp ? 1 + 0.7 * detail : 1)
             if weight > 0.005 { tones.append(Tone(hertz: accent.frequency, weight: weight)) }
         }
         if signal.bassLevel.isFinite, signal.bassLevel > 0.005 {
-            tones.append(Tone(hertz: 125, weight: min(0.28, signal.bassLevel)))
+            tones.append(Tone(hertz: 125, weight: min(0.28, signal.bassLevel) * (1 - 0.65 * detail * detailActivity)))
         }
         let total = tones.reduce(0) { $0 + $1.weight }
         return SignalFrame(tones: tones, level: min(1, total), bands: signal.bands,
@@ -162,7 +165,7 @@ struct AutomaticHaptics {
     private var previousMode: OutputMode?
     private var previousTime: Double?
 
-    mutating func frame(_ signal: SignalFrame, mode: OutputMode, blocked: Bool, impact: Double = 0.65, at now: Double) -> SignalFrame {
+    mutating func frame(_ signal: SignalFrame, mode: OutputMode, blocked: Bool, impact: Double = 0.65, detailBalance: Double = 0, at now: Double) -> SignalFrame {
         guard now.isFinite else { self = AutomaticHaptics(); return .empty }
         if previousMode != mode || previousTime.map({ now < $0 || now - $0 > 0.2 }) == true {
             percussion = MusicalEnvelope()
@@ -172,7 +175,7 @@ struct AutomaticHaptics {
         guard !blocked else { percussion = MusicalEnvelope(); return .empty }
         // Vocal harmonic/pitch shaping is performed on the live or isolated PCM.
         // Keep its frequencies intact; rhythm mode builds transient/release layers.
-        return mode == .assist ? percussion.frame(signal, impact: impact, at: now) : signal
+        return mode == .assist ? percussion.frame(signal, impact: impact, detailBalance: detailBalance, at: now) : signal
     }
 }
 
