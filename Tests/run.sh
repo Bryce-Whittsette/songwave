@@ -51,7 +51,7 @@ xcrun swiftc -swift-version 5 -O "$access"/*.swift -o "$access/check"
 
 lifecycle="$scratch/lifecycle"
 mkdir -p "$lifecycle"
-cp -X "$project"/Sources/{Playback,Source,MusicDetection,HapticPattern,Signal,Equalizer,RhythmDSP,VocalFocus}.swift \
+cp -X "$project"/Sources/{Playback,Source,MusicDetection,HapticPattern,Signal,Equalizer,RhythmDSP,VocalFocus,ListeningHealth}.swift \
   "$project/Tests/PlaybackLifecycleRegression.swift" "$lifecycle/"
 xcrun swiftc -swift-version 5 -O "$lifecycle"/*.swift -o "$lifecycle/check"
 "$lifecycle/check"
@@ -66,3 +66,15 @@ xcrun swiftc -swift-version 5 -O "$display"/*.swift -o "$display/check"
 xcrun swift "$project/Tools/verify-update.swift" --self-test
 
 bash "$project/Tests/test-mobile-core.sh"
+
+health="$scratch/health"
+mkdir -p "$health"
+cp -X "$project/Sources/ListeningHealth.swift" "$project/Tests/ListeningHealthRegression.swift" "$health/"
+xcrun swiftc -swift-version 5 -O "$health"/*.swift -o "$health/check"
+"$health/check"
+
+studio="$scratch/studio"
+mkdir -p "$studio"
+cp -X "$project"/Sources/{Studio,Source,ListeningSetup,GlassControls,Signal,Equalizer,RhythmDSP,VocalFocus,HapticPattern,SignalDisplay,ListeningHealth,AudioAccessHealth}.swift "$project/Tests/StudioRecoveryRegression.swift" "$studio/"
+xcrun swiftc -swift-version 5 -O "$studio"/*.swift -o "$studio/SongWaveStudioRegression"
+"$studio/SongWaveStudioRegression"

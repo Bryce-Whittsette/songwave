@@ -45,7 +45,7 @@ struct ListeningSetup: View {
                                label: "\(Int((intensity * 100).rounded()))%")
                 Divider()
                 Toggle("Listen for music when SongWave opens", isOn: $automatic)
-                Text("Playback Access opens next. Set up Mac audio and optionally connect Spotify or Music for track details. The waveform near the clock turns haptics on or off.")
+                Text("Next, connect Mac audio and choose a short trackpad test. The waveform near the clock turns haptics on or off. Optional player details are in Listening help.")
                     .font(.callout).foregroundStyle(.secondary)
                 Text("Trackpad only follows vocals. Choose Light for speed or Isolated for cleaner separation.")
                     .font(.caption).foregroundStyle(.secondary)

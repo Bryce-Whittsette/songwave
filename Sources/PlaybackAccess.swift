@@ -22,33 +22,13 @@ enum PlaybackAccess {
     }
 }
 
-// Reused inline in Settings and inside the single player-owned access sheet.
-// Presenting this content does not request any system or player permission.
-struct PlaybackAccessContent: View {
+struct PlayerConnectionControls: View {
     @ObservedObject var studio: Studio
     @Binding var playerRequest: Provider?
     @State private var message: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Allow System Audio Recording to feel music from other apps. Local files work without capture permission.")
-            HStack {
-                Button(studio.audioAccessHealth.failure != nil ? "Retry Audio Access" : studio.audioAccessReady ? "Check Audio Access" : "Allow System Audio…") {
-                    message = nil
-                    Task {
-                        _ = await studio.prepareAudioAccess()
-                    }
-                }.disabled(studio.requestingAudioAccess || playerRequest != nil)
-                if studio.requestingAudioAccess { ProgressView().controlSize(.small) }
-            }
-            Text(studio.audioAccessHealth.summary(setupSaved: studio.audioAccessReady))
-                .font(.callout).foregroundStyle(.secondary)
-            if let failure = studio.audioAccessHealth.failure {
-                Text(failure).font(.callout)
-                Text("To resume automatic listening, fix access and choose Retry Audio Access. Local files remain available.")
-                    .font(.callout).foregroundStyle(.secondary)
-            }
-            Divider()
             Text("Optional player details").font(.headline)
             Text("Connect a player to show the current title, cover, and progress. Open the player first, then connect it here.")
                 .foregroundStyle(.secondary)
@@ -82,21 +62,47 @@ struct PlaybackAccessContent: View {
     }
 }
 
+struct PlaybackAccessContent: View {
+    @ObservedObject var studio: Studio
+    @Binding var playerRequest: Provider?
+    @State private var visualOwner = UUID()
+    var body: some View {
+      Group {
+        if studio.firstSuccessPending && !studio.audioAccessReady && studio.firstSuccess.phase != .recovery {
+            AudioSetupContent(studio: studio)
+        } else if studio.verifyingSetup && studio.firstSuccess.phase != .recovery {
+            FirstSuccessContent(studio: studio)
+        } else {
+            RecoveryContent(studio: studio, playerRequest: $playerRequest)
+        }
+      }
+      .background { PlayerWindowVisibility { studio.display.setVisible($0, owner: visualOwner) } }
+      .onDisappear {
+          studio.display.setVisible(false, owner: visualOwner)
+          if studio.testingTrackpad { studio.finishPlaybackAccess() }
+      }
+    }
+}
+
 struct PlaybackAccessSheet: View {
     @ObservedObject var studio: Studio
     @Environment(\.dismiss) private var dismiss
     @State private var playerRequest: Provider?
-
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Playback Access").font(.title2.weight(.semibold))
-            PlaybackAccessContent(studio: studio, playerRequest: $playerRequest)
+            Text(studio.firstSuccessPending && !studio.audioAccessReady && studio.firstSuccess.phase != .recovery ? "Connect Mac audio" : studio.verifyingSetup && studio.firstSuccess.phase != .recovery ? "Make your first connection" : "Listening help")
+                .font(.title2.weight(.semibold)).accessibilityAddTraits(.isHeader)
+            ScrollView { PlaybackAccessContent(studio: studio, playerRequest: $playerRequest).frame(maxWidth: .infinity, alignment: .leading).padding(1) }
+                .frame(maxHeight: 540)
             HStack {
                 Spacer()
-                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
-                    .disabled(studio.requestingAudioAccess || playerRequest != nil)
+                Button(studio.verifyingSetup || studio.firstSuccessPending ? "Continue without confirmation" : "Done") {
+                    if studio.verifyingSetup || studio.firstSuccessPending { studio.completeFirstSuccess() }
+                    dismiss()
+                }.keyboardShortcut(.cancelAction)
+                    .disabled(studio.requestingAudioAccess || playerRequest != nil || studio.testingTrackpad)
             }
-        }.padding(24).frame(width: 480)
-            .interactiveDismissDisabled(studio.requestingAudioAccess || playerRequest != nil)
+        }.padding(24).frame(width: 530)
+            .interactiveDismissDisabled(studio.requestingAudioAccess || playerRequest != nil || studio.testingTrackpad)
     }
 }

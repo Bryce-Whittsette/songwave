@@ -156,8 +156,47 @@ final class IsolatedVocals {
         require(gain.level(enabled: true, at: 1.072) == falling)
         require(gain.level(enabled: true, at: 1.136) > falling)
     }
+    static func setupCheck() throws {
+        LifecycleHardware.clear()
+        LifecycleHardware.set([111: LifecycleClient(bundle: "com.spotify.client")])
+        let link = try MusicLink("spotify:track:0000000000000000000000")
+        let engine = Playback()
+        var updates = 0
+        engine.start(.player(link), tuning: OutputMode.assist.defaults, mode: .assist,
+            playerPath: "/Mock/Player.app", startAt: 0, hapticsEnabled: false) { update in
+            if update.signal.hasAudio { updates += 1 }
+        }
+        wait("Verification must still detect audio") { updates >= 3 }
+        require(LifecycleHardware.writes.isEmpty && LifecycleHardware.mutedTaps == 0,
+            "Setup detection must not actuate or mute speakers")
+        engine.stop()
+        wait("Verification capture did not stop") { LifecycleHardware.liveTaps == 0 && LifecycleHardware.liveMotors == 0 }
+        var completed = false
+        engine.testTrackpad { _ in completed = true }
+        wait("Explicit test did not complete", timeout: 2) { completed }
+        require((1...3).contains(LifecycleHardware.writes.count))
+        require(LifecycleHardware.writes.allSatisfy { $0.level <= 0.35 })
+        wait("Test resources were not released") { LifecycleHardware.liveMotors == 0 && LifecycleHardware.liveTaps == 0 }
+        LifecycleHardware.clear()
+        engine.testTrackpad { _ in }
+        engine.stop()
+        run(for: 0.12)
+        let stopped = LifecycleHardware.writes.count
+        run(for: 0.8)
+        require(LifecycleHardware.writes.count == stopped && LifecycleHardware.liveMotors == 0,
+            "Cancellation retained scheduled test output")
+        LifecycleHardware.clear()
+        LifecycleHardware.set([112: LifecycleClient(bundle: "com.apple.FaceTime", input: 1, output: 0)])
+        var blocked = false
+        engine.testTrackpad { blocked = $0 != nil }
+        wait("A call must block the explicit test") { blocked }
+        require(LifecycleHardware.writes.isEmpty && LifecycleHardware.liveMotors == 0)
+        LifecycleHardware.clear()
+        print("Setup capture stays unmuted and non-actuating; explicit taps are bounded, cancelled on Stop, and blocked during calls.")
+    }
     static func main() throws {
         gain()
+        try setupCheck()
         var cases = 0
         for provider in Provider.allCases {
             for mode in OutputMode.allCases {

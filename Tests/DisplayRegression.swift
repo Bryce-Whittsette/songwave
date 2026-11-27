@@ -66,6 +66,21 @@ import Foundation
         precondition(!display.frame.hasAudio && display.bands(at: now).allSatisfy { $0 == 0 },
                      "Resuming a stalled producer must not animate an expired audio packet")
         withExtendedLifetime((frameObserver, changeObserver)) {}
+        now = 9
+        display.submit(SignalFrame(tones: [], level: 0.5, bands: [], inputRMS: 0.05, hasAudio: true, beatStrength: 0.8))
+        precondition(display.beat(at: 9) > 0)
+        precondition(display.beat(at: 9.3) == 0, "A visual beat must expire without another audio packet.")
+        display.setVisible(false)
+        precondition(display.beat(at: 9) == 0)
+        display.setVisible(true)
+        display.submit(.empty)
+        precondition(display.beat(at: 9) == 0, "Silence/suppression must clear the visual beat.")
+        let supportOwner = UUID()
+        display.setVisible(true, owner: supportOwner)
+        display.setVisible(false)
+        precondition(display.isVisible, "Closing the player must not pause a visible support indicator.")
+        display.setVisible(false, owner: supportOwner)
+        precondition(!display.isVisible, "Closing the last visual consumer must stop publishing.")
         print("Display pause/resume, 10,000 hidden packets without publication, latest-frame recovery, silence/stalled input, cancelled release and foreground smoothing passed.")
     }
 }

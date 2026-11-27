@@ -59,7 +59,7 @@ This generates speech directly into a temporary file with macOS `say`, then runs
 
 GitHub Actions runs default tests and a build on `macos-26`. Neural tests can be selected in a manual workflow run. CI does not measure physical haptics or validate the private driver ABI on different hardware.
 
-The default suite also checks display suspension/recovery and the iPhone PCM queue/analysis-suspension policy. The separate iPhone workflow compiles unsigned Simulator and device targets. See the [mobile development guide](mobile.md) and [energy measurement protocol](energy.md).
+The default suite also checks first-success state/cancellation, unmuted non-actuating preview, bounded explicit test output with fake hardware, adversarial diagnostics privacy, and display suspension/recovery and the iPhone PCM queue/analysis-suspension policy. The separate iPhone workflow compiles unsigned Simulator and device targets. See the [mobile development guide](mobile.md) and [energy measurement protocol](energy.md).
 
 ## Layout
 

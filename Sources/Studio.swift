@@ -5,6 +5,126 @@ import UniformTypeIdentifiers
 @MainActor
 final class Studio: ObservableObject {
     @Published var showPlaybackAccess = false
+    @Published private(set) var firstSuccess = FirstSuccessCheck()
+    @Published private(set) var firstSuccessPending = UserDefaults.standard.bool(forKey: "firstSuccessPending")
+    @Published private(set) var captureHealth = CaptureHealth.unchecked
+    @Published private(set) var trackpadFailure: String?
+    @Published private(set) var testingTrackpad = false
+    @Published private(set) var selectedAppLabel = "Automatic Mac audio"
+    private var selectedDiagnosticApp = DiagnosticApp.macAudio
+    @Published var requestedSettingsPage: String?
+
+    var verifyingSetup: Bool { firstSuccess.phase != .idle && firstSuccess.phase != .confirmed }
+    var healthSnapshot: ListeningHealthSnapshot {
+        let local: Bool = { if case .file = source { return true }; return false }()
+        let capture: CaptureHealth = audioAccessHealth.failure != nil ? .failed :
+            requestingAudioAccess ? .checking : local ? .localFile : !audioAccessReady ? .notConfigured : captureHealth
+        let bundle: String? = { if case .player(let link) = source { return link.provider.bundle }; return detectedApp }()
+        return ListeningHealthSnapshot(trackpadAvailable: device != nil, capture: capture,
+            app: local ? .file : bundle == nil ? selectedDiagnosticApp : ListeningHealthSnapshot.app(bundle: bundle, localFile: false),
+            pause: ListeningHealthSnapshot.pause(active: active, bypassed: localBypass, verifying: verifyingSetup,
+                failure: error != nil || (capture == .failed && !local), detection: detection),
+            error: trackpadFailure != nil ? .trackpad : capture == .failed ? .capture : error != nil ? .playback : .none)
+    }
+    func copyDiagnostics() {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let report = SafeDiagnostics(version: info["CFBundleShortVersionString"] as? String ?? "",
+            build: info["CFBundleVersion"] as? String ?? "", model: ListeningDiagnostics.macModel,
+            os: ProcessInfo.processInfo.operatingSystemVersion, route: ListeningDiagnostics.outputRoute(), health: healthSnapshot)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(report.text, forType: .string)
+    }
+    func markFirstSuccessPending() {
+        firstSuccessPending = true
+        UserDefaults.standard.set(true, forKey: "firstSuccessPending")
+    }
+    func beginFirstSuccess() {
+        guard !requestingAudioAccess, !testingTrackpad else { return }
+        if checkPrior == nil {
+            checkPrior = PriorPlayback(source: source ?? .macAudio, wasPlaying: active, elapsed: elapsed,
+                duration: duration, info: metadata, bypass: localBypass)
+            checkPriorPattern = (loadedPattern, patternName, patternNote)
+        }
+        stop(); firstSuccess.begin(); markFirstSuccessPending(); showPlaybackAccess = true
+        guard audioAccessReady, !audioAccessHealth.requiresRecovery else { firstSuccess.recover(); return }
+        start(.macAudio, verification: true)
+    }
+    func testTrackpad() {
+        guard !testingTrackpad, let token = firstSuccess.beginTest() else { return }
+        stop(); testingTrackpad = true
+        engine.testTrackpad { [weak self] failure in
+            guard let self, self.firstSuccess.phase == .testing(token) else { return }
+            self.testingTrackpad = false
+            self.trackpadFailure = failure
+            self.firstSuccess.finishTest(token, succeeded: failure == nil)
+            // Continue detection with speakers unmuted and automatic haptics off.
+            if failure == nil { self.start(.macAudio, verification: true) }
+        }
+    }
+    func firstSuccessRecovery() {
+        if testingTrackpad { stop(); testingTrackpad = false }
+        firstSuccess.recover()
+    }
+    func confirmFirstSuccess() {
+        guard firstSuccess.confirm() else { return }
+        UserDefaults.standard.set(true, forKey: "firstSuccessConfirmed")
+        completeFirstSuccess()
+    }
+    func completeFirstSuccess() {
+        // Continuing without a tactile confirmation remains explicitly unverified.
+        let confirmed = firstSuccess.phase == .confirmed
+        stop(); testingTrackpad = false; firstSuccess.cancel(); firstSuccessPending = false
+        UserDefaults.standard.set(false, forKey: "firstSuccessPending")
+        if !confirmed { UserDefaults.standard.set(false, forKey: "firstSuccessConfirmed") }
+        afterAudioAccess = nil; showPlaybackAccess = false
+        if !restoreCheckContext(resume: true) && launchListen && audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady) {
+            autoStarted = true; start(.macAudio)
+        }
+    }
+    func retryListening() {
+        guard !testingTrackpad else { return }
+        if verifyingSetup || firstSuccessPending { beginFirstSuccess(); return }
+        if let pending = afterAudioAccess {
+            afterAudioAccess = nil; autoStarted = true; pending(); return
+        }
+        start(source ?? .macAudio)
+    }
+    func openRecovery() { showPlaybackAccess = true }
+    func trackpadSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Trackpad-Settings.extension") { NSWorkspace.shared.open(url) }
+    }
+
+    private func labelSource(_ source: PlaybackSource) {
+        switch source {
+        case .player(let link):
+            selectedAppLabel = link.provider.appName
+            selectedDiagnosticApp = ListeningHealthSnapshot.app(bundle: link.provider.bundle, localFile: false)
+        case .file: selectedAppLabel = "Local audio file"; selectedDiagnosticApp = .file
+        case .macAudio: selectedAppLabel = "Automatic Mac audio"; selectedDiagnosticApp = .macAudio
+        }
+    }
+
+    private var checkPrior: PriorPlayback?
+    private var checkPriorPattern: (HapticPattern?, String?, String?)?
+    private func restoreCheckContext(resume: Bool) -> Bool {
+        guard let prior = checkPrior else { return false }
+        checkPrior = nil
+        artworkTask?.cancel(); artworkTask = nil
+        source = prior.source; labelSource(prior.source); elapsed = prior.elapsed; duration = prior.duration; metadata = prior.info
+        if let pattern = checkPriorPattern {
+            loadedPattern = pattern.0; patternName = pattern.1; patternNote = pattern.2
+            engine.setPattern(pattern.0)
+        }
+        checkPriorPattern = nil
+        let shouldResume = prior.wasPlaying || (prior.source == .macAudio && launchListen)
+        let permitted = !prior.source.isLive || audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady)
+        if resume && shouldResume && permitted {
+            autoStarted = true
+            start(prior.source, from: prior.source.isLive ? 0 : prior.elapsed, initialBypass: prior.bypass)
+        }
+        return true
+    }
+
     private var afterAudioAccess: (() -> Void)?
     @Published private(set) var requestingAudioAccess = false
     // This records completion of SongWave's setup, not macOS authorization.
@@ -24,7 +144,7 @@ final class Studio: ObservableObject {
     }
 
     func prepareAudioAccess() async -> String? {
-        guard !requestingAudioAccess, audioAccessHealth.beginCheck() else { return nil }
+        guard !requestingAudioAccess, audioAccessHealth.beginCheck() else { return "Audio access is already being checked." }
         requestingAudioAccess = true
         defer { requestingAudioAccess = false }
         do {
@@ -32,15 +152,27 @@ final class Studio: ObservableObject {
             UserDefaults.standard.set(true, forKey: "audioAccessConfigured")
             audioAccessReady = true
             audioAccessHealth.finishCheck(failure: nil)
+            captureHealth = .ready
+            // Defer until requestingAudioAccess has settled; never actuate here.
+            if firstSuccessPending { Task { [weak self] in
+                guard self?.firstSuccessPending == true else { return }
+                self?.beginFirstSuccess()
+            } }
             return nil
         } catch {
             let message = error.localizedDescription
+            captureHealth = .failed
             audioAccessHealth.finishCheck(failure: message)
             return message
         }
     }
 
     func finishPlaybackAccess() {
+        if verifyingSetup || firstSuccessPending {
+            stop(); testingTrackpad = false; firstSuccess.cancel()
+            _ = restoreCheckContext(resume: false)
+            return
+        }
         let pending = afterAudioAccess
         afterAudioAccess = nil
         guard audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady) else { return }
@@ -105,17 +237,21 @@ final class Studio: ObservableObject {
 
     func launchIfConfigured() {
         guard UserDefaults.standard.bool(forKey: "setupComplete") else { return }
-        autoListen()
+        if firstSuccessPending {
+            showPlaybackAccess = true
+            if audioAccessReady && !verifyingSetup { beginFirstSuccess() }
+        } else { autoListen() }
     }
 
     func autoListen() {
-        guard !autoStarted, launchListen,
+        guard !autoStarted, launchListen, !firstSuccessPending, !verifyingSetup,
               audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady) else { return }
         autoStarted = true
         if !active { start(.macAudio) }
     }
 
     func suspendForSleep() {
+        if verifyingSetup { firstSuccess.cancel(); testingTrackpad = false }
         let resume = active && source == .macAudio
         stop()
         resumeMacAfterWake = resume
@@ -124,7 +260,7 @@ final class Studio: ObservableObject {
     func resumeAfterWake() {
         let resume = resumeMacAfterWake
         resumeMacAfterWake = false
-        guard resume, !active,
+        guard resume, !active, !firstSuccessPending, !verifyingSetup,
               audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady) else { return }
         start(.macAudio)
     }
@@ -133,6 +269,7 @@ final class Studio: ObservableObject {
         max(0, UserDefaults.standard.double(forKey: "nextBurst") - Date().timeIntervalSince1970)
     }
     func startParty(lights: Bool) {
+        guard !verifyingSetup else { return }
         guard partyID == nil, cooldown == 0, PartyBurst.allowed(thermal: ProcessInfo.processInfo.thermalState) else {
             error = "Let the Mac cool down before starting another burst."
             return
@@ -208,12 +345,13 @@ final class Studio: ObservableObject {
     private func updateEffects() { engine.setEffects(followVolume: followVolume, keyboard: keyboard, partyKeyboard: partyLights) }
     func terminate(_ completion: @escaping () -> Void) { engine.shutDown(completion) }
 
+    private var loadedPattern: HapticPattern?
     private var patternRequest = UUID()
     @Published private(set) var patternName: String?
     @Published private(set) var patternNote: String?
     func clearPattern() {
         patternRequest = UUID()
-        patternName = nil; patternNote = nil; engine.setPattern(nil)
+        loadedPattern = nil; patternName = nil; patternNote = nil; engine.setPattern(nil)
     }
     func choosePattern() {
         guard case .file = source else { error = "Open a local audio file first, then attach its haptic pattern."; return }
@@ -222,22 +360,30 @@ final class Studio: ObservableObject {
         panel.allowsMultipleSelection = false
         panel.message = "Choose a haptic pattern for this audio file. Embedded audio is skipped."
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        let expectedSource = source
+        Task { await attachPattern(url, expectedSource: expectedSource) }
+    }
+    func attachPattern(_ url: URL, expectedSource: PlaybackSource? = nil) async {
+        guard case .file = source else { return }
+        if let expectedSource, expectedSource != source { return }
         let attachedSource = source
         let request = UUID()
         patternRequest = request
-        Task {
-            do {
-                let pattern = try await Task.detached {
-                    guard (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) <= 1_048_576 else {
-                        throw GlassError("Choose an AHAP file smaller than 1 MB.")
-                    }
-                    return try HapticPattern(data: Data(contentsOf: url))
-                }.value
-                guard source == attachedSource, patternRequest == request else { return }
-                patternName = url.deletingPathExtension().lastPathComponent
-                patternNote = pattern.skippedAudio > 0 ? "Haptics only · embedded audio skipped" : "Haptics follow this file’s playback clock"
-                engine.setPattern(pattern)
-            } catch { self.error = error.localizedDescription }
+        do {
+            let pattern = try await Task.detached {
+                guard (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) <= 1_048_576 else {
+                    throw GlassError("Choose an AHAP file smaller than 1 MB.")
+                }
+                return try HapticPattern(data: Data(contentsOf: url))
+            }.value
+            guard source == attachedSource, patternRequest == request else { return }
+            patternName = url.deletingPathExtension().lastPathComponent
+            patternNote = pattern.skippedAudio > 0 ? "Haptics only · embedded audio skipped" : "Haptics follow this file’s playback clock"
+            loadedPattern = pattern
+            engine.setPattern(pattern)
+        } catch {
+            guard source == attachedSource, patternRequest == request else { return }
+            self.error = error.localizedDescription
         }
     }
 
@@ -251,6 +397,7 @@ final class Studio: ObservableObject {
             var next = tunings[mode] ?? mode.defaults
             next.hapticFocus = selectedFocus
             tuning = next
+            if verifyingSetup { return }
             if active && source == .macAudio { engine.setMacMode(mode) }
             else if active, let source { start(source, from: source.isLive ? 0 : elapsed, preserveParty: true) }
         }
@@ -271,7 +418,7 @@ final class Studio: ObservableObject {
     @Published var detection = "Listening for music"
     @Published var localBypass = false
     @Published var detectedApp: String?
-    var assistEnabled: Bool { active && mode == .assist && !localBypass }
+    var assistEnabled: Bool { active && mode == .assist && !localBypass && !verifyingSetup }
     @Published var metadata: TrackInfo?
     let display = SignalDisplay()
     @Published var device: String?
@@ -317,11 +464,12 @@ final class Studio: ObservableObject {
         mode == .trackpad ? "trackpadTuning" : "assistTuning"
     }
 
-    func probe() {
-        guard !probed else { return }
+    func probe(force: Bool = false) {
+        guard force || !probed else { return }
         probed = true
         engine.probe { [weak self] device, error in
             self?.device = device
+            self?.trackpadFailure = error
             if self?.active == false { self?.error = error }
         }
     }
@@ -371,6 +519,7 @@ final class Studio: ObservableObject {
     }
 
     func toggleAssist() {
+        guard !verifyingSetup else { return }
         if active {
             if mode != .assist {
                 localBypass = false
@@ -387,7 +536,8 @@ final class Studio: ObservableObject {
         }
     }
 
-    func start(_ source: PlaybackSource, openPlayer: Bool = false, from position: Double = 0, preserveParty: Bool = false) {
+    func start(_ source: PlaybackSource, openPlayer: Bool = false, from position: Double = 0, preserveParty: Bool = false, verification: Bool = false, initialBypass: Bool = false) {
+        guard verification || !verifyingSetup else { return }
         resumeMacAfterWake = false
         if source.isLive && (!audioAccessReady || audioAccessHealth.requiresRecovery) {
             afterAudioAccess = { [weak self] in self?.start(source, openPlayer: openPlayer, from: position) }
@@ -395,12 +545,14 @@ final class Studio: ObservableObject {
             return
         }
         if !preserveParty { endParty() }
+        if source.isLive { captureHealth = .waiting }
         let token = UUID()
         operation = token
-        localBypass = false
+        localBypass = initialBypass
         detectedApp = nil
         playerTrack = nil
         detection = "Listening for music"
+        labelSource(source)
         lastInfoCheck = .distantPast
         liveInfoTask?.cancel()
         liveInfoTask = nil
@@ -453,8 +605,10 @@ final class Studio: ObservableObject {
                 }
             }
         }
-        engine.start(source, tuning: tuning, mode: mode, playerPath: playerPath,
-                     startAt: position, partyDeadline: preserveParty ? partyEnd : 0) { [weak self] update in
+        var runTuning = tuning
+        if verification { runTuning.hapticFocus = .beat; runTuning.vocalQuality = .light }
+        engine.start(source, tuning: runTuning, mode: verification ? .assist : mode, playerPath: playerPath,
+                     startAt: position, partyDeadline: preserveParty ? partyEnd : 0, hapticsEnabled: !verification && !initialBypass) { [weak self] update in
             guard let self, self.operation == token else { return }
             self.lastCaptureUpdate = ProcessInfo.processInfo.systemUptime
             if update.partyOverheated {
@@ -465,9 +619,16 @@ final class Studio: ObservableObject {
             if let error = update.error {
                 if self.priorPlayback != nil { self.cancelParty() } else { self.stop() }
                 self.error = error
+                self.captureHealth = .failed
+                if verification { self.firstSuccess.recover() }
                 self.captureHelp = source.isLive
                 return
             }
+            if verification && update.signal.hasAudio && !self.firstSuccess.audioDetected { self.firstSuccess.observeAudio(true) }
+            let capture: CaptureHealth = update.detection == "Cannot capture audio · check recording permission" ? .failed :
+                update.signal.hasAudio || ["Speech · haptics paused", "YouTube video · haptics paused"].contains(update.detection ?? "") ? .receiving : .waiting
+            if self.captureHealth != capture { self.captureHealth = capture }
+            if verification && capture == .failed { self.firstSuccess.recover() }
             self.display.submit(update.signal)
             if let reason = update.detection, reason != self.detection { self.detection = reason }
             if source.isLive { self.refreshLiveInfo(update, source: source, token: token) }
@@ -494,6 +655,8 @@ final class Studio: ObservableObject {
         if case .player(let link) = source { bundle = link.provider.bundle } else { bundle = update.appBundle }
         if detectedApp != bundle {
             detectedApp = bundle
+            selectedDiagnosticApp = ListeningHealthSnapshot.app(bundle: bundle, localFile: false)
+            selectedAppLabel = bundle.flatMap { NSRunningApplication.runningApplications(withBundleIdentifier: $0).first?.localizedName } ?? selectedDiagnosticApp.rawValue
             if playerTrack != nil || source == .macAudio { metadata = nil }
             liveVideoIdentity = nil
             playerTrack = nil
@@ -562,6 +725,7 @@ final class Studio: ObservableObject {
     }
 
     func stop() {
+        if testingTrackpad { testingTrackpad = false; firstSuccess.recover() }
         resumeMacAfterWake = false
         if afterAudioAccess != nil {
             afterAudioAccess = nil
@@ -579,6 +743,7 @@ final class Studio: ObservableObject {
         if source == .macAudio { metadata = nil; detectedApp = nil }
         active = false
         waiting = false
+        captureHealth = audioAccessHealth.failure != nil ? .failed : audioAccessReady ? .unchecked : .notConfigured
         captureHelp = false
         display.submit(.empty)
         engine.stop()

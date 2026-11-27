@@ -5,7 +5,11 @@ import Foundation
 // continue independently when the player is hidden or the app is inactive.
 @MainActor
 final class SignalDisplay: ObservableObject {
+    private let primaryOwner = UUID()
+    private var visibleOwners: Set<UUID> = []
     private let clock: () -> Double
+    private var beatAt = -Double.infinity
+    private var beatStrength = 0.0
     private var latest = SignalFrame.empty
     private var receivedAt: Double
     private var origin = SignalFrame.empty.bands
@@ -22,7 +26,10 @@ final class SignalDisplay: ObservableObject {
         receivedAt = now
     }
 
-    func setVisible(_ visible: Bool) {
+    func setVisible(_ value: Bool, owner: UUID? = nil) {
+        let owner = owner ?? primaryOwner
+        if value { visibleOwners.insert(owner) } else { visibleOwners.remove(owner) }
+        let visible = !visibleOwners.isEmpty
         guard visible != isVisible else { return }
         releaseTask?.cancel()
         releaseTask = nil
@@ -43,6 +50,8 @@ final class SignalDisplay: ObservableObject {
     func submit(_ next: SignalFrame) {
         latest = next
         let now = clock()
+        if !next.hasAudio { beatStrength = 0 }
+        else if next.beatStrength.isFinite && next.beatStrength > 0 { beatAt = now; beatStrength = min(1, next.beatStrength) }
         receivedAt = now
         guard isVisible, frame.hasAudio || next.hasAudio else { return }
         origin = bands(at: now)
@@ -63,6 +72,12 @@ final class SignalDisplay: ObservableObject {
             releaseTask = nil
             settling = false
         }
+    }
+
+    func beat(at now: Double) -> Double {
+        let age = now - beatAt
+        guard isVisible, age >= 0, age < 0.22 else { return 0 }
+        return beatStrength * max(0, 1 - age / 0.22)
     }
 
     func bands(at now: Double) -> [Double] {
