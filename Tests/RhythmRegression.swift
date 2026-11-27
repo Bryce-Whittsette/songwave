@@ -42,6 +42,14 @@ struct RhythmRegression {
             checks += 1
         }
 
+        for frequency in [65.0, 80, 90, 125, 200, 300, 800, 2500] {
+            let events = try analyze(rate: 24000, mode: .assist) { time in
+                let age = time - 0.5
+                return Float(age >= 0 && age < 0.2 ? 0.25 * exp(-age * 35) * sin(2 * .pi * frequency * age) : 0)
+            }
+            precondition(events.count == 1 && (0.5...0.65).contains(events[0]), "Narrow-band attack missed or repeated at \(frequency) Hz: \(events)")
+        }
+        print("8 isolated narrow-band attack fixtures from 65 to 2500 Hz were detected once each; this does not establish mixed-song recall.")
         try quietDetails()
         try timing()
         captureGaps()
@@ -177,6 +185,20 @@ struct RhythmRegression {
             precondition(UltraDynamics.lightBeat(value) > value)
         }
         print("Ultra overrides a copy, preserves timing and saved EQ, lifts accents monotonically, caps output, and leaves silence/nonfinite inputs silent.")
+
+        for output in OutputMode.allCases {
+            let legacy = output.defaults
+            precondition(legacy.focus(for: output) == (output == .assist ? .beat : .voice))
+            for focus in HapticFocus.allCases {
+                var selected = legacy
+                selected.hapticFocus = focus
+                let roundTrip = try JSONDecoder().decode(Tuning.self, from: JSONEncoder().encode(selected))
+                precondition(roundTrip.focus(for: output) == focus)
+                selected.vocalQuality = .isolated
+                precondition(selected.usesVocalIsolation(for: output) == (output == .trackpad && focus == .voice))
+            }
+        }
+        print("Focus selection round-tripped in both outputs; legacy defaults and existing isolation boundary preserved.")
 
         func decode(_ extras: String) throws -> Tuning {
             let json = #"{"profile":"Balanced","gain":0.4,"tone":0,"impact":0.65,"# + extras + "}"

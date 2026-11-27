@@ -105,7 +105,9 @@ struct YouTubeState {
 struct PartyBurst {
     static let length = 45.0
     static func allowed(thermal: ProcessInfo.ThermalState) -> Bool { true }
-    static func accent(elapsed: Double) -> Bool { false }
+    static func accent(elapsed: Double) -> Bool {
+        elapsed >= 0 && elapsed < length && elapsed.truncatingRemainder(dividingBy: 0.36) < 0.12
+    }
 }
 enum OutputVolume { static func read() -> Double { 1 } }
 enum OutputTiming {
@@ -157,6 +159,7 @@ final class IsolatedVocals {
         var cases = 0
         for provider in Provider.allCases {
             for mode in OutputMode.allCases {
+              for focus in HapticFocus.allCases {
                 LifecycleHardware.clear()
                 let client = LifecycleClient(bundle: provider.bundle)
                 let idleCall = LifecycleClient(bundle: "com.apple.FaceTime", output: 0)
@@ -165,6 +168,7 @@ final class IsolatedVocals {
                 let link = try MusicLink(provider == .spotify ? "spotify:track:0000000000000000000000" : "https://music.apple.com/us/song/test/123")
                 let engine = Playback()
                 var tuning = mode.defaults
+                tuning.hapticFocus = focus
                 tuning.automaticTiming = false
                 engine.start(.player(link), tuning: tuning, mode: mode, playerPath: "/Mock/Player.app", startAt: 0) { _ in }
                 wait("The explicit player route failed to produce output with inactive FaceTime open") { LifecycleHardware.writes.count > 12 }
@@ -218,6 +222,7 @@ final class IsolatedVocals {
                 require(LifecycleHardware.writes.count == stopped, "Capture failure retained motor output")
                 engine.stop()
                 cases += 1
+              }
             }
         }
         print("\(cases) explicit Spotify/Music routes passed: idle FaceTime, gradual bypass, resume, immediate recognized-call suppression, reconnect, and capture-failure cleanup; gain cadence/reversal checks passed.")

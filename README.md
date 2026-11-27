@@ -26,8 +26,9 @@ See [every public version](CHANGELOG.md) for changes and developer notes.
 
 ## Choose how it feels
 
-- **Speakers + haptics:** hear the song normally and feel its rhythm through the trackpad.
-- **Trackpad only:** follow the vocals through the trackpad. **Light** is faster and uses less memory. **Isolated** gives cleaner separation with roughly 0.8 seconds of buffering and a brief first-use warmup.
+Choose **Beat** for bass and percussion or **Voice** for vocal pitch and texture. Either focus works with **Speakers + haptics** or **Trackpad only**. Changing the output keeps your selected focus.
+
+**Light** uses fast audio analysis. **Voice → Trackpad only → Isolated** uses the existing bundled AI vocal model: cleaner separation, higher memory use and roughly 0.8 seconds of buffering. Other combinations use Light; no new separation model has been added. Voice focus can be quiet during instrumental passages. Recognition and tactile detail vary with the mix and hardware.
 
 Point at **Intensity** and swipe with two fingers, or click the number for a slider. The waveform in the menu bar toggles speaker-mode haptics. SongWave can keep listening with its window closed and reconnect when it launches.
 
@@ -35,7 +36,7 @@ There's also an editable EQ, optional keyboard-light pulses, and a 45-second **I
 
 ## Music through touch
 
-SongWave explores a tactile way to experience music, including for Deaf and hard-of-hearing listeners. The goal is to offer another way to connect with rhythm and musical texture through touch.
+SongWave explores a tactile way to experience music, including for Deaf and hard-of-hearing listeners. The goal is to offer another way to connect with rhythm and musical texture through touch. Voice and Beat choices let listeners choose which part of the music to follow.
 
 Accessibility is a design goal, and we haven't yet validated the experience with Deaf or hard-of-hearing users. [Feedback on comfort, clarity and useful controls](https://github.com/Bryce-Whittsette/songwave/issues/new/choose) will help guide the work.
 

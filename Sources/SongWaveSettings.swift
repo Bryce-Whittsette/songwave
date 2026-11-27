@@ -99,7 +99,7 @@ struct SongWaveSettings: View {
             PlaybackAccessContent(studio: studio, playerRequest: $playerRequest)
         }
         Section("If nothing plays") {
-            Text("Use Speakers + haptics and play a song in your music app. Rest a finger lightly on the trackpad. Trackpad only follows vocals, so instrumental passages can be quiet.")
+            Text("Use Speakers + haptics and play a song in your music app. Rest a finger lightly on the trackpad. Voice focus can be quiet during instrumental passages. Choose Beat to follow bass and percussion.")
             Button("Open Player", action: openPlayer)
             Link("Troubleshooting", destination: projectURL("docs/troubleshooting.md"))
         }
