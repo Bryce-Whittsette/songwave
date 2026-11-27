@@ -2,8 +2,8 @@ import Foundation
 
 @main struct BassRegression {
     static func main() throws {
-        for rate in [16000.0, 24000, 44100, 48000] {
-            for frequency in [55.0, 70] {
+        for rate in [16000.0, 24000, 44100, 48000, 96000] {
+            for frequency in [25.0, 30, 35, 40, 55, 65, 70, 80] {
                 let levels = try analyze(rate: rate) { time in
                     Float(0.12 * sin(2 * .pi * frequency * time))
                 }
@@ -21,6 +21,15 @@ import Foundation
                              "A voiced syllable became bass sustain at \(rate), \(fundamental): \(levels.max()!)")
             }
         }
+        for rate in [16000.0, 24000, 44100, 48000, 96000] {
+            for hz in [25.0, 35, 55, 65] {
+                let quiet = try analyze(rate: rate) { Float(0.006 * sin(2 * .pi * hz * $0)) }
+                precondition(quiet.dropFirst(60).filter { $0 > 0.005 }.count > 150,
+                    "Quiet sub-bass should remain continuous at \(rate), \(hz).")
+            }
+        }
+        let dc = try analyze(rate: 48000) { _ in Float(0.12) }
+        precondition(dc.dropFirst(100).allSatisfy { $0 < 0.005 }, "DC must not become sustained bass.")
         let levels = try analyze(rate: 24000) { time in
             Float(time >= 0.25 && time < 0.75 ? 0.12 * sin(2 * .pi * 65 * time) : 0)
         }
@@ -39,7 +48,7 @@ import Foundation
         _ = soft.frame(hit, impact: 0, at: 1); _ = sharp.frame(hit, impact: 1, at: 1)
         precondition(soft.frame(.empty, impact: 0, at: 1.05).level > sharp.frame(.empty, impact: 1, at: 1.05).level,
                      "Transient emphasis must change the attack-to-tail contrast.")
-        print("Low bass, voiced rejection across four rates, sustain bypass, silence and call suppression passed.")
+        print("Low bass, voiced rejection across five rates, quiet 25–65 Hz notes, sustain bypass, silence and call suppression passed.")
     }
     static func analyze(rate: Double, sustain: Double = 1, sample: (Double) -> Float) throws -> [Double] {
         let spectrum = try Spectrum(sampleRate: rate)

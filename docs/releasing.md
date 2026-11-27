@@ -1,10 +1,10 @@
 # Release process
 
-## Public preview
+## Public releases
 
-Public releases started with v0.5.2. The current Mac public preview is v0.5.13. Previews are GitHub prereleases; the README links directly to the current DMG because GitHub's latest-release shortcut may exclude prereleases. [Version history](../CHANGELOG.md) covers every public version.
+Public releases started with v0.5.2. The current Mac release is v1.0.0. Versions 0.x remain GitHub prereleases; 1.x uses normal releases. The README links directly to the current DMG. [Version history](../CHANGELOG.md) covers every public version.
 
-The DMG is the primary download. The ZIP is an alternative. The source archive and checksums are for developers and users who want to inspect the release. The app is Apple silicon, ad hoc signed and unnotarized. Do not describe it as Apple-verified or universally hardware-tested.
+The DMG is the primary download. The ZIP is an alternative. Signed delta patches let existing installations download only changes when possible. The source archive and checksums are for developers and users who want to inspect the release. The app is Apple silicon, ad hoc signed and unnotarized. Do not describe it as Apple-verified or universally hardware-tested.
 
 ## Prepare an update
 
@@ -18,7 +18,7 @@ bash build.sh /tmp/SongWave.app
 bash Tools/package.sh /tmp/SongWave.app /tmp/songwave-release
 ```
 
-5. Use that version's Markdown file as the GitHub release body. Create a draft release, upload the DMG, app ZIP, source ZIP and SHA256SUMS, verify the tag points to the reviewed commit, then publish. Check public download links after publishing, download the public assets and verify checksums. For historical releases missing detailed notes, use their version's file without replacing binaries or moving tags.
+5. Use that version's Markdown file as the GitHub release body. Create a draft release, upload the DMG, app ZIP, source ZIP, signed appcast, delta patches and SHA256SUMS, verify the tag points to the reviewed commit, then publish. Check public download links after publishing, download the public assets and verify checksums. For historical releases missing detailed notes, use their version's file without replacing binaries or moving tags.
 
 The packaging script creates a drag-to-Applications DMG and verifies an extracted ZIP's signature. It does not notarize the app. Build in a clean checkout; the source archive includes tracked files, including the bundled vocal model.
 

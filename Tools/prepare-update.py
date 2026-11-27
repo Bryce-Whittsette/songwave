@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
+from delta_updates import prepare_deltas, write_checksums
 
 ROOT = Path(__file__).resolve().parent.parent
 NS = 'http://www.andymatuschak.org/xml-namespaces/sparkle'
@@ -22,6 +23,7 @@ def command(*args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('release_folder', type=Path)
+    parser.add_argument('--full-only', action='store_true', help='Publish only the complete archive, without incremental patches.')
     args = parser.parse_args()
     command('xcrun', 'swift', str(ROOT / 'Tools/verify-update.swift'), '--self-test')
     folder = args.release_folder.resolve()
@@ -71,6 +73,14 @@ def main():
         ET.SubElement(item, 'enclosure', {
             'url': f'https://github.com/Bryce-Whittsette/songwave/releases/download/v{version}/SongWave-macOS.zip',
             f'{{{NS}}}edSignature': signature, 'length': str(archive.stat().st_size), 'type': 'application/octet-stream'})
+        for stale in folder.glob(f'SongWave-*-{build}.delta'): stale.unlink()
+        if list(folder.glob('*.delta')): raise ValueError('Use a fresh folder; unrelated delta files are present.')
+        if not args.full_only:
+            for attributes in prepare_deltas(ROOT, folder, info, rss, tools, 'studio.songwave.trackpad'):
+                deltas = item.find(f'{{{NS}}}deltas')
+                if deltas is None: deltas = ET.SubElement(item, f'{{{NS}}}deltas')
+                ET.SubElement(deltas, 'enclosure', attributes)
+        write_checksums(folder)
         channel.insert(4, item)
         for older in previous[9:]: channel.remove(older)
         output = folder / 'appcast.xml'

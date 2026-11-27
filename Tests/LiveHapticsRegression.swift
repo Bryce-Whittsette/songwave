@@ -91,12 +91,28 @@ struct YouTubeState {
                     precondition(packets > 10 && router.activeBundle == bundle, "An app needed a file or pattern to generate live haptics.")
                     if mode == .assist { precondition(attacks >= 4 && AudioTap.muted.isEmpty) }
                     else { precondition(AudioTap.muted == [111]) }
+                    AudioHardware.clients[113] = MockClient(bundle: "com.apple.CoreSpeech", input: 1, output: 0)
+                    now += 0.4
+                    try router.read(now: now, mute: mode == .trackpad) { _, _, _ in }
+                    precondition(router.dictationActive && !router.suppressOutput && router.activeBundle == bundle,
+                        "Keyboard Dictation must not replace or pause verified music.")
+                    precondition(AudioTap.live == 1, "Dictation's microphone must never become a capture feed.")
+                    AudioHardware.clients[113] = MockClient(bundle: "com.apple.CoreSpeech", input: 1, output: 1)
+                    now += 0.4
+                    try router.read(now: now, mute: mode == .trackpad) { _, _, _ in }
+                    precondition(AudioTap.live == 1 && !router.suppressOutput)
                     AudioHardware.clients[112] = MockClient(bundle: "com.apple.FaceTime", input: 1)
                     now += 0.4
                     try router.read(now: now, mute: mode == .trackpad) { _, _, _ in preconditionFailure("Call audio was admitted") }
                     precondition(router.suppressOutput)
                     precondition(renderer.frame(.empty, mode: mode, blocked: router.suppressOutput, at: now).level == 0)
                     precondition(AudioTap.muted.isEmpty)
+                    AudioHardware.clients.removeValue(forKey: 112)
+                    AudioHardware.clients.removeValue(forKey: 113)
+                    now += 2.5
+                    try router.read(now: now, mute: mode == .trackpad) { _, _, _ in }
+                    precondition(!router.dictationActive && !router.suppressOutput,
+                        "Dictation continuity must expire and calls must release normally.")
                     cases += 1
                 }
                 precondition(AudioTap.live == 0, "A capture tap leaked")

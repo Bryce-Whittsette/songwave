@@ -16,6 +16,7 @@ import SwiftUI
         scheme = env["SONGWAVE_AX_SCHEME"] == "light" ? .light : .dark
         UserDefaults.standard.setVolatileDomain(["setupComplete": screen == "player", "launchListen": false,
             "audioAccessConfigured": screen != "permission", "firstSuccessPending": false,
+            "lastSeenMajorFeatures": env["SONGWAVE_AX_UPGRADE"] == "1" ? 0 : 1,
             "outputMode": OutputMode.assist.rawValue,
             "assistTuning": try! JSONEncoder().encode(OutputMode.assist.defaults),
             "trackpadTuning": try! JSONEncoder().encode(OutputMode.trackpad.defaults),
@@ -27,6 +28,9 @@ import SwiftUI
         WindowGroup("SongWave accessibility fixture") {
             Group {
                 if screen == "player" { Console(studio: studio).frame(minWidth: compact ? 810 : 1000, minHeight: compact ? 640 : 760) }
+                else if screen == "onboarding" {
+                    ListeningSetup(complete: { _, _, _, _ in }, genre: .mixed, focus: .natural, intensity: 0.4, automatic: true)
+                }
                 else { PlaybackAccessSheet(studio: studio) }
             }
                 .environment(\.songWaveAdditionalMotionReduction, reduceMotion)
@@ -36,6 +40,7 @@ import SwiftUI
                     guard !configured else { return }
                     configured = true
                     studio.probe()
+                    if screen == "onboarding" { return }
                     if screen == "player" {
                         if compact {
                             // Exercise the real minimum content size regardless
@@ -72,6 +77,12 @@ import SwiftUI
                         bands: Array(repeating: 0.4, count: 44), inputRMS: 0.05, hasAudio: true,
                         beatStrength: 0.8), device: "Mock trackpad", detection: "Music detected"))
                 }.keyboardShortcut("m", modifiers: [.command, .shift])
+                Button("Simulate Ultra preview") {
+                    studio.startParty(lights: false)
+                    Playback.lastUpdate?(PlaybackUpdate(signal: SignalFrame(tones: [], level: 0.4,
+                        bands: Array(repeating: 0.4, count: 44), inputRMS: 0.05, hasAudio: true,
+                        beatStrength: 0.8), device: "Mock trackpad", detection: "Music detected"))
+                }.keyboardShortcut("u", modifiers: [.command, .shift])
                 Button("Simulate silence") {
                     Playback.lastUpdate?(PlaybackUpdate(device: "Mock trackpad", waiting: true, detection: "Waiting for Mac audio"))
                 }.keyboardShortcut("s", modifiers: [.command, .shift])

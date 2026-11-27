@@ -4,25 +4,26 @@ Feel the music playing on your Mac through its Force Touch trackpad.
 
 Open SongWave, play music in Spotify, Apple Music, or your browser, and rest a finger on the trackpad. No song link or file needed.
 
-**[Download for Mac — Apple silicon](https://github.com/Bryce-Whittsette/songwave/releases/download/v0.5.13/SongWave-0.5.13-AppleSilicon.dmg)** · [What's new](docs/releases/0.5.13.md) · [Version history](CHANGELOG.md)
+**[Download for Mac — Apple silicon](https://github.com/Bryce-Whittsette/songwave/releases/download/v1.0.0/SongWave-1.0.0-AppleSilicon.dmg)** · [What's new](docs/releases/1.0.0.md) · [Version history](CHANGELOG.md)
 
-Public preview · macOS 14.2 or later · Force Touch trackpad required · Tested on an M4 MacBook Air
+macOS 14.2 or later · Force Touch trackpad required · Tested on an M4 MacBook Air
 
 ## Install
 
-1. Download and open **SongWave-0.5.13-AppleSilicon.dmg**.
+1. Download and open **SongWave-1.0.0-AppleSilicon.dmg**.
 2. Drag **SongWave** into the **Applications** folder shown in the window. Open SongWave from Applications.
 3. Finish the short setup and allow **System Audio Recording** when prompted. Then play music normally.
 
-This preview hasn't been notarized by Apple. If macOS blocks it, see [the SongWave installation help](docs/troubleshooting.md#macos-wont-open-the-app). If you choose to proceed, first try opening SongWave, then go to **System Settings → Privacy & Security → Open Anyway** and confirm the app name. You can also [build it yourself](docs/development.md).
+This app hasn't been notarized by Apple. If macOS blocks it, see [the SongWave installation help](docs/troubleshooting.md#macos-wont-open-the-app). If you choose to proceed, first try opening SongWave, then go to **System Settings → Privacy & Security → Open Anyway** and confirm the app name. You can also [build it yourself](docs/development.md).
 
-**Already installed?** Quit SongWave, download the new DMG, and drag SongWave into Applications. Choose **Replace**, then open it again. Your listening preferences stay saved; macOS may ask for audio access again after a preview update. Version 0.5.3 needs this one manual update; from 0.5.4 onward, use **SongWave → Check for Updates…** or allow automatic checks.
+**Already installed?** Choose **SongWave → Check for Updates…** and approve the update. SongWave checks about once an hour; you choose when to download and install. Your listening preferences stay saved. Version 0.5.3 and earlier need one manual DMG installation to get the updater. [Update help](docs/updates.md).
 
-## New in 0.5.13
+## New in 1.0
 
-- **Tools…** separates **Sound**, **Trackpad EQ**, and **Experiments** so you see one group at a time.
-- **Fine Tune** labels its existing **Beat**, **Voice**, and **Timing** sections. Band settings keep Bass, Mid, and Treble together.
-- Listening controls stay in the player. Audio isolation, haptic output, presets, and Ultra behavior are unchanged.
+- Smaller signed updates where possible, with hourly checks and approval before installation.
+- A calmer Beat cue, stable listening text and an Ultra glow in Signal Monitor.
+- Updated setup and a one-time orientation for existing listeners.
+- Better continuity during macOS Dictation, low-bass tracking and recovery fixes.
 
 See [every public version](CHANGELOG.md) for changes and developer notes.
 

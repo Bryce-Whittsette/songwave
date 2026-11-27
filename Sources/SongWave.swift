@@ -75,6 +75,8 @@ struct Console: View {
     }
     @State private var showTools = false
     @State private var toolPage: ToolPage = .sound
+    @State private var showUpgrade = false
+    @AppStorage("lastSeenMajorFeatures") private var lastSeenMajorFeatures = 0
     @State private var showSources = false
     @State private var pendingTool: String?
     @State private var showTuning = false
@@ -95,11 +97,13 @@ struct Console: View {
                     VStack(spacing: 16) {
                         track
                         Monitor(display: studio.display, waiting: studio.waiting,
-                                status: studio.active && (studio.source == .macAudio || studio.tuning.usesVocalIsolation(for: studio.mode)) ? studio.detection : nil)
+                                status: studio.active && (studio.source == .macAudio || studio.tuning.usesVocalIsolation(for: studio.mode)) ? studio.detection : nil,
+                                ultra: studio.partyEnd > 0)
                         .overlay {
                             if studio.partyEnd > 0 {
                                 RoundedRectangle(cornerRadius: 18)
                                     .strokeBorder(AngularGradient(colors: [.pink, .purple, .blue, .cyan, .pink], center: .center), lineWidth: 2)
+                                    .shadow(color: Color.primary.opacity(0.25), radius: 12)
                                     .allowsHitTesting(false)
                             }
                         }
@@ -141,7 +145,10 @@ struct Console: View {
             if studio.verifyingSetup { studio.finishPlaybackAccess() }
         }
         .onAppear {
-            if didSetup { studio.launchIfConfigured() } else { showSetup = true }
+            if didSetup {
+                studio.launchIfConfigured()
+                if lastSeenMajorFeatures < 1 && !studio.firstSuccessPending { showUpgrade = true }
+            } else { showSetup = true }
         }
         .sheet(isPresented: $showSetup, onDismiss: {
             if accessAfterSetup { accessAfterSetup = false; studio.showPlaybackAccess = true }
@@ -151,11 +158,13 @@ struct Console: View {
                     accessAfterSetup = !didSetup
                     if !didSetup { studio.markFirstSuccessPending() }
                     didSetup = true
+                    lastSeenMajorFeatures = 1
                     showSetup = false
                     studio.finishSetup(auto: auto, genre: genre, focus: focus, gain: gain)
                 }, genre: studio.genre, focus: studio.focus, intensity: studio.tuning.gain, automatic: studio.launchListen)
                 Button(didSetup ? "Cancel" : "Skip setup") {
                     let first = !didSetup
+                    lastSeenMajorFeatures = 1
                     didSetup = true
                     showSetup = false
                     if first { studio.markFirstSuccessPending(); accessAfterSetup = true }
@@ -197,6 +206,9 @@ struct Console: View {
             if target == "eq" { showEQDetails = true }
             if target == "ultra" { burstLights = !reduceMotion; showBurst = true }
         }) { toolsSheet }
+        .sheet(isPresented: $showUpgrade, onDismiss: { lastSeenMajorFeatures = 1 }) {
+            UpgradeOrientation { lastSeenMajorFeatures = 1; showUpgrade = false }
+        }
         .sheet(isPresented: $showTuning) { tuningSheet }
         .sheet(isPresented: $showEQDetails) { eqSheet }
     }
@@ -208,7 +220,7 @@ struct Console: View {
     // Settings embeds access content inline and never becomes a second presenter.
     private var accessPresentation: Binding<Bool> {
         Binding(get: {
-            studio.showPlaybackAccess && !showSetup && !showTuning && !showEQDetails && !showBurst && !showTools
+            studio.showPlaybackAccess && !showSetup && !showTuning && !showEQDetails && !showBurst && !showTools && !showUpgrade
         }, set: { presented in
             if !presented { studio.showPlaybackAccess = false }
         })
@@ -780,6 +792,7 @@ private struct Monitor: View {
     let status: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    var ultra = false
     var body: some View {
         let signal = display.frame
         VStack(alignment: .leading, spacing: 8) {
@@ -789,7 +802,7 @@ private struct Monitor: View {
                 Text(signal.hasAudio ? "Signal" : waiting ? "Waiting" : "Idle")
                     .font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
             }
-            BeatLevelIndicator(display: display, layout: .listening)
+            BeatLevelIndicator(display: display, layout: .listening, ultra: ultra)
             Divider()
             ZStack {
                 TimelineView(.animation(minimumInterval: reduceMotion ? 0.10 : 1.0 / 60,
@@ -806,9 +819,9 @@ private struct Monitor: View {
             }
             .frame(height: 179)
             HStack {
-                Text("65 Hz")
+                Text("25 Hz")
                 Spacer()
-                Text("510 Hz")
+                Text("315 Hz")
                 Spacer()
                 Text("4 kHz")
             }

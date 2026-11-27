@@ -211,9 +211,9 @@ final class Spectrum {
         }
 
         let bands = (0..<44).map { index -> Double in
-            let lower = max(firstBin, Int(65 * pow(4000 / 65.0, Double(index) / 44) / binWidth))
+            let lower = max(1, Int(25 * pow(4000 / 25.0, Double(index) / 44) / binWidth))
             guard lower <= lastBin else { return 0 }
-            let upper = max(lower, min(lastBin, Int(65 * pow(4000 / 65.0, Double(index + 1) / 44) / binWidth)))
+            let upper = max(lower, min(lastBin, Int(25 * pow(4000 / 25.0, Double(index + 1) / 44) / binWidth)))
             let peak = magnitudes[lower...upper].max() ?? 0
             return min(1, log1p(Double(peak)) / 4.8)
         }
@@ -323,8 +323,8 @@ final class Spectrum {
             let vocal = vocalFocus.frame(magnitudes: magnitudes, binWidth: binWidth,
                                          analysisSize: analysisSize, at: totalSamples / sampleRate, tuning: tuning)
             let vocalBands = (0..<44).map { index -> Double in
-                let lower = 65 * pow(4000 / 65.0, Double(index) / 44)
-                let upper = 65 * pow(4000 / 65.0, Double(index + 1) / 44)
+                let lower = 25 * pow(4000 / 25.0, Double(index) / 44)
+                let upper = 25 * pow(4000 / 25.0, Double(index + 1) / 44)
                 let peak = vocal.tones.filter { $0.hertz >= lower && $0.hertz < upper }.map(\.weight).max() ?? 0
                 return min(1, log1p(peak * Double(analysisSize)) / 4.8)
             }

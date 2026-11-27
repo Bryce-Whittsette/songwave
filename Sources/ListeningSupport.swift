@@ -142,20 +142,13 @@ struct BeatLevelIndicator: View {
     enum Layout { case compact, listening }
     @ObservedObject var display: SignalDisplay
     var layout: Layout = .compact
+    var ultra = false
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.songWaveAdditionalMotionReduction) private var additionalMotionReduction
     private var reduceMotion: Bool { AccessibleMotion.reduced(system: systemReduceMotion, additional: additionalMotionReduction) }
     var body: some View {
-        Group {
-            if reduceMotion {
-                indicator(beat: 0)
-            } else {
-                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !display.isVisible || !display.frame.hasAudio)) { _ in
-                    indicator(beat: display.beatPulse(at: ProcessInfo.processInfo.systemUptime))
-                }
-            }
-        }
-        .transaction { AccessibleMotion.apply(to: &$0, reduced: reduceMotion) }
+        indicator(beat: display.recentBeat ? 1 : 0)
+            .transaction { AccessibleMotion.apply(to: &$0, reduced: reduceMotion) }
     }
     private func indicator(beat: Double) -> some View {
         let state = VisualActivityPresentation(signal: display.frame, beat: beat, recentBeat: display.recentBeat,
@@ -163,12 +156,15 @@ struct BeatLevelIndicator: View {
         return Group {
           if layout == .listening {
             HStack(spacing: 14) {
-                Circle().fill(.primary.opacity(state.opacity))
-                    .frame(width: 20, height: 20).scaleEffect(state.scale)
+                Capsule().fill(.primary.opacity(state.opacity))
+                    .frame(width: 28, height: 6)
+                    .shadow(color: Color.primary.opacity(ultra ? 0.4 : 0), radius: ultra ? 7 : 0)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: state.beatDetected)
                     .frame(width: 30, height: 30).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Beat").font(.callout.weight(.medium))
                     Text(state.rhythmText).font(.caption).foregroundStyle(.secondary)
+                        .frame(height: 30, alignment: .topLeading)
                 }.frame(width: 94, alignment: .leading)
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 6) {
@@ -180,14 +176,17 @@ struct BeatLevelIndicator: View {
                             .foregroundStyle(.secondary).frame(width: 50, alignment: .trailing)
                     }
                     ProgressView(value: state.level).tint(.primary).controlSize(.regular)
+                        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: state.level)
+                        .shadow(color: Color.primary.opacity(ultra ? 0.25 : 0), radius: ultra ? 5 : 0)
                 }
             }
           } else {
            HStack(spacing: 10) {
             Circle().fill(.primary.opacity(state.opacity))
-                .frame(width: 12, height: 12).scaleEffect(state.scale)
+                .frame(width: 10, height: 10)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: state.beatDetected)
                 .frame(width: 20, height: 20).accessibilityHidden(true)
-            Text(state.beatDetected ? "Beat detected" : "Beat").font(.callout).frame(width: 96, alignment: .leading)
+            Text("Beat").font(.callout).frame(width: 96, alignment: .leading)
             ProgressView(value: state.level).tint(.primary)
             Text("\(Int(state.level * 100))%").font(.caption.monospacedDigit()).frame(width: 36, alignment: .trailing)
            }

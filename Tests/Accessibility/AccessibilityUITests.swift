@@ -2,13 +2,13 @@ import Foundation
 import XCTest
 
 final class AccessibilityUITests: XCTestCase {
-    @MainActor private func launch(_ screen: String, motion: Bool = false, scheme: String = "dark", compact: Bool = false) -> XCUIApplication {
+    @MainActor private func launch(_ screen: String, motion: Bool = false, scheme: String = "dark", compact: Bool = false, upgrade: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchEnvironment = ["SONGWAVE_AX_SCREEN": screen, "SONGWAVE_AX_REDUCE_MOTION": motion ? "1" : "0", "SONGWAVE_AX_SCHEME": scheme, "SONGWAVE_AX_COMPACT": compact ? "1" : "0"]
+        app.launchEnvironment = ["SONGWAVE_AX_SCREEN": screen, "SONGWAVE_AX_REDUCE_MOTION": motion ? "1" : "0", "SONGWAVE_AX_SCHEME": scheme, "SONGWAVE_AX_COMPACT": compact ? "1" : "0", "SONGWAVE_AX_UPGRADE": upgrade ? "1" : "0"]
         app.launchArguments = ["-ApplePersistenceIgnoreState", "YES"]
         app.launch()
         app.activate()
-        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: screen == "player" ? "tools.open" : "support.heading").firstMatch.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: screen == "player" ? "tools.open" : screen == "onboarding" ? "onboarding.heading" : "support.heading").firstMatch.waitForExistence(timeout: 8))
         return app
     }
     @MainActor private func spoken(_ element: XCUIElement) -> String { element.label.isEmpty ? element.title : element.label }
@@ -289,6 +289,29 @@ final class AccessibilityUITests: XCTestCase {
                 app.terminate()
             }
         }
+    }
+    @MainActor func testOnboardingExplainsListeningToolsAndApprovedUpdates() throws {
+        let app = launch("onboarding", compact: true)
+        defer { app.terminate() }
+        app.buttons["Continue"].click()
+        XCTAssertTrue(app.buttons["Intensity"].waitForExistence(timeout: 4))
+        for heading in ["Play normally", "Feel it or follow visually", "Find your tools", "Updates you approve"] {
+            XCTAssertTrue(app.staticTexts[heading].exists)
+        }
+        XCTAssertTrue(app.buttons["Finish Setup"].isHittable)
+        XCTAssertFalse(app.buttons["Start Ultra"].exists)
+    }
+    @MainActor func testUpgradeOrientationKeepsListeningAndPreferences() throws {
+        let app = launch("player", compact: true, upgrade: true)
+        defer { app.terminate() }
+        XCTAssertTrue(app.staticTexts["upgrade.heading"].waitForExistence(timeout: 4))
+        try audit(app, contentID: "upgrade.content")
+        app.buttons["Continue"].click()
+        XCTAssertFalse(app.staticTexts["upgrade.heading"].exists)
+        XCTAssertTrue(app.buttons["Listen to Mac audio"].isHittable)
+        XCTAssertEqual(app.buttons["Intensity"].value as? String, "40%")
+        XCTAssertFalse(app.buttons["setup.allow"].exists)
+        XCTAssertFalse(app.buttons["setup.test"].exists)
     }
     @MainActor func testRecoveryStartsAtTopAfterScrollingSetup() throws {
         let app = launch("confirmation", compact: true)

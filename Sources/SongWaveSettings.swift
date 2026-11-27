@@ -150,7 +150,7 @@ struct SongWaveSettings: View {
         Section("Automatic checks") {
             Toggle("Check for updates automatically", isOn: Binding(
                 get: { updates.checksAutomatically }, set: updates.setAutomaticChecks))
-            Text("Checks roughly once a day. SongWave asks before downloading and installing an update, so you choose when to update.")
+            Text("Checks roughly once an hour. SongWave asks before downloading and installing an update, so you choose when to update.")
             Text("Update checks contact GitHub. Audio, song titles and listening history are not sent.")
                 .foregroundStyle(.secondary)
             DisclosureGroup("How updates work") {

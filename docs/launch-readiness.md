@@ -1,8 +1,10 @@
 # Preparing the broader launch
 
-0.5.13 is the Mac public preview. It separates advanced tools into Sound, Trackpad EQ and Experiments and labels Fine Tune sections. The 0.5.12 visual feedback remains available with or without haptics. The first-connection and recovery work shipped in 0.5.11 remains in place. Broader launch preparation continues. Readiness means someone new can install, understand, recover, and update the app reliably.
+1.0.0 is the current Mac release. It builds on the first-connection, recovery, visual feedback and grouped tools shipped in 0.5.9–0.5.13. Version 1.0 adds smaller signed updates, hourly checks with installation approval, updated orientation and listening-continuity fixes. Distribution identity and broader hardware/listener validation remain open; a version number does not close those gaps.
 
 ## Current work
+
+- [1.0.0 notes](releases/1.0.0.md): approved incremental updates, calm visual cues, onboarding, Dictation continuity, low-bass tracking and recovery corrections.
 
 - [0.5.13 notes](releases/0.5.13.md): focused tool categories, labeled fine-tuning sections, accessible band headings and unchanged audio/haptic behavior. [Advanced controls audit](audits/advanced-controls-0.5.13.md).
 
@@ -56,4 +58,4 @@ Offline stress checks exercised concurrent ring buffers with 2.56 million offere
 
 Updater tests use a disposable app and separate temporary key. Modified feeds and archives must be rejected; a valid update must replace/relaunch the test app and write its result marker. The production signing key is not exported for those tests. Public-feed automation has published and verified signed preview updates.
 
-[Build/tests](development.md) · [Update pipeline](updates.md) · [Current release notes](releases/0.5.12.md)
+[Build/tests](development.md) · [Update pipeline](updates.md) · [Current release notes](releases/1.0.0.md)

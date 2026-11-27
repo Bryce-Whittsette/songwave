@@ -39,16 +39,14 @@ struct ListeningSetup: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(practice ? "Try the intensity wheel" : "How do you listen?").font(.title.weight(.semibold))
+                .accessibilityAddTraits(.isHeader).accessibilityIdentifier("onboarding.heading")
             if practice {
                 Text("Point at the number and swipe up or down with two fingers. Click it for a slider or an exact value.")
                 PrecisionWheel(title: "Intensity", value: $intensity, range: 0...1, step: 0.01,
                                label: "\(Int((intensity * 100).rounded()))%")
                 Divider()
                 Toggle("Listen for music when SongWave opens", isOn: $automatic)
-                Text("Next, connect Mac audio and choose a short trackpad test. The waveform near the clock turns haptics on or off. Optional player details are in Listening help.")
-                    .font(.callout).foregroundStyle(.secondary)
-                Text("Choose Beat, Voice or Both in either output mode. Light keeps delay low; Isolated is available for Voice with Trackpad only.")
-                    .font(.caption).foregroundStyle(.secondary)
+                ScrollView { ListeningOrientation() }.frame(maxHeight: 255)
                 Text("Repeated strong vibration can add heat and motor wear. Ultra plays brief accents for up to \(Int(PartyBurst.length)) seconds.")
                     .font(.caption).foregroundStyle(.secondary)
                 DisclosureGroup("Insane Ultra and hardware wear") { UltraNotice() }
@@ -82,5 +80,42 @@ struct UltraNotice: View {
             Text("Repeated strong vibration may add heat and motor wear. Long-term effects on adhesives and fasteners are unknown. Apple provides no safe continuous-run rating for this use.")
             Text("The keyboard light pulses if enabled and supported. Leave lighting off if pulsing light bothers you.")
         }.font(.callout).foregroundStyle(.secondary)
+    }
+}
+
+// Shared orientation for first-time setup and the one-time 1.0 upgrade note.
+// It describes existing choices without changing playback or requesting access.
+struct ListeningOrientation: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            item("Play normally", "Play music in Spotify, Music or your browser. No link needed. Listening help has connection status and an optional trackpad test.")
+            item("Feel it or follow visually", "Choose Beat, Voice or Both. Haptics off keeps music and visual feedback running. Ultra adds a glow.")
+            item("Find your tools", "Tools groups Sound (genre and Fine Tune), Trackpad EQ, and Experiments (keyboard light and Ultra).")
+            item("Updates you approve", "SongWave checks about once an hour. Smaller downloads include only changes when possible. You approve downloading and installing. Turn automatic checks off in Settings → Updates.")
+        }
+    }
+    private func item(_ title: String, _ detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.callout.weight(.semibold)).accessibilityAddTraits(.isHeader)
+            Text(detail).font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+struct UpgradeOrientation: View {
+    let done: () -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Welcome to SongWave 1.0").font(.title2.weight(.semibold)).accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("upgrade.heading")
+            Text("Your listening preferences stay as you left them.")
+                .font(.callout).foregroundStyle(.secondary)
+            ScrollView { ListeningOrientation().frame(maxWidth: .infinity, alignment: .leading) }
+                .frame(maxHeight: 380)
+            HStack { Spacer(); Button("Continue", action: done).keyboardShortcut(.defaultAction) }
+        }.padding(24).frame(width: 450)
+            .accessibilityElement(children: .contain).accessibilityLabel("SongWave 1.0 orientation")
+            .accessibilityIdentifier("upgrade.content")
     }
 }

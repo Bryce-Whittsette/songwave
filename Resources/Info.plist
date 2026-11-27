@@ -6,14 +6,14 @@
   <key>CFBundleName</key><string>SongWave</string>
   <key>CFBundleDisplayName</key><string>SongWave</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.5.13</string>
-  <key>CFBundleVersion</key><string>23</string>
+  <key>CFBundleShortVersionString</key><string>1.0.0</string>
+  <key>CFBundleVersion</key><string>24</string>
   <key>SUFeedURL</key><string>https://raw.githubusercontent.com/Bryce-Whittsette/songwave/main/updates/appcast.xml</string>
   <key>SUPublicEDKey</key><string>JN/+vLCrjfWPxmRUQ+YFKK9M6+O8uVvJ5SlIZbk9o4w=</string>
   <key>SUEnableAutomaticChecks</key><true/>
   <key>SUAutomaticallyUpdate</key><false/>
   <key>SUAllowsAutomaticUpdates</key><false/>
-  <key>SUScheduledCheckInterval</key><integer>86400</integer>
+  <key>SUScheduledCheckInterval</key><integer>3600</integer>
   <key>SUEnableSystemProfiling</key><false/>
   <key>SUVerifyUpdateBeforeExtraction</key><true/>
   <key>SURequireSignedFeed</key><true/>
