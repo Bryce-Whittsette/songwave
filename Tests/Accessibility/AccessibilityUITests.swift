@@ -146,12 +146,14 @@ final class AccessibilityUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Fine Tune…"].exists)
         XCTAssertFalse(app.buttons["Insane Ultra…"].exists)
         XCTAssertFalse(app.staticTexts["Trackpad EQ"].exists)
-        let disclosure = app.disclosureTriangles.firstMatch
-        // macOS reports the whole labeled row as the disclosure's frame, but
-        // only the leading triangle toggles it with a pointer click.
-        disclosure.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
-            .withOffset(CGVector(dx: 6, dy: 0)).click()
-        XCTAssertTrue(optionalFile.waitForExistence(timeout: 4))
+        let sources = app.buttons["sources.toggle"]
+        XCTAssertEqual(spoken(sources), "Other sources · link or file")
+        sources.click()
+        let revealed = optionalFile.waitForExistence(timeout: 4)
+        if !revealed { print(app.debugDescription) }
+        XCTAssertTrue(revealed)
+        sources.click()
+        XCTAssertFalse(optionalFile.exists)
         app.buttons["tools.open"].click()
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "tools.heading").firstMatch.waitForExistence(timeout: 4))
         XCTAssertTrue(app.buttons["Fine Tune…"].exists)

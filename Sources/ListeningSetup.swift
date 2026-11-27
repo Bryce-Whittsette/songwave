@@ -47,7 +47,7 @@ struct ListeningSetup: View {
                 Toggle("Listen for music when SongWave opens", isOn: $automatic)
                 Text("Next, connect Mac audio and choose a short trackpad test. The waveform near the clock turns haptics on or off. Optional player details are in Listening help.")
                     .font(.callout).foregroundStyle(.secondary)
-                Text("Trackpad only follows vocals. Choose Light for speed or Isolated for cleaner separation.")
+                Text("Choose Beat, Voice or Both in either output mode. Light keeps delay low; Isolated is available for Voice with Trackpad only.")
                     .font(.caption).foregroundStyle(.secondary)
                 Text("Repeated strong vibration can add heat and motor wear. Ultra plays brief accents for up to \(Int(PartyBurst.length)) seconds.")
                     .font(.caption).foregroundStyle(.secondary)

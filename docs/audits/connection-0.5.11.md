@@ -39,7 +39,7 @@ Code review also found that retrying a local file lost its position and manual h
 
 ## 4. Return to everyday listening — grouping retained and covered
 
-The normal player already prioritizes listening state, output, Feel and intensity. Optional links/files remain in Other sources. EQ, tuning, keyboard lighting and Ultra remain in Tools; local patterns are available there for eligible files. No additional everyday controls or color system were introduced. Native UI tests now protect this separation and the route into Tools.
+The normal player already prioritizes listening state, output, Feel and intensity. Optional links/files remain in Other sources. The disclosure's pointer activation proved unreliable in native UI testing; the same labeled row now uses a native button so the entire label is clickable, with Expanded/Collapsed accessibility values. EQ, tuning, keyboard lighting and Ultra remain in Tools; local patterns are available there for eligible files. No additional everyday controls or color system were introduced. Native UI tests protect opening/closing optional sources and the route into Tools. Setup's old Voice-only guidance is corrected to match Beat, Voice and Both in either output mode.
 
 ![Production Console in a stopped simulated session, with optional sources collapsed](images/0.5.11/07-player.png)
 
