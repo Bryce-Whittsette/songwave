@@ -147,7 +147,9 @@ private final class Session {
     private var nextVolume = 0.0
     private var nextTiming = 0.0
     private var reportedDelay = 0.0
-    var renderMilliseconds: Int { mode == .assist ? 8 : 16 }
+    var renderMilliseconds: Int { analysisMode == .assist ? 8 : 16 }
+    private var analysisMode: OutputMode { tuning.focus(for: mode).analysisMode }
+    private var analyzedMode: OutputMode?
     private var sleeping = false
     private var motorEnvelope = MotorEnvelope()
     private var userHapticsGain = UserHapticsGain()
@@ -187,7 +189,7 @@ private final class Session {
     private var vocalStartPosition = 0.0
     private var isolationFinished = false
     private var lastSourceInput = 0.0
-    private var wantsIsolation: Bool { mode == .trackpad && tuning.vocalQuality == .isolated }
+    private var wantsIsolation: Bool { tuning.usesVocalIsolation(for: mode) }
     let update: (PlaybackUpdate) -> Void
 
     init(source: PlaybackSource, playerPath: String?, tuning: Tuning, mode: OutputMode,
@@ -255,6 +257,7 @@ private final class Session {
         vocalStartPosition = Double(position) / max(1, sourceRate)
         isolationFinished = false
         isolationActive = wantsIsolation
+        analyzedMode = analysisMode
         sourceRate = rate
         divisor = max(1, Int(rate / 24_000))
         decimationCount = 0
@@ -321,12 +324,17 @@ private final class Session {
 
     func tick() {
         let now = ProcessInfo.processInfo.systemUptime
-        let tuning = UltraDynamics.tuning(self.tuning, active: partyEnd > now)
+        var tuning = UltraDynamics.tuning(self.tuning, active: partyEnd > now, output: mode)
+        // Do not send mixed PCM down the already-isolated spectrum branch.
+        if !wantsIsolation { tuning.vocalQuality = .light }
         let interval = min(0.08, max(0.001, now - lastTick))
         lastTick = now
         guard let motor else { return }
         do {
-            if wantsIsolation != isolationActive { try setupSpectrum(rate: sourceRate) }
+            if wantsIsolation != isolationActive || analyzedMode != analysisMode {
+                try setupSpectrum(rate: sourceRate)
+                timer?.schedule(deadline: .now(), repeating: .milliseconds(renderMilliseconds), leeway: .milliseconds(1))
+            }
             spectrum?.configure(tuning.eq)
             let count: Int
             if isolationActive && !source.isLive && isolator?.isReady == false {
@@ -425,7 +433,7 @@ private final class Session {
                     advanced = !vocals.isEmpty
                 }
             }
-            let captured = advanced && !outputSuppressed ? (spectrum?.frame(tuning: tuning, mode: mode) ?? .empty) : .empty
+            let captured = advanced && !outputSuppressed ? (spectrum?.frame(tuning: tuning, mode: analysisMode) ?? .empty) : .empty
             let signal = assistTail.resolve(captured, advanced: advanced,
                 enabled: (source.isLive || isolationActive) && !outputSuppressed, at: now)
             if signal.hasAudio { lastAudio = now }
@@ -434,7 +442,7 @@ private final class Session {
                 nextTiming = now + 1
             }
             let delay = tuning.automaticTiming ?
-                OutputTiming.additionalDelay(reported: reportedDelay, analysisRate: sourceRate / Double(divisor), offsetMS: tuning.delay) :
+                OutputTiming.additionalDelay(reported: reportedDelay, analysisRate: sourceRate / Double(divisor), offsetMS: tuning.delay, focus: tuning.focus(for: mode)) :
                 max(0, tuning.delay / 1000)
             let haptics: SignalFrame
             if mode == .assist, delay > 0 {
@@ -471,7 +479,7 @@ private final class Session {
                 return
             }
             let userGain = userHapticsGain.level(enabled: hapticsEnabled, at: outputTime)
-            let automatic = automaticHaptics.frame(haptics, mode: mode,
+            let automatic = automaticHaptics.frame(haptics, mode: analysisMode,
                 blocked: outputSuppressed || userGain == 0, impact: tuning.impact, at: outputTime)
             let rendered: SignalFrame
             if mode == .assist, case .file = source, patternPlayer != nil,
@@ -480,11 +488,11 @@ private final class Session {
                 rendered = patternPlayer!.frame(at: max(0, speaker?.currentTime ?? 0) - offset)
             } else { rendered = automatic }
             let party = partyEnd > outputTime
-            let accent = mode == .assist || (party && PartyBurst.accent(elapsed: PartyBurst.length - (partyEnd - outputTime)))
+            let accent = analysisMode == .assist || (party && PartyBurst.accent(elapsed: PartyBurst.length - (partyEnd - outputTime)))
             let response = party ? (accent ? UltraDynamics.level(rendered.level) : 0) : rendered.level * self.tuning.gain
             let target = response * (followVolume ? volume : 1) * userGain
             let motorLevel = motorEnvelope.level(target: target,
-                transient: mode == .assist && rendered.beatStrength > 0, at: outputTime)
+                transient: analysisMode == .assist && rendered.beatStrength > 0, at: outputTime)
             if !outputSuppressed && (!party || accent) && target > 0.001 {
                 try motor.play(rendered.tones, for: Double(renderMilliseconds), level: motorLevel)
             }

@@ -2,6 +2,14 @@
 
 Every public release is listed here, newest first. Each version has a short explanation and expandable developer notes.
 
+## [0.5.7 — Voice and Beat](docs/releases/0.5.7.md)
+
+Public Preview · November 26, 2026
+
+Independent Voice/Beat selection, a lower Beat silence gate for soft percussion, and Voice-aware output timing. The existing AI isolation engine is unchanged.
+
+[Download](https://github.com/Bryce-Whittsette/songwave/releases/tag/v0.5.7) · [Full notes](docs/releases/0.5.7.md)
+
 ## [0.5.6 — Your music only](docs/releases/0.5.6.md)
 
 Public Preview · November 26, 2026

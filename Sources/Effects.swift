@@ -148,8 +148,8 @@ enum OutputTiming {
         return min(0.5, (Double(latency) + Double(safety) + Double(buffer) + Double(streamLatency)) / rate)
     }
 
-    static func additionalDelay(reported: Double, analysisRate: Double, offsetMS: Double) -> Double {
-        let halfWindow = analysisRate <= 32000 ? 512.0 : 1024.0
+    static func additionalDelay(reported: Double, analysisRate: Double, offsetMS: Double, focus: HapticFocus = .beat) -> Double {
+        let halfWindow = analysisRate <= 32000 && focus == .beat ? 512.0 : 1024.0
         let analysis = halfWindow / max(1, analysisRate) + 0.004
         return min(0.8, max(0, max(0, reported - analysis) + offsetMS / 1000))
     }

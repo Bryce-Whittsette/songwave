@@ -42,7 +42,18 @@ struct RhythmRegression {
             checks += 1
         }
 
+        for frequency in [65.0, 80, 90, 125, 200, 300, 800, 2500] {
+            let events = try analyze(rate: 24000, mode: .assist) { time in
+                let age = time - 0.5
+                return Float(age >= 0 && age < 0.2 ? 0.25 * exp(-age * 35) * sin(2 * .pi * frequency * age) : 0)
+            }
+            precondition(events.count == 1 && (0.5...0.65).contains(events[0]), "Narrow-band attack missed or repeated at \(frequency) Hz: \(events)")
+        }
+        print("8 isolated narrow-band attack fixtures from 65 to 2500 Hz were detected once each; this does not establish mixed-song recall.")
         try quietDetails()
+        try quietDetails(includeVoice: false)
+        let belowFloor = try analyze(rate: 24000, mode: .assist) { time in Float(0.00003 * sin(2 * .pi * 300 * time)) }
+        precondition(belowFloor.isEmpty, "Sub-floor input should remain silent.")
         try timing()
         captureGaps()
 
@@ -77,7 +88,7 @@ struct RhythmRegression {
         }
         return events
     }
-    static func quietDetails() throws {
+    static func quietDetails(includeVoice: Bool = true) throws {
         let rate = 24000.0
         let kicks = [0.4, 1.4, 2.4]
         let hats = [0.62, 0.73, 1.62, 1.73, 2.62, 2.73]
@@ -101,7 +112,7 @@ struct RhythmRegression {
                     sin(2 * .pi * (70 * kickAge + 1.5 * (1 - exp(-kickAge * 30))))
                 let hat = 0.004 * exp(-hatAge * 70) * (noise - low3500)
                 let mid = 0.004 * exp(-midAge * 45) * (low1800 - low250)
-                let voice = 0.07 * sin(2 * .pi * 224 * time) + 0.03 * sin(2 * .pi * 448 * time)
+                let voice = includeVoice ? 0.07 * sin(2 * .pi * 224 * time) + 0.03 * sin(2 * .pi * 448 * time) : 0
                 analyzer.append(Float(kick + hat + mid + voice))
             }
             let frame = analyzer.frame(tuning: OutputMode.assist.defaults, mode: .assist)
@@ -146,6 +157,9 @@ struct RhythmRegression {
 
     static func timing() throws {
         let base = OutputTiming.additionalDelay(reported: 0.2, analysisRate: 24000, offsetMS: 0)
+        let voiceTiming = OutputTiming.additionalDelay(reported: 0.2, analysisRate: 24000, offsetMS: 0, focus: .voice)
+        precondition(abs(base - voiceTiming - 512.0 / 24000) < 1e-9,
+                     "Voice timing must account for its larger analysis window.")
         let earlier = OutputTiming.additionalDelay(reported: 0.2, analysisRate: 24000, offsetMS: -50)
         let later = OutputTiming.additionalDelay(reported: 0.2, analysisRate: 24000, offsetMS: 50)
         precondition(abs(base - earlier - 0.05) < 1e-9 && abs(later - base - 0.05) < 1e-9)
@@ -177,6 +191,20 @@ struct RhythmRegression {
             precondition(UltraDynamics.lightBeat(value) > value)
         }
         print("Ultra overrides a copy, preserves timing and saved EQ, lifts accents monotonically, caps output, and leaves silence/nonfinite inputs silent.")
+
+        for output in OutputMode.allCases {
+            let legacy = output.defaults
+            precondition(legacy.focus(for: output) == (output == .assist ? .beat : .voice))
+            for focus in HapticFocus.allCases {
+                var selected = legacy
+                selected.hapticFocus = focus
+                let roundTrip = try JSONDecoder().decode(Tuning.self, from: JSONEncoder().encode(selected))
+                precondition(roundTrip.focus(for: output) == focus)
+                selected.vocalQuality = .isolated
+                precondition(selected.usesVocalIsolation(for: output) == (output == .trackpad && focus == .voice))
+            }
+        }
+        print("Focus selection round-tripped in both outputs; legacy defaults and existing isolation boundary preserved.")
 
         func decode(_ extras: String) throws -> Tuning {
             let json = #"{"profile":"Balanced","gain":0.4,"tone":0,"impact":0.65,"# + extras + "}"

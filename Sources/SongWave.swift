@@ -87,7 +87,7 @@ struct Console: View {
                     VStack(spacing: 16) {
                         track
                         Monitor(display: studio.display, waiting: studio.waiting,
-                                status: studio.active && (studio.source == .macAudio || (studio.mode == .trackpad && studio.tuning.vocalQuality == .isolated)) ? studio.detection : nil)
+                                status: studio.active && (studio.source == .macAudio || studio.tuning.usesVocalIsolation(for: studio.mode)) ? studio.detection : nil)
                         .overlay {
                             if studio.partyEnd > 0 {
                                 RoundedRectangle(cornerRadius: 18)
@@ -334,7 +334,7 @@ struct Console: View {
                     .frame(height: studio.partyEnd > 0 ? 6 : 4)
                 Text(timestamp(duration)).monospacedDigit().font(.callout).foregroundStyle(.secondary)
             } else {
-                Text(studio.active && (studio.source == .macAudio || (studio.mode == .trackpad && studio.tuning.vocalQuality == .isolated)) ? studio.detection : studio.waiting ? "Waiting for audio" : studio.active ? "Routing audio" : "Ready")
+                Text(studio.active && (studio.source == .macAudio || studio.tuning.usesVocalIsolation(for: studio.mode)) ? studio.detection : studio.waiting ? "Waiting for audio" : studio.active ? "Routing audio" : "Ready")
                     .foregroundStyle(.secondary)
                     .font(.callout)
                 if studio.partyEnd > 0 {
@@ -379,17 +379,24 @@ struct Console: View {
                 }
             }
             ModeSwitch(mode: $studio.mode)
+            Picker("Feel", selection: Binding(get: { studio.hapticFocus }, set: { studio.hapticFocus = $0 })) {
+                ForEach(HapticFocus.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .disabled(studio.patternName != nil && studio.mode == .assist)
+
             if let name = studio.patternName, studio.mode == .assist {
                 Text("Custom pattern · " + name).font(.system(size: 13, weight: .medium)).lineLimit(1)
                 Text(studio.patternNote ?? "").font(.system(size: 13)).foregroundStyle(.secondary)
             } else {
                 Text("Automatic haptics").font(.system(size: 13, weight: .medium))
-                Text(studio.mode == .assist ? "Shapes rhythm and texture from the music playing on your Mac." : "Follows vocals from the music playing on your Mac.")
+                Text(studio.hapticFocus.description)
                     .font(.system(size: 13)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Divider()
-            if studio.mode == .trackpad {
+            if studio.hapticFocus == .voice {
+                if studio.mode == .trackpad {
                 Picker("Vocal quality", selection: $studio.tuning.vocalQuality) {
                     ForEach(VocalQuality.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -397,6 +404,10 @@ struct Console: View {
                 Text(studio.tuning.vocalQuality.description)
                     .font(.system(size: 13)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("Light vocal focus. AI Isolated is currently available in Trackpad only.")
+                        .font(.system(size: 13)).foregroundStyle(.secondary)
+                }
                 HStack {
                     Text("Vocal tone")
                     Spacer()
@@ -479,7 +490,7 @@ struct Console: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Fine Tune").font(.title2.weight(.semibold))
             Text(studio.mode.rawValue).foregroundStyle(.secondary)
-            if studio.mode == .assist {
+            if studio.hapticFocus == .beat {
                 PrecisionWheel(title: "Bass sustain", value: $studio.tuning.bassSustain, range: 0...1, step: 0.01,
                                label: "\(Int((studio.tuning.bassSustain * 100).rounded()))%")
                     .help("Adds a softer continuous layer for detected low bass. Set to zero for taps only.")
@@ -489,7 +500,7 @@ struct Console: View {
                 Text("Higher emphasis makes drum taps shorter and crisper.")
                     .font(.system(size: 13)).foregroundStyle(.secondary)
             }
-            if studio.mode == .trackpad {
+            if studio.hapticFocus == .voice {
                 PrecisionWheel(title: "Tone balance", value: $studio.tuning.tone, range: -1...1, step: 0.01,
                             label: toneLabel)
                 PrecisionWheel(title: "Pitch smoothing", value: $studio.tuning.smoothing, range: 0...90, step: 1,

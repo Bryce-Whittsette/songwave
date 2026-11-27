@@ -278,7 +278,10 @@ final class Studio: ObservableObject {
         didSet {
             guard mode != oldValue else { return }
             UserDefaults.standard.set(mode.rawValue, forKey: "outputMode")
-            tuning = tunings[mode] ?? mode.defaults
+            let selectedFocus = tuning.focus(for: oldValue)
+            var next = tunings[mode] ?? mode.defaults
+            next.hapticFocus = selectedFocus
+            tuning = next
             if active && source == .macAudio { engine.setMacMode(mode) }
             else if active, let source { start(source, from: source.isLive ? 0 : elapsed, preserveParty: true) }
         }
@@ -291,6 +294,10 @@ final class Studio: ObservableObject {
             }
             engine.set(tuning: tuning)
         }
+    }
+    var hapticFocus: HapticFocus {
+        get { tuning.focus(for: mode) }
+        set { tuning.hapticFocus = newValue }
     }
     @Published var detection = "Listening for music"
     @Published var localBypass = false

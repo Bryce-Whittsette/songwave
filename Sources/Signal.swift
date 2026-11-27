@@ -164,7 +164,10 @@ final class Spectrum {
         let rms = sqrt(max(0, power))
         let releasing = rms < previousRMS * 0.85
         previousRMS = rms
-        guard filled >= analysisSize, rms > 0.00025 else {
+        // Low-level percussion can remain audible after vocals drop out.
+        // Keep the vocal floor unchanged; transient/flux checks still qualify beats.
+        let silenceFloor = mode == .assist ? 0.00005 : 0.00025
+        guard filled >= analysisSize, rms > silenceFloor else {
             previousTones.removeAll(keepingCapacity: true)
             previousLevel = 0
             vocalFocus = VocalFocus()
@@ -452,8 +455,8 @@ enum OutputMode: String, CaseIterable, Identifiable {
     var id: Self { self }
     var description: String {
         switch self {
-        case .trackpad: return "Follows the vocals through the Force Touch motor."
-        case .assist: return "Follows bass and percussion while the speakers play the full mix."
+        case .trackpad: return "Feel your selected focus through the trackpad, with captured audio muted."
+        case .assist: return "Hear the full song and feel your selected focus through the trackpad."
         }
     }
 
@@ -462,6 +465,19 @@ enum OutputMode: String, CaseIterable, Identifiable {
         case .trackpad: return Tuning(profile: .balanced, gain: 0.60, tone: 0, impact: 0.35, partials: 6, smoothing: 28)
         case .assist: return Tuning(profile: .balanced, gain: 0.40, tone: -0.12, impact: 0.65, partials: 4, smoothing: 18)
         }
+    }
+}
+
+// Haptic content and audible output are separate choices. Optional storage
+// below preserves the historical defaults in existing saved presets.
+enum HapticFocus: String, CaseIterable, Identifiable, Codable {
+    case beat = "Beat"
+    case voice = "Voice"
+    var id: Self { self }
+    var analysisMode: OutputMode { self == .beat ? .assist : .trackpad }
+    var description: String {
+        self == .beat ? "Feel bass and percussion. Dense mixes can still let vocals through."
+                      : "Follow vocal pitch and texture. Instrumental passages can be quiet."
     }
 }
 
@@ -487,6 +503,7 @@ struct Tuning: Codable {
     var smoothing: Double = 25
     var delay: Double = 0
     var automaticTiming = true
+    var hapticFocus: HapticFocus? = nil
     var vocalQuality = VocalQuality.light
     var bassSustain = 0.6
     var eq = EQ()
@@ -509,6 +526,7 @@ extension Tuning {
         // automatic compensation on top of an existing calibration.
         automaticTiming = try values.decodeIfPresent(Bool.self, forKey: .automaticTiming) ?? (delay == 0)
         bassSustain = min(1, max(0, try values.decodeIfPresent(Double.self, forKey: .bassSustain) ?? 0.6))
+        hapticFocus = try values.decodeIfPresent(HapticFocus.self, forKey: .hapticFocus)
         vocalQuality = try values.decodeIfPresent(VocalQuality.self, forKey: .vocalQuality) ?? .light
         eq = try values.decodeIfPresent(EQ.self, forKey: .eq) ?? eq
     }
@@ -516,7 +534,7 @@ extension Tuning {
 
 // Session-local Ultra processing. Never written to Studio or saved preferences.
 enum UltraDynamics {
-    static func tuning(_ saved: Tuning, active: Bool) -> Tuning {
+    static func tuning(_ saved: Tuning, active: Bool, output: OutputMode = .assist) -> Tuning {
         guard active else { return saved }
         var value = saved
         value.profile = .balanced
@@ -526,9 +544,10 @@ enum UltraDynamics {
         value.smoothing = 12
         value.bassSustain = 0.85
         value.eq = EQ()
-        value.eq.bass.gain = 4
-        value.eq.mid.gain = 1
-        value.eq.treble.gain = 2
+        let voice = saved.focus(for: output) == .voice
+        value.eq.bass.gain = voice ? 0 : 4
+        value.eq.mid.gain = voice ? 3 : 1
+        value.eq.treble.gain = voice ? 1 : 2
         return value
     }
     static func level(_ input: Double) -> Double {
@@ -540,5 +559,14 @@ enum UltraDynamics {
     static func lightBeat(_ input: Double) -> Double {
         guard input.isFinite, input > 0 else { return 0 }
         return min(1, 0.8 + input * 0.2)
+    }
+}
+
+extension Tuning {
+    func focus(for output: OutputMode) -> HapticFocus {
+        hapticFocus ?? (output == .assist ? .beat : .voice)
+    }
+    func usesVocalIsolation(for output: OutputMode) -> Bool {
+        output == .trackpad && focus(for: output) == .voice && vocalQuality == .isolated
     }
 }
