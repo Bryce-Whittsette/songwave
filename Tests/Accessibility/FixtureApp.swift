@@ -15,13 +15,14 @@ import SwiftUI
         reduceMotion = env["SONGWAVE_AX_REDUCE_MOTION"] == "1"
         scheme = env["SONGWAVE_AX_SCHEME"] == "light" ? .light : .dark
         UserDefaults.standard.setVolatileDomain(["setupComplete": screen == "player", "launchListen": false,
-            "audioAccessConfigured": screen != "permission", "firstSuccessPending": false], forName: UserDefaults.argumentDomain)
+            "audioAccessConfigured": screen != "permission", "firstSuccessPending": false,
+            "outputMode": OutputMode.assist.rawValue], forName: UserDefaults.argumentDomain)
         _studio = StateObject(wrappedValue: Studio())
     }
     var body: some Scene {
         WindowGroup("SongWave accessibility fixture") {
             Group {
-                if screen == "player" { Console(studio: studio).frame(minWidth: 1000, minHeight: 760) }
+                if screen == "player" { Console(studio: studio).frame(minWidth: compact ? 810 : 1000, minHeight: compact ? 640 : 760) }
                 else { PlaybackAccessSheet(studio: studio) }
             }
                 .environment(\.songWaveAdditionalMotionReduction, reduceMotion)
@@ -31,7 +32,15 @@ import SwiftUI
                     guard !configured else { return }
                     configured = true
                     studio.probe()
-                    if screen == "player" { return }
+                    if screen == "player" {
+                        if compact {
+                            // Exercise the real minimum content size regardless
+                            // of SwiftUI's previous window restoration record.
+                            NSApp.windows.first { $0.title == "SongWave accessibility fixture" }?
+                                .setContentSize(NSSize(width: 810, height: 640))
+                        }
+                        return
+                    }
                     if screen == "permission" { studio.markFirstSuccessPending() }
                     else {
                         studio.beginFirstSuccess()
@@ -53,6 +62,15 @@ import SwiftUI
             CommandMenu("Test fixture") {
                 Button("Complete simulated trackpad test") { Playback.testCompletion?(nil) }
                     .keyboardShortcut("t", modifiers: [.command, .shift])
+                Button("Simulate music with haptics off") {
+                    studio.start(.macAudio, initialBypass: true)
+                    Playback.lastUpdate?(PlaybackUpdate(signal: SignalFrame(tones: [], level: 0.4,
+                        bands: Array(repeating: 0.4, count: 44), inputRMS: 0.05, hasAudio: true,
+                        beatStrength: 0.8), device: "Mock trackpad", detection: "Music detected"))
+                }.keyboardShortcut("m", modifiers: [.command, .shift])
+                Button("Simulate silence") {
+                    Playback.lastUpdate?(PlaybackUpdate(device: "Mock trackpad", waiting: true, detection: "Waiting for Mac audio"))
+                }.keyboardShortcut("s", modifiers: [.command, .shift])
             }
         }
     }

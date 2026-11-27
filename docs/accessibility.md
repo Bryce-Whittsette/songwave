@@ -26,6 +26,8 @@ macOS does not expose XCTest's trait audit or `hasFocus` API. XCTest also maps A
 
 The local Xcode UI runner can fail before starting tests with “Timed out while enabling automation mode.” That is an environment failure, not a passing audit. No test enables security bypasses or changes Accessibility/Automation permissions to work around it. Use the CI result and preserve the `.xcresult` path printed by the script when diagnosing a failure.
 
+The main-listening case also exercises a forced 810 × 640 content window in light/dark with motion reduction on/off. Simulated music with haptics disabled must produce one passive, labeled progress indicator with a positive level. Its frame must stay visible and avoid Stop/Intensity. Silence clears the level, and Stop returns the player to its idle action. These simulation controls exist only in the test fixture, not the shipping app.
+
 ## Listener checks still needed
 
 - Navigate setup and Listening help with VoiceOver: headings, action names, disabled test state, return from recovery and exit.

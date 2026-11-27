@@ -6,7 +6,7 @@ New-user setup continues to System Audio Recording access, then a first connecti
 
 **Listening help** in the player or **Settings → Listening Help** shows trackpad availability, capture result, selected app and listening/pause state. Each has Retry or Settings actions. Retries preserve call, speech and video filtering. **Copy diagnostics** copies only app/build, hardware model, OS, output transport, app category and categorical states. It excludes song titles, filenames, personal paths, device names and recordings, and sends nothing automatically.
 
-The monochrome **Beat / Level** indicator shows analyzed music activity alongside the signal monitor. It does not prove physical actuator motion. Text and accessibility labels accompany the graphic; Reduce Motion keeps pulse size and brightness fixed and removes animated interpolation while preserving level and recent-beat text. Visibility-aware scheduling pauses visual animation when hidden. [Accessibility checks and remaining listener validation](accessibility.md).
+At the top of the Signal Monitor, the monochrome **Beat** cue pulses on detected events and the **Music level** meter shows analyzed signal level, percentage and dB. They remain visible during normal listening, including with haptics off. It does not prove physical actuator motion. Text and accessibility labels accompany the graphic; Reduce Motion keeps pulse size and brightness fixed and removes animated interpolation while preserving level and recent-beat text. Visibility-aware scheduling pauses visual animation when hidden. [Accessibility checks and remaining listener validation](accessibility.md).
 
 ## Playback and tuning
 
@@ -71,3 +71,9 @@ In Both, a detected percussion attack briefly lowers the vocal layer, which retu
 Listening help keeps trackpad, capture, selected source and pause status together. Capture and listening retries stay on that page during setup and keep normal haptics off. Choose **Run setup check** when you want another explicit sensation test. Recording permission alone never confirms a sensation. If music stops during the check, the status distinguishes earlier audio from current input.
 
 **Retry listening** keeps a local file's position and your haptics-off choice. Local files do not need recording access, so their capture retry is unavailable. Diagnostics copy only categorical connection information and numeric app/system facts; they exclude titles, recordings, device names and personal paths. [Audit and screenshots](audits/connection-0.5.11.md).
+
+## Follow music visually
+
+Choose **Speakers + haptics**, listen to Mac audio, and turn **Haptics** off if you prefer visual feedback without ongoing vibration. The Signal Monitor's Beat cue and Music level meter keep following the analyzed music. Keep listening enabled; **Stop listening** stops capture and clears the display.
+
+The larger beat cue and its Detected/Between beats/No signal text sit above the technical trace. The music-level bar, percentage and dB reading describe signal activity, independently of the Intensity control. With macOS Reduce Motion enabled, the cue keeps a fixed size and brightness; text and levels still update. Detection, selected focus, isolation and source restrictions still affect the analyzed signal. [Visual-listening audit](audits/visual-listening-0.5.12.md).

@@ -1,8 +1,10 @@
 # Preparing the broader launch
 
-0.5.11 is the Mac public preview. It closes first-connection and recovery gaps found after 0.5.10, with real-controller regressions and native end-to-end coverage. Broader launch preparation continues. Readiness means someone new can install, understand, recover, and update the app reliably.
+0.5.12 is the Mac public preview. It makes existing main-view visual rhythm and level feedback clearer for listening with or without haptics. The first-connection and recovery work shipped in 0.5.11 remains in place. Broader launch preparation continues. Readiness means someone new can install, understand, recover, and update the app reliably.
 
 ## Current work
+
+- [0.5.12 notes](releases/0.5.12.md): larger main-view beat cue, separate Music level labeling, compact-window/haptics-off UI coverage, and unchanged audio/haptic engines. [Visual-listening audit](audits/visual-listening-0.5.12.md).
 
 - [0.5.11 notes](releases/0.5.11.md): in-place connection retries, recovery scroll reset, accurate current-audio status, file/bypass preservation and closed-permission cancellation. [Numbered flow audit and screenshots](audits/connection-0.5.11.md).
 
@@ -52,4 +54,4 @@ Offline stress checks exercised concurrent ring buffers with 2.56 million offere
 
 Updater tests use a disposable app and separate temporary key. Modified feeds and archives must be rejected; a valid update must replace/relaunch the test app and write its result marker. The production signing key is not exported for those tests. Public-feed automation has published and verified signed preview updates.
 
-[Build/tests](development.md) · [Update pipeline](updates.md) · [Current release notes](releases/0.5.11.md)
+[Build/tests](development.md) · [Update pipeline](updates.md) · [Current release notes](releases/0.5.12.md)

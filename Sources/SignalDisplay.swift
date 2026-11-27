@@ -97,6 +97,15 @@ final class SignalDisplay: ObservableObject {
         return beatStrength * max(0, 1 - age / 0.22)
     }
 
+    // The UI marks an existing event consistently, even when its reported
+    // strength is low. The separate level meter communicates amplitude.
+    // This never changes the event, audio analysis or physical haptic output.
+    func beatPulse(at now: Double) -> Double {
+        let age = now - beatAt
+        guard isVisible, beatStrength > 0, age >= 0, age < 0.22 else { return 0 }
+        return max(0, 1 - age / 0.22)
+    }
+
     func bands(at now: Double) -> [Double] {
         let elapsed = max(0, now - timestamp)
         return zip(origin, frame.bands).map { start, target in

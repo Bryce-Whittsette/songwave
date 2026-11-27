@@ -139,7 +139,9 @@ struct RecoveryContent: View {
 
 // Small, local motion only. No full-screen flashes or color-coded states.
 struct BeatLevelIndicator: View {
+    enum Layout { case compact, listening }
     @ObservedObject var display: SignalDisplay
+    var layout: Layout = .compact
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.songWaveAdditionalMotionReduction) private var additionalMotionReduction
     private var reduceMotion: Bool { AccessibleMotion.reduced(system: systemReduceMotion, additional: additionalMotionReduction) }
@@ -149,7 +151,7 @@ struct BeatLevelIndicator: View {
                 indicator(beat: 0)
             } else {
                 TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !display.isVisible || !display.frame.hasAudio)) { _ in
-                    indicator(beat: display.beat(at: ProcessInfo.processInfo.systemUptime))
+                    indicator(beat: display.beatPulse(at: ProcessInfo.processInfo.systemUptime))
                 }
             }
         }
@@ -158,19 +160,45 @@ struct BeatLevelIndicator: View {
     private func indicator(beat: Double) -> some View {
         let state = VisualActivityPresentation(signal: display.frame, beat: beat, recentBeat: display.recentBeat,
             reduceMotion: reduceMotion, visible: display.isVisible)
-        return HStack(spacing: 10) {
+        return Group {
+          if layout == .listening {
+            HStack(spacing: 14) {
+                Circle().fill(.primary.opacity(state.opacity))
+                    .frame(width: 20, height: 20).scaleEffect(state.scale)
+                    .frame(width: 30, height: 30).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Beat").font(.callout.weight(.medium))
+                    Text(state.rhythmText).font(.caption).foregroundStyle(.secondary)
+                }.frame(width: 94, alignment: .leading)
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 6) {
+                        Text("Music level").font(.callout.weight(.medium))
+                        Spacer(minLength: 4)
+                        Text("\(Int(state.level * 100))%")
+                            .font(.callout.monospacedDigit()).frame(width: 38, alignment: .trailing)
+                        Text(state.decibelText).font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary).frame(width: 50, alignment: .trailing)
+                    }
+                    ProgressView(value: state.level).tint(.primary).controlSize(.regular)
+                }
+            }
+          } else {
+           HStack(spacing: 10) {
             Circle().fill(.primary.opacity(state.opacity))
                 .frame(width: 12, height: 12).scaleEffect(state.scale)
                 .frame(width: 20, height: 20).accessibilityHidden(true)
             Text(state.beatDetected ? "Beat detected" : "Beat").font(.callout).frame(width: 96, alignment: .leading)
             ProgressView(value: state.level).tint(.primary)
             Text("\(Int(state.level * 100))%").font(.caption.monospacedDigit()).frame(width: 36, alignment: .trailing)
+           }
+          }
         }
         .accessibilityRepresentation {
             ProgressView(value: state.level)
-                .accessibilityLabel("Visual music activity")
-                .accessibilityValue(state.accessibilityValue)
+                .accessibilityLabel(layout == .listening ? "Visual rhythm and music level" : "Visual music activity")
+                .accessibilityValue(layout == .listening ? state.listeningAccessibilityValue : state.accessibilityValue)
                 .accessibilityIdentifier("music.activity")
         }
+        .help("Visual feedback follows analyzed audio while you listen, including with haptics off.")
     }
 }

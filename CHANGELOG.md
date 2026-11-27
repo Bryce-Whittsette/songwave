@@ -2,6 +2,14 @@
 
 Every public release is listed here, newest first. Each version has a short explanation and expandable developer notes.
 
+## [0.5.12 — Visual listening](docs/releases/0.5.12.md)
+
+Public Preview · November 27, 2026
+
+Clearer Beat and Music level feedback at the top of the main Signal Monitor, including while haptics are off. One level bar retains percentage/dB readings; larger bounded pulse, reduced-motion text feedback and compact-window checks. Audio isolation and haptic rendering are unchanged.
+
+[Download](https://github.com/Bryce-Whittsette/songwave/releases/tag/v0.5.12) · [Full notes and validation](docs/releases/0.5.12.md)
+
 ## [0.5.11 — Connection and recovery](docs/releases/0.5.11.md)
 
 Public Preview · November 27, 2026
