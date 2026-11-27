@@ -120,8 +120,7 @@ final class Studio: ObservableObject {
         let permitted = !prior.source.isLive || audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady)
         if resume && shouldResume && permitted {
             autoStarted = true
-            start(prior.source, from: prior.source.isLive ? 0 : prior.elapsed)
-            if prior.bypass { localBypass = true; engine.setHaptics(false) }
+            start(prior.source, from: prior.source.isLive ? 0 : prior.elapsed, initialBypass: prior.bypass)
         }
         return true
     }
@@ -371,17 +370,17 @@ final class Studio: ObservableObject {
         let request = UUID()
         patternRequest = request
         do {
-                let pattern = try await Task.detached {
-                    guard (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) <= 1_048_576 else {
-                        throw GlassError("Choose an AHAP file smaller than 1 MB.")
-                    }
-                    return try HapticPattern(data: Data(contentsOf: url))
-                }.value
-                guard source == attachedSource, patternRequest == request else { return }
-                patternName = url.deletingPathExtension().lastPathComponent
-                patternNote = pattern.skippedAudio > 0 ? "Haptics only · embedded audio skipped" : "Haptics follow this file’s playback clock"
-                loadedPattern = pattern
-                engine.setPattern(pattern)
+            let pattern = try await Task.detached {
+                guard (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) <= 1_048_576 else {
+                    throw GlassError("Choose an AHAP file smaller than 1 MB.")
+                }
+                return try HapticPattern(data: Data(contentsOf: url))
+            }.value
+            guard source == attachedSource, patternRequest == request else { return }
+            patternName = url.deletingPathExtension().lastPathComponent
+            patternNote = pattern.skippedAudio > 0 ? "Haptics only · embedded audio skipped" : "Haptics follow this file’s playback clock"
+            loadedPattern = pattern
+            engine.setPattern(pattern)
         } catch {
             guard source == attachedSource, patternRequest == request else { return }
             self.error = error.localizedDescription
@@ -419,7 +418,7 @@ final class Studio: ObservableObject {
     @Published var detection = "Listening for music"
     @Published var localBypass = false
     @Published var detectedApp: String?
-    var assistEnabled: Bool { active && mode == .assist && !localBypass }
+    var assistEnabled: Bool { active && mode == .assist && !localBypass && !verifyingSetup }
     @Published var metadata: TrackInfo?
     let display = SignalDisplay()
     @Published var device: String?
@@ -537,7 +536,7 @@ final class Studio: ObservableObject {
         }
     }
 
-    func start(_ source: PlaybackSource, openPlayer: Bool = false, from position: Double = 0, preserveParty: Bool = false, verification: Bool = false) {
+    func start(_ source: PlaybackSource, openPlayer: Bool = false, from position: Double = 0, preserveParty: Bool = false, verification: Bool = false, initialBypass: Bool = false) {
         guard verification || !verifyingSetup else { return }
         resumeMacAfterWake = false
         if source.isLive && (!audioAccessReady || audioAccessHealth.requiresRecovery) {
@@ -549,7 +548,7 @@ final class Studio: ObservableObject {
         if source.isLive { captureHealth = .waiting }
         let token = UUID()
         operation = token
-        localBypass = false
+        localBypass = initialBypass
         detectedApp = nil
         playerTrack = nil
         detection = "Listening for music"
@@ -609,7 +608,7 @@ final class Studio: ObservableObject {
         var runTuning = tuning
         if verification { runTuning.hapticFocus = .beat; runTuning.vocalQuality = .light }
         engine.start(source, tuning: runTuning, mode: verification ? .assist : mode, playerPath: playerPath,
-                     startAt: position, partyDeadline: preserveParty ? partyEnd : 0, hapticsEnabled: !verification) { [weak self] update in
+                     startAt: position, partyDeadline: preserveParty ? partyEnd : 0, hapticsEnabled: !verification && !initialBypass) { [weak self] update in
             guard let self, self.operation == token else { return }
             self.lastCaptureUpdate = ProcessInfo.processInfo.systemUptime
             if update.partyOverheated {

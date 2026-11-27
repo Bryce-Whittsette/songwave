@@ -68,6 +68,7 @@ final class Playback {
         studio.metadata = TrackInfo(title: "Private title", artist: "Private artist")
         studio.beginFirstSuccess()
         precondition(studio.verifyingSetup && Playback.runs.last?.mode == .assist && Playback.runs.last?.haptics == false)
+        precondition(!studio.assistEnabled, "The menu bar must not report haptics on during verification.")
         studio.testTrackpad()
         let first = Playback.testCompletion!
         studio.stop()
@@ -90,8 +91,11 @@ final class Playback {
         precondition(studio.source == file && !studio.active && !studio.firstSuccessPending)
         precondition(defaults.bool(forKey: "firstSuccessConfirmed"))
         studio.start(file, from: 37)
+        studio.localBypass = true
         studio.beginFirstSuccess(); studio.completeFirstSuccess()
         precondition(studio.source == file && studio.active && Playback.runs.last?.source == file && Playback.runs.last?.position == 37)
+        precondition(studio.localBypass && Playback.runs.last?.haptics == false,
+            "Restoration must start bypassed, without a brief enabled output packet.")
         studio.stop()
         let other = PlaybackSource.file(URL(fileURLWithPath: "/tmp/songwave-other-fixture.m4a"))
         studio.start(other)

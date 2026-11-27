@@ -41,7 +41,7 @@ struct AudioAccessHealth: Equatable {
     func summary(setupSaved: Bool) -> String {
         switch status {
         case .unchecked:
-            return setupSaved ? "Setup saved. Choose Check Audio Access to verify it now." : "Audio access has not been set up."
+            return setupSaved ? "Setup saved. Open Listening help to verify audio access." : "Audio access has not been set up."
         case .checking: return "Checking audio access…"
         case .checked: return "Audio access checked this session."
         case .failed: return "Audio access needs attention."
