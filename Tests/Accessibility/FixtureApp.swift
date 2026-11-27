@@ -7,18 +7,23 @@ import SwiftUI
     private let screen: String
     private let reduceMotion: Bool
     private let scheme: ColorScheme
+    private let compact: Bool
     init() {
         let env = ProcessInfo.processInfo.environment
+        compact = env["SONGWAVE_AX_COMPACT"] == "1"
         screen = env["SONGWAVE_AX_SCREEN"] ?? "confirmation"
         reduceMotion = env["SONGWAVE_AX_REDUCE_MOTION"] == "1"
         scheme = env["SONGWAVE_AX_SCHEME"] == "light" ? .light : .dark
-        UserDefaults.standard.setVolatileDomain(["setupComplete": false, "launchListen": false,
+        UserDefaults.standard.setVolatileDomain(["setupComplete": screen == "player", "launchListen": false,
             "audioAccessConfigured": screen != "permission", "firstSuccessPending": false], forName: UserDefaults.argumentDomain)
         _studio = StateObject(wrappedValue: Studio())
     }
     var body: some Scene {
         WindowGroup("SongWave accessibility fixture") {
-            PlaybackAccessSheet(studio: studio)
+            Group {
+                if screen == "player" { Console(studio: studio).frame(minWidth: 1000, minHeight: 760) }
+                else { PlaybackAccessSheet(studio: studio) }
+            }
                 .environment(\.songWaveAdditionalMotionReduction, reduceMotion)
                 .preferredColorScheme(scheme)
                 .tint(scheme == .dark ? .white : .black)
@@ -26,6 +31,7 @@ import SwiftUI
                     guard !configured else { return }
                     configured = true
                     studio.probe()
+                    if screen == "player" { return }
                     if screen == "permission" { studio.markFirstSuccessPending() }
                     else {
                         studio.beginFirstSuccess()
@@ -42,6 +48,12 @@ import SwiftUI
                     }
                 }
         }
-        .defaultSize(width: 600, height: 800)
+        .defaultSize(width: 600, height: compact ? 450 : 800)
+        .commands {
+            CommandMenu("Test fixture") {
+                Button("Complete simulated trackpad test") { Playback.testCompletion?(nil) }
+                    .keyboardShortcut("t", modifiers: [.command, .shift])
+            }
+        }
     }
 }

@@ -6,6 +6,9 @@ import Foundation
         precondition(!check.confirm(), "Opening setup must not imply sensation.")
         check.begin(); check.observeAudio(true)
         precondition(check.audioDetected && !check.confirm(), "Audio detection is not tactile confirmation.")
+        precondition(check.audioPresent && check.audioStatus == "Audio detected")
+        check.observeAudio(false)
+        precondition(check.audioDetected && !check.audioPresent && check.audioStatus.contains("earlier"), "Historical detection must not claim audio is still present.")
         let token = check.beginTest()!
         precondition(check.beginTest() == nil && !check.confirm())
         check.cancel(); check.finishTest(token, succeeded: true)

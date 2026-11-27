@@ -255,7 +255,19 @@ struct Console: View {
                 Spacer()
                 Text(studio.healthSnapshot.pause.rawValue).font(.callout).foregroundStyle(.secondary)
             }
-            DisclosureGroup("Other sources · link or file", isExpanded: $showSources) {
+            Button { showSources.toggle() } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: showSources ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 11, weight: .semibold)).frame(width: 12).accessibilityHidden(true)
+                    Text("Other sources · link or file")
+                }.contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("sources.toggle")
+            .accessibilityLabel("Other sources · link or file")
+            .accessibilityValue(showSources ? "Expanded" : "Collapsed")
+            .help("Show or hide optional song links and local files.")
+            if showSources {
               VStack(alignment: .leading, spacing: 10) {
                 Button("Open audio file…", action: studio.chooseAudio)
             HStack(alignment: .center, spacing: 10) {
@@ -417,6 +429,7 @@ struct Console: View {
             Text("Point at a value and swipe with two fingers. Click for a slider.")
                 .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Button("Tools…") { showTools = true }
+                .accessibilityIdentifier("tools.open")
                 .help("EQ, Fine Tune, genre, keyboard light, local patterns and Insane Ultra")
             Text("EQ, tuning and optional effects").font(.caption).foregroundStyle(.secondary)
             if studio.partyEnd > 0 { Button("Stop Ultra", action: studio.cancelParty) }
@@ -427,7 +440,8 @@ struct Console: View {
 
     private var toolsSheet: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Listening tools").font(.title2.weight(.semibold))
+            Text("Listening tools").font(.title2.weight(.semibold)).accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("tools.heading")
             Text("Adjust the feel or try an optional effect. Your everyday listening controls stay in the player.")
                 .font(.callout).foregroundStyle(.secondary)
             ScrollView {

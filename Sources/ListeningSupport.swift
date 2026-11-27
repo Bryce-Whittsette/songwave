@@ -13,6 +13,7 @@ struct AudioSetupContent: View {
             Button(studio.audioAccessHealth.failure == nil ? "Allow System Audio…" : "Retry audio access") {
                 Task { _ = await studio.prepareAudioAccess() }
             }.buttonStyle(.borderedProminent).disabled(studio.requestingAudioAccess)
+                .accessibilityIdentifier("setup.allow")
             if studio.requestingAudioAccess { ProgressView("Checking audio access…").controlSize(.small) }
             if studio.audioAccessHealth.failure != nil {
                 Text("Audio access wasn’t available. Check the permission in System Settings, then retry.")
@@ -20,6 +21,7 @@ struct AudioSetupContent: View {
                 Button("Privacy Settings…", action: studio.permissions).accessibilityIdentifier("recovery.capture.settings")
             }
             Button("Open listening help", action: studio.firstSuccessRecovery).disabled(studio.requestingAudioAccess)
+                .accessibilityIdentifier("setup.help")
         }.font(.system(size: 14))
             .transaction { AccessibleMotion.apply(to: &$0, reduced: reduceMotion) }
     }
@@ -33,8 +35,8 @@ struct FirstSuccessContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Play a song in your music app. Rest a finger lightly on the trackpad.")
-            Label(studio.firstSuccess.audioDetected ? "Audio detected" : "Waiting for music on your Mac",
-                  systemImage: studio.firstSuccess.audioDetected ? "checkmark.circle" : "waveform")
+            Label(studio.firstSuccess.audioStatus,
+                  systemImage: studio.firstSuccess.audioPresent ? "checkmark.circle" : "waveform")
                 .font(.headline)
             BeatLevelIndicator(display: studio.display)
             Text("During this check, speakers stay unmuted and automatic haptics are paused.")
@@ -91,16 +93,13 @@ struct RecoveryContent: View {
             Divider()
             status("Audio capture", value: health.capture.rawValue, icon: "waveform") {
                 Button(studio.audioAccessReady ? "Retry capture" : "Allow System Audio…") {
-                    Task {
-                        let failure = await studio.prepareAudioAccess()
-                        if failure == nil && !studio.firstSuccessPending && !studio.verifyingSetup { studio.retryListening() }
-                    }
-                }.disabled(busy).accessibilityIdentifier("recovery.capture.retry")
+                    Task { await studio.retryCapture() }
+                }.disabled(busy || health.capture == .localFile).accessibilityIdentifier("recovery.capture.retry")
                 Button("Privacy Settings…", action: studio.permissions).accessibilityIdentifier("recovery.capture.settings")
             }
             Divider()
             status("Selected app", value: studio.selectedAppLabel, icon: "app") {
-                Button("Rescan music apps", action: studio.retryListening).accessibilityIdentifier("recovery.app.retry").disabled(busy)
+                Button(studio.retrySourceTitle, action: studio.retryListening).accessibilityIdentifier("recovery.app.retry").disabled(busy)
                 Button("Player access…") { showPlayerAccess = true }.accessibilityIdentifier("recovery.app.settings")
             }
             if showPlayerAccess {

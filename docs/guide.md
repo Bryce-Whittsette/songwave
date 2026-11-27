@@ -65,3 +65,9 @@ Use **Feel → Voice / Beat / Both** independently of the output choice. Voice f
 In Both, a detected percussion attack briefly lowers the vocal layer, which returns smoothly over roughly a tenth of a second. A short, complementary tactile texture helps distinguish attacks that share a frequency with the vocal layer. These changes redistribute the existing output budget; they add no model, onset detector or lookahead. How clearly that contrast feels still needs listener feedback on real trackpads.
 
 **Tools… → Fine Tune → Detail balance** makes detected mid/treble percussion more prominent and briefly lowers the bass rumble beneath it. It does not change EQ, beat timing or detection sensitivity. Voice passes through unchanged.
+
+## Connection checks and retries
+
+Listening help keeps trackpad, capture, selected source and pause status together. Capture and listening retries stay on that page during setup and keep normal haptics off. Choose **Run setup check** when you want another explicit sensation test. Recording permission alone never confirms a sensation. If music stops during the check, the status distinguishes earlier audio from current input.
+
+**Retry listening** keeps a local file's position and your haptics-off choice. Local files do not need recording access, so their capture retry is unavailable. Diagnostics copy only categorical connection information and numeric app/system facts; they exclude titles, recordings, device names and personal paths. [Audit and screenshots](audits/connection-0.5.11.md).

@@ -10,6 +10,10 @@ files = ['Studio', 'Source', 'ListeningSetup', 'GlassControls', 'Signal', 'Equal
          'HapticPattern', 'SignalDisplay', 'VisualActivity', 'MotionAccessibility', 'ListeningHealth', 'AudioAccessHealth',
          'ListeningSupport', 'PlaybackAccess', 'PlayerWindowVisibility']
 for name in files: shutil.copyfile(root/'Sources'/f'{name}.swift', source/f'{name}.swift')
+# Reuse the exact production Console without the application's @main scene,
+# updater or menu-bar lifecycle. Audio/hardware edges remain fake.
+console = (root/'Sources/SongWave.swift').read_text()
+(source/'Console.swift').write_text('import AppKit\nimport SwiftUI\n\n' + console[console.index('struct Console: View'):])
 for path in [root/'Tests/Support/StudioTestEdges.swift', root/'Tests/Accessibility/FixtureApp.swift']:
     shutil.copyfile(path, source/path.name)
 shutil.copyfile(root/'Tests/Accessibility/AccessibilityUITests.swift', out/'AccessibilityUITests.swift')
