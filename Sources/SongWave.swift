@@ -712,6 +712,8 @@ private struct Monitor: View {
                 Text(signal.hasAudio ? "Signal" : waiting ? "Waiting" : "Idle")
                     .font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
             }
+            BeatLevelIndicator(display: display, layout: .listening)
+            Divider()
             ZStack {
                 TimelineView(.animation(minimumInterval: reduceMotion ? 0.10 : 1.0 / 60,
                                         paused: !display.isVisible || (!signal.hasAudio && !display.settling))) { _ in
@@ -734,21 +736,6 @@ private struct Monitor: View {
                 Text("4 kHz")
             }
             .font(.system(size: 13)).foregroundStyle(.secondary)
-            Divider()
-            BeatLevelIndicator(display: display)
-            HStack {
-                Text("Level").font(.system(size: 13)).foregroundStyle(.secondary)
-                if signal.inputRMS > 0 {
-                    let decibels = 20 * log10(signal.inputRMS)
-                    Meter(value: min(1, max(0, 1 + decibels / 60)))
-                        .frame(height: 4)
-                    Text("\(Int(decibels.rounded())) dB").font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary).frame(width: 48, alignment: .trailing)
-                } else {
-                    Meter(value: 0).frame(height: 4)
-                    Text("— dB").font(.system(size: 13)).foregroundStyle(.secondary).frame(width: 48, alignment: .trailing)
-                }
-            }
         }
         .padding(18)
         .panel()

@@ -169,4 +169,36 @@ final class AccessibilityUITests: XCTestCase {
         XCTAssertTrue(retry.waitForExistence(timeout: 4))
         XCTAssertTrue(retry.isHittable, "Entering recovery must reveal the first connection status, not keep the previous scroll offset.")
     }
+    @MainActor func testMainVisualFeedbackWorksWithHapticsOff() throws {
+        for motion in [false, true] {
+            for scheme in ["light", "dark"] {
+                let app = launch("player", motion: motion, scheme: scheme, compact: true)
+                app.typeKey("m", modifierFlags: [.command, .shift])
+                let activity = app.progressIndicators["music.activity"]
+                XCTAssertTrue(activity.waitForExistence(timeout: 4))
+                XCTAssertEqual(spoken(activity), "Visual rhythm and music level")
+                XCTAssertEqual(app.progressIndicators.matching(identifier: "music.activity").count, 1)
+                XCTAssertFalse(app.buttons["music.activity"].exists, "The display must remain passive.")
+                func level() -> Double {
+                    (activity.value as? NSNumber)?.doubleValue ?? Double(activity.value as? String ?? "") ?? -1
+                }
+                XCTAssertGreaterThan(level(), 0)
+                let off = app.staticTexts.matching(NSPredicate(format: "label == %@ OR value == %@", "Haptics off", "Haptics off")).firstMatch
+                XCTAssertTrue(off.exists, "Visual music feedback must work independently of enabled haptics.")
+                let stop = app.buttons["Stop listening"]
+                XCTAssertTrue(stop.exists)
+                XCTAssertGreaterThan(activity.frame.width, 0)
+                XCTAssertLessThanOrEqual(app.windows.firstMatch.frame.width, 812, "This test must exercise the compact player, not a restored larger window.")
+                XCTAssertTrue(app.windows.firstMatch.frame.contains(activity.frame), "Feedback must stay visible in the minimum player window.")
+                XCTAssertFalse(activity.frame.intersects(stop.frame))
+                XCTAssertFalse(activity.frame.intersects(app.buttons["Intensity"].frame))
+                XCTAssertFalse(app.buttons["setup.test"].exists, "This feedback belongs to listening, outside setup.")
+                app.typeKey("s", modifierFlags: [.command, .shift])
+                XCTAssertEqual(level(), 0)
+                stop.click()
+                XCTAssertTrue(app.buttons["Listen to Mac audio"].waitForExistence(timeout: 4))
+                app.terminate()
+            }
+        }
+    }
 }

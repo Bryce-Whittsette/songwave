@@ -11,7 +11,7 @@ import SwiftUI
                 if reduced { precondition(transaction.animation == nil && transaction.disablesAnimations) }
             }
         }
-        for rms in [Double.nan, .infinity, -1, 0, 0.0001, 0.05, 1, 100] {
+        for rms in [Double.nan, .infinity, -.infinity, -1, 0, .leastNonzeroMagnitude, 0.0001, 0.05, 1, 100, .greatestFiniteMagnitude] {
             let signal = SignalFrame(tones: [], level: 1, bands: [], inputRMS: rms, hasAudio: true)
             for beat in [Double.nan, -1, 0, 0.3, 1, 100] {
                 let normal = VisualActivityPresentation(signal: signal, beat: beat, recentBeat: true, reduceMotion: false, visible: true)
@@ -19,12 +19,24 @@ import SwiftUI
                 precondition(reduced.scale == 1 && reduced.opacity == 0.55 && !reduced.animates)
                 precondition(reduced.level == normal.level && reduced.level.isFinite && (0...1).contains(reduced.level))
                 precondition(reduced.accessibilityValue.contains("percent") && reduced.beatDetected)
+                precondition(normal.opacity >= 0.22 && normal.opacity <= 0.900001 && normal.scale >= 1 && normal.scale <= 1.25)
+                precondition(reduced.rhythmText == "Detected" && !reduced.decibelText.contains("nan"))
                 let hidden = VisualActivityPresentation(signal: signal, beat: beat, recentBeat: true, reduceMotion: true, visible: false)
                 precondition(!hidden.animates && !hidden.beatDetected)
             }
         }
         let silence = VisualActivityPresentation(signal: .empty, beat: 0, recentBeat: false, reduceMotion: true, visible: true)
         precondition(silence.level == 0 && silence.accessibilityValue.contains("No audio") && !silence.beatDetected)
+        precondition(silence.rhythmText == "No signal" && silence.decibelText == "— dB")
+        let music = SignalFrame(tones: [], level: 0.4, bands: [], inputRMS: 0.05, hasAudio: true)
+        let between = VisualActivityPresentation(signal: music, beat: 0, recentBeat: false, reduceMotion: false, visible: true)
+        let attack = VisualActivityPresentation(signal: music, beat: 0.8, recentBeat: true, reduceMotion: false, visible: true)
+        precondition(between.rhythmText == "Between beats" && attack.rhythmText == "Detected")
+        precondition(between.level == attack.level && between.decibelText == "-26 dB", "A beat must not change the music-level reading.")
+        precondition(between.listeningAccessibilityValue.contains("-26 dB"), "The retained dB reading must also be accessible.")
+        precondition(attack.opacity > between.opacity && attack.scale > between.scale)
+        let stale = VisualActivityPresentation(signal: .empty, beat: 1, recentBeat: true, reduceMotion: false, visible: true)
+        precondition(!stale.beatDetected && stale.scale == 1 && stale.level == 0, "Stopped audio cannot leave a false visual beat.")
         print("Reduced Motion removes interpolation, scale and brightness pulses without losing level/text feedback; native OS reduction cannot be overridden off.")
     }
 }
