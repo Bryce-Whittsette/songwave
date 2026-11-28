@@ -91,6 +91,7 @@ final class MusicGate: NSObject, SNResultsObserving {
 
 struct AudioClient {
     let id: AudioObjectID
+    let pid: pid_t
     let bundle: String
     let isCall: Bool
     let isDictationService: Bool
@@ -127,6 +128,7 @@ struct AudioClient {
         isDictationService = dictation
         dictationInputActive = dictation && input != 0
         self.id = id
+        self.pid = pid
         if identity.contains("com.spotify.client") || identity.contains("/spotify.app/") { self.bundle = "com.spotify.client" }
         else if identity.contains("com.apple.music ") || identity.contains("/music.app/") { self.bundle = "com.apple.Music" }
         else { self.bundle = bundle.isEmpty ? executable : bundle }
@@ -146,6 +148,7 @@ enum CallAudioPolicy {
 private final class MusicFeed {
     let tap: AudioTap
     let bundle: String
+    let pid: pid_t
     var gate: MusicGate?
     var samples: [Float] = []
     var peak: Float = 0
@@ -153,9 +156,10 @@ private final class MusicFeed {
     private var lastSound = 0.0
     func signalInterrupted(now: Double) -> Bool { wasSelected && now - lastSound >= 1.5 }
 
-    init(tap: AudioTap, bundle: String) {
+    init(tap: AudioTap, bundle: String, pid: pid_t) {
         self.bundle = bundle
         self.tap = tap
+        self.pid = pid
     }
 
     deinit { gate?.finish() }
@@ -174,7 +178,7 @@ private final class MusicFeed {
 
 final class MacMusicInput {
     private var feeds: [AudioObjectID: MusicFeed] = [:]
-    private var pending: [AudioObjectID: (bundle: String, started: Double, request: CaptureRequest)] = [:]
+    private var pending: [AudioObjectID: (bundle: String, pid: pid_t, started: Double, request: CaptureRequest)] = [:]
     private let requestTap: (CATapDescription, Bool) -> CaptureRequest?
 
     init(requestTap: @escaping (CATapDescription, Bool) -> CaptureRequest? = { CaptureRequest(description: $0, mute: $1) }) {
@@ -215,10 +219,12 @@ final class MacMusicInput {
             let sources = clients.filter { !$0.isDictationService }
             let eligible = callActive ? [] : sources.map(\.id)
             let allowed = Set(eligible)
-            let identities = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0.bundle) })
-            feeds = feeds.filter { allowed.contains($0.key) && identities[$0.key] == $0.value.bundle }
+            let identities = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0) })
+            // An object ID may be recycled for a new process from the same
+            // bundle. Retire its old feed/request before accepting more PCM.
+            feeds = feeds.filter { allowed.contains($0.key) && identities[$0.key]?.bundle == $0.value.bundle && identities[$0.key]?.pid == $0.value.pid }
             pending = pending.filter {
-                let keep = allowed.contains($0.key) && identities[$0.key] == $0.value.bundle
+                let keep = allowed.contains($0.key) && identities[$0.key]?.bundle == $0.value.bundle && identities[$0.key]?.pid == $0.value.pid
                 if !keep { $0.value.request.cancel() }
                 return keep
             }
@@ -227,7 +233,7 @@ final class MacMusicInput {
             if !callActive {
                 for client in sources where feeds[client.id] == nil && pending[client.id] == nil && now >= retryAfter[client.id, default: 0] {
                     if let request = requestTap(CATapDescription(stereoMixdownOfProcesses: [client.id]), false) {
-                        pending[client.id] = (client.bundle, now, request)
+                        pending[client.id] = (client.bundle, client.pid, now, request)
                     } else { retryAfter[client.id] = now + 3 }
                 }
             }
@@ -236,7 +242,7 @@ final class MacMusicInput {
             if let result = value.request.takeResult() {
                 pending.removeValue(forKey: id)
                 switch result {
-                case .success(let tap): feeds[id] = MusicFeed(tap: tap, bundle: value.bundle)
+                case .success(let tap): feeds[id] = MusicFeed(tap: tap, bundle: value.bundle, pid: value.pid)
                 case .failure(let error): retryAfter[id] = now + 3; status = error.localizedDescription
                 }
             } else if now - value.started >= 8 {

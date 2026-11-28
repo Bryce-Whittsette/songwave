@@ -5,8 +5,8 @@ import Foundation
 // AudioTap/SampleRing, router, Playback and Studio run above this boundary.
 // No real device, TCC service, installed app, recording or phone call is used.
 enum InterruptionHAL {
-    struct Client { var bundle: String; var input: UInt32 = 0; var output: UInt32 = 1 }
-    struct Tap { var uuid: String; var processes: [AudioObjectID]; var muted: Bool }
+    struct Client { var bundle: String; var input: UInt32 = 0; var output: UInt32 = 1; var pid: pid_t?; var gain: Float = 1 }
+    struct Tap { var uuid: String; var processes: [AudioObjectID]; var muted: Bool; var pids: [AudioObjectID: pid_t] }
     struct Callback { var block: AudioDeviceIOBlock; var running = false }
     enum Delivery: CaseIterable { case music, stopped, zeros, empty, halfFrame, missingData, invalidChannels, misaligned, oversized, missingPlane, shortPlane, nonfinite }
     static let lock = NSLock()
@@ -32,6 +32,8 @@ enum InterruptionHAL {
     static var speakerFrames = 0
     static var callbackGate: DispatchSemaphore?
     static var callbackEntries = 0
+    static var browserMusic = false
+    static var lateCallbacks: [AudioDeviceIOBlock] = []
     static func locked<T>(_ body: () -> T) -> T { lock.lock(); defer { lock.unlock() }; return body() }
     static var counts: (taps: Int, muted: Int, callbacks: Int, listeners: Int, motors: Int, attempts: Int, denied: Int) {
         locked { (taps.count, taps.values.filter(\.muted).count, callbacks.count, listeners.count, motors, attempts, denied) }
@@ -56,16 +58,19 @@ enum InterruptionHAL {
     }
     static func finish() { timer?.cancel(); timer = nil }
     static func pump() {
-        let state = locked { () -> (Int, Delivery, [AudioDeviceIOBlock], Double, Int) in
+        let state = locked { () -> (Int, Delivery, [(AudioDeviceIOBlock, Float)], Double, Int) in
             let count = Int(sampleRate * 0.008)
             let start = frames; frames += count
             if clients.values.contains(where: { $0.output != 0 && !$0.bundle.contains("FaceTime") }) { speakerFrames += count }
-            let active = callbacks.filter { $0.value.running }.compactMap { aggregate, callback -> AudioDeviceIOBlock? in
+            let active = callbacks.filter { $0.value.running }.compactMap { aggregate, callback -> (AudioDeviceIOBlock, Float)? in
                 guard let tap = aggregates[aggregate].flatMap({ taps[$0] }),
-                      tap.processes.isEmpty || tap.processes.contains(where: { clients[$0]?.output == 1 }) else { return nil }
-                return callback.block
+                      tap.processes.isEmpty || tap.processes.contains(where: { id in
+                          guard let client = clients[id], client.output == 1 else { return false }
+                          return tap.pids[id] == (client.pid ?? pid_t(500000 + id))
+                      }) else { return nil }
+                return (callback.block, tap.processes.compactMap { clients[$0]?.gain }.max() ?? 1)
             }
-            return (start, delivery, active, sampleRate, count)
+            return (start, delivery, active + lateCallbacks.map { ($0, 1) }, sampleRate, count)
         }
         guard state.1 != .stopped, !state.2.isEmpty else { return }
         var samples = [Float](repeating: 0, count: state.4 * 2)
@@ -81,6 +86,7 @@ enum InterruptionHAL {
             let corrupt: [Float] = [.nan, .infinity, -.infinity, .greatestFiniteMagnitude]
             for index in samples.indices { samples[index] = corrupt[index % corrupt.count] }
         }
+        let original = samples
         samples.withUnsafeMutableBytes { bytes in
             let input = AudioBufferList.allocate(maximumBuffers: 2)
             defer { input.unsafeMutablePointer.deallocate() }
@@ -106,7 +112,11 @@ enum InterruptionHAL {
             var time = AudioTimeStamp()
             withUnsafePointer(to: &time) { stamp in
                 withUnsafeMutablePointer(to: &output) { out in
-                    for block in state.2 { block(stamp, UnsafePointer(input.unsafeMutablePointer), stamp, out, stamp) }
+                    for (block, gain) in state.2 {
+                        let pointer = bytes.baseAddress!.assumingMemoryBound(to: Float.self)
+                        for index in original.indices { pointer[index] = original[index] * gain }
+                        block(stamp, UnsafePointer(input.unsafeMutablePointer), stamp, out, stamp)
+                    }
                 }
             }
         }
@@ -119,7 +129,8 @@ enum InterruptionHAL {
         guard InterruptionHAL.allowed else { InterruptionHAL.denied += 1; return kAudioDevicePermissionsError }
         InterruptionHAL.nextID += 1; id.pointee = InterruptionHAL.nextID
         InterruptionHAL.taps[id.pointee] = .init(uuid: description.uuid.uuidString,
-            processes: description.processes, muted: description.muteBehavior != .unmuted)
+            processes: description.processes, muted: description.muteBehavior != .unmuted,
+            pids: Dictionary(uniqueKeysWithValues: description.processes.map { id in (id, InterruptionHAL.clients[id]?.pid ?? pid_t(500000 + id)) }))
         InterruptionHAL.opened += 1
         return noErr
     }
@@ -186,7 +197,7 @@ enum InterruptionHAL {
             switch address.pointee.mSelector {
             case kAudioProcessPropertyIsRunningOutput: data.assumingMemoryBound(to: UInt32.self).pointee = client.output
             case kAudioProcessPropertyIsRunningInput: data.assumingMemoryBound(to: UInt32.self).pointee = client.input
-            case kAudioProcessPropertyPID: data.assumingMemoryBound(to: pid_t.self).pointee = pid_t(500000 + id)
+            case kAudioProcessPropertyPID: data.assumingMemoryBound(to: pid_t.self).pointee = client.pid ?? pid_t(500000 + id)
             case kAudioProcessPropertyBundleID: data.assumingMemoryBound(to: Unmanaged<CFString>?.self).pointee = .passRetained(client.bundle as CFString)
             default: return -1
             }

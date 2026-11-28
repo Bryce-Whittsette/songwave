@@ -237,7 +237,7 @@ private final class Session {
     var nextScan: Double = 0
     var lastAudio: Double?
     var endedAt: Double?
-    var connectedProcesses: [AudioObjectID] = []
+    var connectedProcesses: [AudioObjectID: pid_t] = [:]
     var updateCounter = 0
     private var visualBeat = 0.0
     private var visualBeatFrequency = 125.0
@@ -492,7 +492,13 @@ private final class Session {
                 }
                 if !playerCallActive, now >= nextScan, let playerPath {
                     nextScan = now + 1.0
-                    let processes = AudioHardware.processIDs(for: link.provider.bundle, appPath: playerPath).sorted()
+                    // Core Audio object IDs can be reused while the app bundle
+                    // stays the same. A new process needs its own tap lifetime.
+                    let processes = Dictionary(uniqueKeysWithValues: AudioHardware.processIDs(for: link.provider.bundle, appPath: playerPath).compactMap { id -> (AudioObjectID, pid_t)? in
+                        var pid: pid_t = 0
+                        guard AudioHardware.read(id, kAudioProcessPropertyPID, into: &pid) == noErr, pid > 0 else { return nil }
+                        return (id, pid)
+                    })
                     if processes != connectedProcesses || (tap == nil && captureRequest == nil) {
                         if processes != connectedProcesses { captureRequestedAt = 0 }
                         tap = nil
@@ -501,7 +507,7 @@ private final class Session {
                         lastCapturedSound = nil
                         connectedProcesses = processes
                         if !processes.isEmpty {
-                            connect(CATapDescription(stereoMixdownOfProcesses: processes))
+                            connect(CATapDescription(stereoMixdownOfProcesses: processes.keys.sorted()))
                         }
                     }
                 }

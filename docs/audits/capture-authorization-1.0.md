@@ -1,5 +1,7 @@
 # Live capture authorization and interruption follow-up
 
+**Later countercheck, November 28:** installed 1.0.0 captured synthetic local music during the [overlap/focus pass](overlap-focus-1.0.md), without a permission or signing change. The registration stall below is historical evidence, not a permanent current blocker. Its underlying cause and recurrence across sessions remain unresolved.
+
 There are two findings on the test Mac. The installed 1.0.0 release has an authorization blocker: macOS's saved System Audio Recording requirement matches the **published 0.5.13 binary**, while installed 1.0.0 has a different requirement. Separately, the unchanged, matching-grant 0.5.13 control also stalled in tap I/O registration. Output-only HAL registration worked on the same Mac. The complete server-side cause of the tap-path wait remains unresolved.
 
 Renewing 1.0.0's grant requires the owner's Touch ID/password. A valid current grant is necessary for its live countercheck, but the historical control shows that renewing access cannot yet be promised as the complete fix. Inspecting the audio server requires privileges unavailable in this session.
