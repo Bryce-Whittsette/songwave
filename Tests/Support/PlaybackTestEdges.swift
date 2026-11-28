@@ -30,6 +30,7 @@ enum LifecycleHardware {
     private static var routeGeneration = 0
     private static var changeOnMute = false
     private static var audioAvailable = true
+    private static var clockedCapture = false
     static func locked<T>(_ operation: () -> T) -> T { lock.lock(); defer { lock.unlock() }; return operation() }
     static func set(_ next: [UInt32: LifecycleClient]) { locked { clients = next } }
     static func snapshot() -> [UInt32: LifecycleClient] { locked { clients } }
@@ -39,6 +40,7 @@ enum LifecycleHardware {
     static var liveTaps: Int { locked { taps } }
     static var mutedTaps: Int { locked { muted } }
     static var deliversAudio: Bool { get { locked { audioAvailable } } set { locked { audioAvailable = newValue } } }
+    static var captureFollowsClock: Bool { get { locked { clockedCapture } } set { locked { clockedCapture = newValue } } }
     static var liveMotors: Int { locked { motors } }
     static func tap(_ delta: Int) { locked { taps += delta } }
     static func mute(_ delta: Int) { locked { muted += delta } }
@@ -63,7 +65,7 @@ enum LifecycleHardware {
     }
     static func failNextCapture() { locked { failCapture = true } }
     static func captureFails() -> Bool { locked { let value = failCapture; failCapture = false; return value } }
-    static func clear() { locked { require(taps == 0 && motors == 0 && muted == 0); packets.removeAll(); clients.removeAll(); failCapture = false; changeOnMute = false; audioAvailable = true } }
+    static func clear() { locked { require(taps == 0 && motors == 0 && muted == 0); packets.removeAll(); clients.removeAll(); failCapture = false; changeOnMute = false; audioAvailable = true; clockedCapture = false } }
 }
 enum AudioHardware {
     static func processList() -> [AudioObjectID] { Array(LifecycleHardware.snapshot().keys) }
@@ -84,11 +86,19 @@ enum AudioHardware {
 }
 final class LifecycleRing {
     private var position = 0
+    private var lastRead = ProcessInfo.processInfo.systemUptime - 0.008
     private let rate: Double
     init(rate: Double) { self.rate = rate }
     func takeNewest(maximum: Int, into samples: inout [Float]) {
+        let now = ProcessInfo.processInfo.systemUptime
+        // Real capture fills at the source rate independently of timer reads.
+        // Keep legacy deterministic packets for the numerical lifecycle suite;
+        // real-model stress uses elapsed capture time, bounded like a live ring.
+        let interval = LifecycleHardware.captureFollowsClock ? min(0.08, max(0, now - lastRead)) : 0.008
+        lastRead = now
         guard LifecycleHardware.deliversAudio else { samples.removeAll(keepingCapacity: true); return }
-        samples = (0..<Int(rate * 0.008)).map { offset in
+        let count = max(0, min(maximum, Int(rate * interval)))
+        samples = (0..<count).map { offset in
             let time = Double(position + offset) / rate
             let voice = (1...8).reduce(0.0) { $0 + 0.045 / Double($1) * sin(2 * .pi * 224 * Double($1) * time) }
             return Float(0.18 * sin(2 * .pi * 65 * time) + voice)

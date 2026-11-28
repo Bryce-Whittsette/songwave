@@ -13,6 +13,7 @@ import Darwin
     static func main() {
         setbuf(stdout, nil)
         LifecycleHardware.clear()
+        LifecycleHardware.captureFollowsClock = true
         LifecycleHardware.set([111: LifecycleClient(bundle: "com.spotify.client")])
         let engine = Playback()
         var errors: [String] = []
@@ -25,7 +26,7 @@ import Darwin
         isolated.hapticFocus = .voice; isolated.vocalQuality = .isolated
         engine.set(tuning: isolated); engine.setMacMode(.trackpad)
         let before = LifecycleHardware.writes.count
-        wait("The existing isolated pipeline did not produce output") { LifecycleHardware.writes.count > before + 6 || !errors.isEmpty }
+        wait("The existing isolated pipeline did not produce output", timeout: 30) { LifecycleHardware.writes.count > before + 6 || !errors.isEmpty }
         require(errors.isEmpty, errors.joined(separator: "; "))
         // Keep the actual model/inference queues running while the I/O edge
         // reports a call. No real call or microphone is opened by this test.
@@ -37,9 +38,14 @@ import Darwin
         let callWrites = LifecycleHardware.writes.count
         run(0.4)
         require(LifecycleHardware.writes.count == callWrites, "Pending separated output leaked into call interruption")
+        let callEnded = ProcessInfo.processInfo.systemUptime
         LifecycleHardware.set([111: LifecycleClient(bundle: "com.spotify.client")])
-        wait("Isolated playback did not resume after call suppression") { LifecycleHardware.writes.count > callWrites + 6 || !errors.isEmpty }
+        // A fresh model is loaded after suppression. Allow the same bounded
+        // cold-load budget as the numerical model test on shared CI hardware.
+        wait("Isolated playback did not resume after call suppression", timeout: 30) { LifecycleHardware.writes.count > callWrites + 6 || !errors.isEmpty }
         require(errors.isEmpty, errors.joined(separator: "; "))
+        print("Model call recovery seconds:", ProcessInfo.processInfo.systemUptime - callEnded,
+              "(fixture/runner timing, not a physical capture latency measurement)")
         // Loss of PCM is one possible revocation symptom, and also occurs on
         // driver stalls. This proves recovery behavior, not macOS TCC revocation.
         LifecycleHardware.deliversAudio = false
