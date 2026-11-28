@@ -9,7 +9,7 @@ struct GlassError: LocalizedError { let errorDescription:String?; init(_ s:Strin
   precondition(CommandLine.arguments.count == 3, "Supply the bundled model path and a spoken-voice audio fixture.")
   let path=URL(fileURLWithPath:CommandLine.arguments[1])
   let engine=IsolatedVocals(modelURL:path)
-  let limit=ProcessInfo.processInfo.systemUptime+8
+  let limit=ProcessInfo.processInfo.systemUptime+30
   while !engine.isReady && engine.failure == nil && ProcessInfo.processInfo.systemUptime<limit {
    try await Task.sleep(for:.milliseconds(10))
   }
@@ -36,15 +36,20 @@ struct GlassError: LocalizedError { let errorDescription:String?; init(_ s:Strin
     samples[offset]=voice(t)+backing
     if offset % 2 == 0 { truth.append(voice(t));mixture.append(samples[offset]) }
    }
-   let now=ProcessInfo.processInfo.systemUptime
+   // This assertion is about exact PCM/resampling, not the shared CI runner's
+   // scheduling. Advance the source clock by frames so a delayed test task
+   // cannot accidentally exercise the intentional stale-audio discard policy.
+   let now=Double(block*size)/rate
    engine.push(samples,rate:rate,at:now)
    received += engine.read(maximum:480,at:now)
    try await Task.sleep(for:.milliseconds(20))
   }
   engine.finish()
-  let drainLimit=ProcessInfo.processInfo.systemUptime+5
+  let drainLimit=ProcessInfo.processInfo.systemUptime+30
+  var sourceTime=Double(blocks*size)/rate
   while !engine.isDrained && ProcessInfo.processInfo.systemUptime<drainLimit {
-   received += engine.read(maximum:480,at:ProcessInfo.processInfo.systemUptime)
+   received += engine.read(maximum:480,at:sourceTime)
+   sourceTime += 0.02
    try await Task.sleep(for:.milliseconds(20))
   }
   print("Streaming source",blocks*size,"at",rate,"received",received.count,"at24000Hz, time",ProcessInfo.processInfo.systemUptime-start,"latency",engine.latency,"drained",engine.isDrained,"error",engine.failure as Any)

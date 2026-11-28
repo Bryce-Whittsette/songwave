@@ -63,4 +63,6 @@ This deadline limits the app's wait, not the OS call itself. A blocked system ca
 
 Run `bash Tests/run.sh` and `bash Tests/test-isolation.sh` for repeatable coverage. The latter uses the existing model unchanged and fake capture/actuator edges.
 
+The optional model job exposed a test scheduling dependency: its exact-sample-count check used wall time, so a delayed CI task could trigger the engine's intentional stale-audio discard or exhaust the five-second drain budget. That numerical/resampling check now advances timestamps by source frames and allows up to 30 seconds for loading/draining. The separate mode/interruption stress test still uses real time under CPU load. No model or rendering implementation changed.
+
 Disk-full installation and wall-clock/timezone offset checks were not advanced under this task's conditional third priority: live authorization, physical sleep and live interruption checks are not yet fully clean. No binary release or public-feed update is part of this batch.
