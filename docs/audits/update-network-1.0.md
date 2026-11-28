@@ -31,6 +31,8 @@ The app copies the production approval/signature policy with a unique **actual I
 
 The fixture disables scheduled checks only in its own preference domain to keep requests deterministic. Automatic download/install remain forbidden by the production policy. Failure cleanup also removes that unique test preference domain. The test does not access production signing keys, change Wi-Fi, interrupt other apps, use the public feed or run SongWave audio/haptic code.
 
+The unavailable-endpoint case allows up to 75 seconds for the SDK/URLSession network timeout; macOS versions differ in connection retry/wait behavior. Other transitions have 12-second assertion budgets, and the complete child process is capped at 120 seconds. The separate hanging-response case verifies explicit cancellation without waiting for that timeout. These are test budgets, not new application network settings.
+
 ## Remaining limits
 
 This is an API integration test with recorded presentation callbacks, not a VoiceOver or visual test of Sparkle's standard update windows. It does not prove behavior during archive download/extraction, disk-full installation, proxy/captive-portal authentication or every physical network transition. Existing offline tests separately cover public-feed signatures and real signed-bundle delta reconstruction/rejection. The public 1.0.0 release and feed are unchanged by this coverage batch.

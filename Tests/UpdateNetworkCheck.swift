@@ -39,8 +39,8 @@ import Sparkle
     var installs = 0
     var root: URL { Bundle.main.bundleURL.deletingLastPathComponent() }
 
-    func wait(_ description: String, until condition: () -> Bool) async throws {
-        let deadline = ContinuousClock.now.advanced(by: .seconds(12))
+    func wait(_ description: String, timeout: Duration = .seconds(12), until condition: () -> Bool) async throws {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
         while !condition() {
             guard ContinuousClock.now < deadline else { throw NSError(domain: "NetworkRegression", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "Timed out: " + description]) }
@@ -94,7 +94,10 @@ import Sparkle
                              "An update started before listener approval")
                 driver.approve?(.dismiss)
             } else {
-                try await wait("network error " + name) { driver.failure != nil }
+                // macOS versions differ in waiting/retrying an unavailable
+                // endpoint. Permit URLSession's normal timeout, independently
+                // of the short cancellation test below; do not change Sparkle.
+                try await wait("network error " + name, timeout: name == "refused" ? .seconds(75) : .seconds(12)) { driver.failure != nil }
                 precondition(driver.found == nil && driver.acknowledge != nil)
                 var causes: [NSError] = []
                 var cause = driver.failure
