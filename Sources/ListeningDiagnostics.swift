@@ -7,8 +7,11 @@ enum ListeningDiagnostics {
         var size = 0
         guard sysctlbyname("hw.model", nil, &size, nil, 0) == 0, size > 0, size < 128 else { return "Unknown Mac" }
         var buffer = [CChar](repeating: 0, count: size)
-        guard sysctlbyname("hw.model", &buffer, &size, nil, 0) == 0 else { return "Unknown Mac" }
-        return String(cString: buffer)
+        guard sysctlbyname("hw.model", &buffer, &size, nil, 0) == 0,
+              size > 0, size <= buffer.count,
+              let end = buffer.prefix(size).firstIndex(of: 0), end > 0,
+              let model = String(bytes: buffer[..<end].map { UInt8(bitPattern: $0) }, encoding: .utf8) else { return "Unknown Mac" }
+        return model
     }()
     static func outputRoute() -> DiagnosticRoute {
         var device = AudioObjectID(kAudioObjectUnknown)

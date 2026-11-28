@@ -9,6 +9,19 @@ cp -X "$project/Sources/Source.swift" "$project/Tests/SourceRegression.swift" "$
 xcrun swiftc -swift-version 5 -warnings-as-errors "$source"/*.swift -o "$source/check"
 "$source/check"
 
+diagnostics="$scratch/diagnostics"
+mkdir -p "$diagnostics"
+cp -X "$project"/Sources/{ListeningDiagnostics,ListeningHealth}.swift "$project/Tests/DiagnosticsRegression.swift" "$diagnostics/"
+xcrun swiftc -swift-version 5 -O -warnings-as-errors "$diagnostics"/*.swift -o "$diagnostics/check"
+python3 - "$diagnostics/check" <<'PY'
+import subprocess, sys
+symbols={line.split()[-1] for line in subprocess.check_output(['nm','-u',sys.argv[1]],text=True).splitlines() if line.split()}
+assert not {'_sysctlbyname','_AudioObjectGetPropertyData','_AudioObjectGetPropertyDataSize'} & symbols, 'Diagnostics fixture linked real hardware queries'
+for case in ['normal','size-failure','zero-size','negative-size','large-size','huge-size','read-failure',
+             'missing-nul','invalid-utf8','empty-model','returned-zero','returned-short','returned-too-large']:
+    subprocess.run([sys.argv[1],case],check=True,timeout=10)
+PY
+
 cp -X "$project"/Sources/{GlassControls,Equalizer,Signal,RhythmDSP,VocalFocus,Trackpad}.swift "$project/Tests/WheelRegression.swift" "$scratch/"
 xcrun swiftc -swift-version 5 "$scratch"/*.swift -o "$scratch/check"
 "$scratch/check"
