@@ -17,7 +17,7 @@ struct MusicLink: Equatable {
     init(_ input: String) throws {
         let string = input.trimmingCharacters(in: .whitespacesAndNewlines)
         let invalid = GlassError("Paste a Spotify or Apple Music link to a song, album, or playlist.")
-        if string.hasPrefix("spotify:") {
+        if string.prefix(8).lowercased() == "spotify:" {
             let components = string.split(separator: ":", omittingEmptySubsequences: false)
             guard components.count == 3,
                   Self.spotifyType(String(components[1])), Self.spotifyID(String(components[2])),
