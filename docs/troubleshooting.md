@@ -25,6 +25,8 @@ No song link, imported pattern, or file is needed for normal use.
 
 macOS may treat a replacement ad hoc preview as a new binary. Granting access to one preview does not guarantee authorization for a replacement. SongWave keeps setup preferences; it does not bypass macOS permissions. Developer ID signing and notarization are planned for a later release.
 
+An **On** switch can still belong to an older build's permission grant. If capture stopped after updating, open **System Settings → Privacy & Security → Screen & System Audio Recording → System Audio Recording Only**. Renew SongWave's access by switching it off and on, using your Touch ID/password if requested. Reopen the current SongWave app if macOS asks, then use **Listening help → Run setup check** to verify audio detection. [Investigation and remaining checks](audits/capture-authorization-1.0.md).
+
 ## The beat feels early or late
 
 Open **Tools… → Sound → Fine Tune** in Speakers + haptics. Leave **Match audio output timing** enabled, then adjust **Timing offset**. Positive values make haptics later; negative values reduce the automatic added delay. Bluetooth and external audio devices can have different delays. Real-time beat recognition and reported output latency are estimates.

@@ -37,6 +37,12 @@ cp -X "$project"/Sources/{AudioTap,CaptureRequest}.swift "$project/Tests/Capture
 xcrun swiftc -swift-version 5 -O "$capture"/*.swift -o "$capture/check"
 "$capture/check"
 
+captureAccess="$scratch/capture-access"
+mkdir -p "$captureAccess"
+cp -X "$project"/Sources/{CaptureRequest,PlayerAuthorization}.swift "$project/Tests/CaptureAccessRegression.swift" "$captureAccess/"
+xcrun swiftc -swift-version 5 -O "$captureAccess"/*.swift -o "$captureAccess/check"
+"$captureAccess/check"
+
 hal="$scratch/hal"
 mkdir -p "$hal"
 cp -X "$project"/Sources/{AudioTap,CaptureRequest}.swift "$project/Tests/AudioTapLifecycleRegression.swift" "$hal/"
@@ -94,7 +100,7 @@ xcrun swiftc -swift-version 5 -O "$health"/*.swift -o "$health/check"
 
 studio="$scratch/studio"
 mkdir -p "$studio"
-cp -X "$project"/Sources/{Studio,Source,ListeningSetup,GlassControls,Signal,Equalizer,RhythmDSP,VocalFocus,HapticPattern,SignalDisplay,ListeningHealth,AudioAccessHealth}.swift "$project/Tests/StudioRecoveryRegression.swift" "$project/Tests/Support/StudioTestEdges.swift" "$studio/"
+cp -X "$project"/Sources/{Studio,MenuController,Source,ListeningSetup,GlassControls,Signal,Equalizer,RhythmDSP,VocalFocus,HapticPattern,SignalDisplay,ListeningHealth,AudioAccessHealth}.swift "$project/Tests/StudioRecoveryRegression.swift" "$project/Tests/Support/StudioTestEdges.swift" "$studio/"
 xcrun swiftc -swift-version 5 -O "$studio"/*.swift -o "$studio/SongWaveStudioRegression"
 "$studio/SongWaveStudioRegression"
 

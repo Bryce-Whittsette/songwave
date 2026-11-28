@@ -45,6 +45,8 @@ An optional CI run also exposed a wall-clock-sensitive visual beat expiry test. 
 
 A live capture attempt reproduced a long wait inside `AudioDeviceStart`. The candidate kept Stop responsive and showed bounded capture-failure recovery. The underlying OS/driver/authorization cause of the live no-signal result was not established or fixed. Offline recovery coverage is not proof of successful live capture on this machine.
 
+**Follow-up:** the unchanged installed 1.0.0 app reproduces the wait, and macOS rejects its Audio Capture code requirement against a saved grant that matches the public 0.5.13 executable. The matching-grant 0.5.13 control also stalls in tap registration, while output-only HAL I/O works. Grant renewal needs owner authentication, and server-side sampling was denied for insufficient privileges. See the [authorization and interruption investigation](capture-authorization-1.0.md) for the distinct findings, bounded access-check correction and remaining live tests.
+
 Revoking System Audio Recording required the owner's Touch ID/password. Authentication was cancelled and permission was left enabled. Mid-session permission failure and call interruption are covered through injected boundaries; live permission revocation and a real call remain unverified. No recording or song metadata is included in this report.
 
 The public 1.0.0 appcast and signing/notarization configuration are unchanged by this pass. Source fixes require a subsequent versioned release before installed apps receive them.
