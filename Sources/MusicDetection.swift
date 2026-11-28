@@ -293,7 +293,9 @@ final class MacMusicInput {
                 if selected == id { selected = nil }
             }
         }
-        suppressOutput = callActive || (best == nil && (speech || excludedVideo || selected == nil))
+        let lostRoute = best.map { feeds[$0] == nil } ?? false
+        if lostRoute { best = nil }
+        suppressOutput = callActive || lostRoute || (best == nil && (speech || excludedVideo || selected == nil))
         if let best, let feed = feeds[best] {
             try receive(feed.samples, feed.tap.rate, selected != best)
             video = selectedVideo

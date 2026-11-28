@@ -40,6 +40,7 @@ final class AudioTap {
     static var live = 0
     static var outputRate = 24000.0
     static var routeGeneration = 0
+    static var changeRouteBeforeMute = false
     let rate: Double
     private let generation: Int
     let ring = MockRing()
@@ -51,6 +52,10 @@ final class AudioTap {
         Self.live += 1
     }
     func setMuted(_ muted: Bool) throws {
+        if muted && Self.changeRouteBeforeMute {
+            Self.changeRouteBeforeMute = false; Self.routeGeneration += 1
+            throw GlassError("Output changed before muting")
+        }
         if muted { Self.muted.insert(id) } else { Self.muted.remove(id) }
     }
     deinit { Self.muted.remove(id); Self.live -= 1 }
@@ -147,7 +152,29 @@ struct YouTubeState {
         AudioTap.outputRate = 24000
         print("Simulated output-route changes at 16/44.1/48/96 kHz discard stale taps, reset analysis, restore muting policy and resume without manual reconnection.")
     }
+    static func mutingFailureSuppression() throws {
+        let router = MacMusicInput(requestTap: { description, mute in CaptureRequest(result: Result { try AudioTap(description: description, mute: mute) }) })
+        AudioHardware.clients = [111: MockClient(bundle: "com.spotify.client")]
+        router.confirmedPlayer = "com.spotify.client"
+        var now = ProcessInfo.processInfo.systemUptime
+        try router.read(now: now, mute: false) { _, _, _ in }
+        AudioTap.changeRouteBeforeMute = true; now += 0.01
+        try router.read(now: now, mute: true) { _, _, _ in preconditionFailure("A failed muting route supplied PCM") }
+        guard router.suppressOutput else {
+            fputs("FAIL: a removed muting route left delayed output enabled.\n", stderr); exit(1)
+        }
+        precondition(AudioTap.live == 0 && AudioTap.muted.isEmpty)
+        now += 0.4
+        var received = false
+        try router.read(now: now, mute: true) { _, _, changed in received = true; precondition(changed) }
+        precondition(received && !router.suppressOutput)
+        AudioHardware.clients = [:]
+        try router.read(now: now + 1, mute: false) { _, _, _ in }
+        precondition(AudioTap.live == 0 && AudioTap.muted.isEmpty)
+        print("A route lost during muting immediately suppresses delayed output and recovers on a fresh tap.")
+    }
     static func main() throws {
+        try mutingFailureSuppression()
         try routeChanges()
         try stalledStartupRecovery()
         try sourceSwitchStress()
