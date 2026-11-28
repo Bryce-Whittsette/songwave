@@ -8,7 +8,7 @@ enum InterruptionHAL {
     struct Client { var bundle: String; var input: UInt32 = 0; var output: UInt32 = 1 }
     struct Tap { var uuid: String; var processes: [AudioObjectID]; var muted: Bool }
     struct Callback { var block: AudioDeviceIOBlock; var running = false }
-    enum Delivery { case music, stopped, zeros }
+    enum Delivery: CaseIterable { case music, stopped, zeros, empty, halfFrame, missingData, invalidChannels, misaligned, oversized, missingPlane, shortPlane, nonfinite }
     static let lock = NSLock()
     static var clients: [AudioObjectID: Client] = [:]
     static var taps: [AudioObjectID: Tap] = [:]
@@ -28,6 +28,7 @@ enum InterruptionHAL {
     static var writes: [(time: Double, level: Double)] = []
     static var timer: DispatchSourceTimer?
     static var frames = 0
+    static var sampleRate = 48000.0
     static var speakerFrames = 0
     static var callbackGate: DispatchSemaphore?
     static var callbackEntries = 0
@@ -55,36 +56,57 @@ enum InterruptionHAL {
     }
     static func finish() { timer?.cancel(); timer = nil }
     static func pump() {
-        let state = locked { () -> (Int, Delivery, [AudioDeviceIOBlock]) in
-            let start = frames; frames += 384
-            if clients.values.contains(where: { $0.output != 0 && !$0.bundle.contains("FaceTime") }) { speakerFrames += 384 }
+        let state = locked { () -> (Int, Delivery, [AudioDeviceIOBlock], Double, Int) in
+            let count = Int(sampleRate * 0.008)
+            let start = frames; frames += count
+            if clients.values.contains(where: { $0.output != 0 && !$0.bundle.contains("FaceTime") }) { speakerFrames += count }
             let active = callbacks.filter { $0.value.running }.compactMap { aggregate, callback -> AudioDeviceIOBlock? in
                 guard let tap = aggregates[aggregate].flatMap({ taps[$0] }),
                       tap.processes.isEmpty || tap.processes.contains(where: { clients[$0]?.output == 1 }) else { return nil }
                 return callback.block
             }
-            return (start, delivery, active)
+            return (start, delivery, active, sampleRate, count)
         }
         guard state.1 != .stopped, !state.2.isEmpty else { return }
-        var samples = [Float](repeating: 0, count: 768)
+        var samples = [Float](repeating: 0, count: state.4 * 2)
         if state.1 == .music {
-            for frame in 0..<384 {
-                let t = Double(state.0 + frame) / 48_000
+            for frame in 0..<state.4 {
+                let t = Double(state.0 + frame) / state.3
                 let voice = (1...8).reduce(0.0) { $0 + 0.045 / Double($1) * sin(2 * .pi * 224 * Double($1) * t) }
                 let value = Float(0.18 * sin(2 * .pi * 65 * t) + voice)
                 samples[frame * 2] = value; samples[frame * 2 + 1] = value
             }
         }
+        if state.1 == .nonfinite {
+            let corrupt: [Float] = [.nan, .infinity, -.infinity, .greatestFiniteMagnitude]
+            for index in samples.indices { samples[index] = corrupt[index % corrupt.count] }
+        }
         samples.withUnsafeMutableBytes { bytes in
-            var input = AudioBufferList(mNumberBuffers: 1, mBuffers: AudioBuffer(mNumberChannels: 2,
-                mDataByteSize: UInt32(bytes.count), mData: bytes.baseAddress))
+            let input = AudioBufferList.allocate(maximumBuffers: 2)
+            defer { input.unsafeMutablePointer.deallocate() }
+            input.unsafeMutablePointer.pointee.mNumberBuffers = 2
+            input[0] = AudioBuffer(mNumberChannels: 2, mDataByteSize: UInt32(bytes.count), mData: bytes.baseAddress)
+            input[1] = AudioBuffer()
+            input.unsafeMutablePointer.pointee.mNumberBuffers = 1
+            switch state.1 {
+            case .empty: input[0].mDataByteSize = 0
+            case .halfFrame: input[0].mDataByteSize -= 4
+            case .missingData: input[0].mData = nil
+            case .invalidChannels: input[0].mNumberChannels = 3
+            case .misaligned: input[0].mData = bytes.baseAddress!.advanced(by: 1); input[0].mDataByteSize -= 8
+            case .oversized: input[0].mDataByteSize = UInt32.max - 3
+            case .missingPlane, .shortPlane:
+                input.unsafeMutablePointer.pointee.mNumberBuffers = 2
+                input[0].mNumberChannels = 1
+                input[1] = AudioBuffer(mNumberChannels: 1, mDataByteSize: UInt32(bytes.count - 4),
+                    mData: state.1 == .missingPlane ? nil : bytes.baseAddress)
+            default: break
+            }
             var output = AudioBufferList(mNumberBuffers: 0, mBuffers: AudioBuffer())
             var time = AudioTimeStamp()
             withUnsafePointer(to: &time) { stamp in
-                withUnsafePointer(to: &input) { buffer in
-                    withUnsafeMutablePointer(to: &output) { out in
-                        for block in state.2 { block(stamp, buffer, stamp, out, stamp) }
-                    }
+                withUnsafeMutablePointer(to: &output) { out in
+                    for block in state.2 { block(stamp, UnsafePointer(input.unsafeMutablePointer), stamp, out, stamp) }
                 }
             }
         }
@@ -156,7 +178,7 @@ enum InterruptionHAL {
         case kAudioTapPropertyFormat:
             guard !InterruptionHAL.invalidFormat else { return kAudioDevicePermissionsError }
             data.assumingMemoryBound(to: AudioStreamBasicDescription.self).pointee = AudioStreamBasicDescription(
-                mSampleRate: 48000, mFormatID: kAudioFormatLinearPCM, mFormatFlags: kAudioFormatFlagIsFloat,
+                mSampleRate: InterruptionHAL.sampleRate, mFormatID: kAudioFormatLinearPCM, mFormatFlags: kAudioFormatFlagIsFloat,
                 mBytesPerPacket: 8, mFramesPerPacket: 1, mBytesPerFrame: 8, mChannelsPerFrame: 2, mBitsPerChannel: 32, mReserved: 0)
         case kAudioHardwarePropertyDefaultOutputDevice: data.assumingMemoryBound(to: AudioObjectID.self).pointee = 82
         default:

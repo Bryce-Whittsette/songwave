@@ -29,6 +29,8 @@ jobs:
           persist-credentials: false
       - name: Fixture call interruption and permission-loss assessment
         run: bash Tests/test-call-permission.sh
+      - name: Extreme-rate, malformed-callback and long-pattern integration
+        run: bash Tests/test-call-permission.sh --audio-edges
   macos:
     if: ${{ github.event_name != 'workflow_dispatch' || !inputs.disk_space || inputs.neural }}
     runs-on: macos-26

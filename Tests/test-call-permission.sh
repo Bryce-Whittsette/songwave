@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 project="$(cd "$(dirname "$0")/.." && pwd)"
+regression="CallPermissionRegression"
+if [[ "${1:-}" == --audio-edges ]]; then
+  regression="AudioEdgeRegression"
+  shift
+fi
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/songwave-call-permission.XXXXXX")"
 fixture_id=""
 cleanup() {
@@ -21,9 +26,9 @@ info={'CFBundleExecutable':'check','CFBundleIdentifier':'studio.songwave.interru
 PY
 fixture_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")"
 cp -X "$project"/Sources/{Studio,Source,ListeningSetup,GlassControls,Signal,Equalizer,RhythmDSP,VocalFocus,HapticPattern,SignalDisplay,ListeningHealth,AudioAccessHealth,Playback,MusicDetection,CaptureRequest,AudioTap,PlayerAuthorization}.swift \
-  "$project"/Tests/Support/{InterruptionHAL,InterruptionEdges}.swift "$project/Tests/CallPermissionRegression.swift" "$scratch/source/"
+  "$project"/Tests/Support/{InterruptionHAL,InterruptionEdges}.swift "$project/Tests/$regression.swift" "$scratch/source/"
 xcrun swiftc -swift-version 5 -O -warnings-as-errors "$scratch/source/"*.swift -o "$app/Contents/MacOS/check"
-python3 - "$app/Contents/MacOS/check" <<'PY'
+python3 - "$app/Contents/MacOS/check" "$regression" <<'PY'
 import subprocess, sys
 # A missing/wrongly typed SDK replacement must fail before the fixture runs.
 forbidden={'_AudioHardwareCreateProcessTap','_AudioHardwareDestroyProcessTap',
@@ -31,6 +36,8 @@ forbidden={'_AudioHardwareCreateProcessTap','_AudioHardwareDestroyProcessTap',
     '_AudioDeviceCreateIOProcIDWithBlock','_AudioDeviceDestroyIOProcID','_AudioDeviceStart','_AudioDeviceStop',
     '_AudioObjectGetPropertyDataSize','_AudioObjectGetPropertyData','_AudioObjectSetPropertyData',
     '_AudioObjectAddPropertyListenerBlock','_AudioObjectRemovePropertyListenerBlock'}
+if sys.argv[2] == 'AudioEdgeRegression':
+    forbidden.add('_OBJC_CLASS_$_AVAudioPlayer')
 symbols={line.split()[-1] for line in subprocess.check_output(['nm','-u',sys.argv[1]],text=True).splitlines() if line.split()}
 assert not forbidden & symbols, 'Fixture linked real capture SDK calls: '+str(sorted(forbidden & symbols))
 print('Fixture symbol audit: real Core Audio capture/property entry points are replaced.',flush=True)
