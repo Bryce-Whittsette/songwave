@@ -9,6 +9,10 @@ on:
         description: Run the optional Core ML vocal-isolation tests
         type: boolean
         default: false
+      disk_space:
+        description: Run the updater test on a bounded disposable disk image
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -31,6 +35,9 @@ jobs:
       - name: Optional vocal-isolation tests
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.neural }}
         run: bash Tests/test-isolation.sh
+      - name: Optional disk-full updater test
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.disk_space }}
+        run: python3 Tests/UpdateDiskSpaceRegression.py
       - name: Build and verify the app
         run: |
           bash build.sh "$RUNNER_TEMP/SongWave.app"

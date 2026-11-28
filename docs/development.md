@@ -63,6 +63,8 @@ GitHub Actions runs default tests and a build on `macos-26`. Neural tests can be
 
 `python3 Tests/UpdateNetworkRegression.py` exercises real Sparkle HTTP checks against a disposable loopback server: unavailable endpoint, HTTP errors, dropped/truncated feeds, cancellation, a background-check failure, and signed-feed retries. CI runs it separately from the offline suite. The fixture has its own actual bundle identifier and temporary signing key; it downloads no app payload and never installs an update or changes the listener's network settings. See [updater network coverage](audits/update-network-1.0.md).
 
+`python3 Tests/UpdateDiskSpaceRegression.py` is an opt-in installer test on a bounded disposable disk image. It verifies a real out-of-space error, preservation of the old signed app, and successful installation after freeing space. **Checks → Run workflow → disk_space** runs it in CI. See [disk-space test safeguards and limits](audits/update-disk-space-1.0.md).
+
 The default suite also checks first-success state/cancellation, unmuted non-actuating preview, bounded explicit test output with fake hardware, adversarial diagnostics privacy, and display suspension/recovery and the iPhone PCM queue/analysis-suspension policy. The separate iPhone workflow compiles unsigned Simulator and device targets. See the [mobile development guide](mobile.md) and [energy measurement protocol](energy.md).
 
 ## Layout
