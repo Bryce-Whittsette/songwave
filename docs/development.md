@@ -57,6 +57,8 @@ bash Tests/test-isolation.sh
 
 This generates speech directly into a temporary file with macOS `say`, then runs the bundled Core ML model. It checks separation improvement on a controlled mix, sample counts, EOF draining, cancellation, and rapid mode changes under CPU load through production playback with fake I/O. It does not play the fixture over speakers. Results on a generated fixture do not establish accuracy on every real song.
 
+Access-check deadline/admission tests and the real menu/controller's injected sleep/wake bindings run in the default suite. The optional model stress test also covers recognized-call suppression and lost PCM followed by explicit recovery. [Live authorization evidence and hardware limits](audits/capture-authorization-1.0.md) distinguish those checks from physical sleep, real calls and OS permission revocation.
+
 GitHub Actions runs default tests and a build on `macos-26`. Neural tests can be selected in a manual workflow run. CI does not measure physical haptics or validate the private driver ABI on different hardware.
 
 The default suite also checks first-success state/cancellation, unmuted non-actuating preview, bounded explicit test output with fake hardware, adversarial diagnostics privacy, and display suspension/recovery and the iPhone PCM queue/analysis-suspension policy. The separate iPhone workflow compiles unsigned Simulator and device targets. See the [mobile development guide](mobile.md) and [energy measurement protocol](energy.md).

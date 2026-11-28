@@ -196,7 +196,46 @@ import Foundation
         sleeping.resumeAfterWake()
         precondition(!sleeping.active, "Stop must cancel a pending wake reconnection.")
         sleeping.stop()
+        // Exercise the real NSWorkspace notification binding as well as the
+        // controller methods above. Posting here affects this test process only;
+        // it does not sleep the Mac or synthesize a hardware wake.
+        let menu = MenuController()
+        let workspace = NSWorkspace.shared.notificationCenter
+        let notified = Studio()
+        menu.attach(to: notified, show: false, openWindow: {})
+        menu.attach(to: notified, show: false, openWindow: {})
+        notified.start(.macAudio, initialBypass: true)
+        let beforeSleep = Playback.lastUpdate!
+        workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
+        workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
+        precondition(!notified.active && notified.localBypass)
+        let runsBeforeWake = Playback.runs.count
+        workspace.post(name: NSWorkspace.didWakeNotification, object: nil)
+        precondition(notified.active && notified.localBypass && Playback.runs.last?.haptics == false)
+        precondition(Playback.runs.count == runsBeforeWake + 1, "Reattaching the menu controller duplicated wake handling")
+        beforeSleep(PlaybackUpdate(captureFailed: true, error: "A stale pre-sleep capture result"))
+        precondition(notified.active && notified.error == nil && notified.healthSnapshot.capture != .failed,
+                     "A pre-sleep callback changed the resumed session")
+        workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
+        notified.stop()
+        workspace.post(name: NSWorkspace.didWakeNotification, object: nil)
+        precondition(!notified.active, "Explicit Stop must cancel notification-driven resume")
+        notified.start(file, from: 29, initialBypass: true)
+        workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
+        workspace.post(name: NSWorkspace.didWakeNotification, object: nil)
+        precondition(!notified.active && notified.source == file && notified.elapsed == 29 && notified.localBypass,
+                     "Sleep must preserve local-file position without starting a live source on wake")
+        notified.start(.macAudio)
+        workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
+        PlaybackAccess.failure = "Injected access-check failure"
+        _ = await notified.prepareAudioAccess()
+        workspace.post(name: NSWorkspace.didWakeNotification, object: nil)
+        precondition(!notified.active && notified.audioAccessHealth.requiresRecovery,
+                     "Wake must not restart capture after a failed access recheck")
+        PlaybackAccess.failure = nil
+        notified.stop()
         print("Real Studio restores paused/playing file context, keeps preview non-actuating, rejects stopped/closed test callbacks, and persists explicit confirmation.")
         print("Recovery retries stay in place without actuation, retain file position/bypass, clear probe failures, report current audio honestly, and exclude private data from real controller diagnostics; closed permission requests cannot reopen setup.")
+        print("Real menu/NSWorkspace sleep-wake bindings preserve bypass/file position, ignore stale results, avoid duplicate resumes and honor Stop/access failures; notifications are injected, not physical sleep.")
     }
 }

@@ -5,8 +5,8 @@ import Darwin
 // replaced. This never requests recording access or actuates physical hardware.
 @main struct ModeSwitchStress {
     static func run(_ seconds: Double) { RunLoop.current.run(until: Date(timeIntervalSinceNow: seconds)) }
-    static func wait(_ message: String, _ condition: () -> Bool) {
-        let end = Date(timeIntervalSinceNow: 8)
+    static func wait(_ message: String, timeout: Double = 8, _ condition: () -> Bool) {
+        let end = Date(timeIntervalSinceNow: timeout)
         while !condition() && Date() < end { run(0.01) }
         require(condition(), message)
     }
@@ -27,6 +27,38 @@ import Darwin
         let before = LifecycleHardware.writes.count
         wait("The existing isolated pipeline did not produce output") { LifecycleHardware.writes.count > before + 6 || !errors.isEmpty }
         require(errors.isEmpty, errors.joined(separator: "; "))
+        // Keep the actual model/inference queues running while the I/O edge
+        // reports a call. No real call or microphone is opened by this test.
+        LifecycleHardware.set([111: LifecycleClient(bundle: "com.spotify.client"),
+                               112: LifecycleClient(bundle: "com.apple.FaceTime", input: 1, output: 0)])
+        wait("Isolated playback retained capture/muting during a recognized call", timeout: 2) {
+            LifecycleHardware.liveTaps == 0 && LifecycleHardware.mutedTaps == 0
+        }
+        let callWrites = LifecycleHardware.writes.count
+        run(0.4)
+        require(LifecycleHardware.writes.count == callWrites, "Pending separated output leaked into call interruption")
+        LifecycleHardware.set([111: LifecycleClient(bundle: "com.spotify.client")])
+        wait("Isolated playback did not resume after call suppression") { LifecycleHardware.writes.count > callWrites + 6 || !errors.isEmpty }
+        require(errors.isEmpty, errors.joined(separator: "; "))
+        // Loss of PCM is one possible revocation symptom, and also occurs on
+        // driver stalls. This proves recovery behavior, not macOS TCC revocation.
+        LifecycleHardware.deliversAudio = false
+        wait("Lost capture left speakers muted or continued producing output", timeout: 3) {
+            LifecycleHardware.mutedTaps == 0 && ProcessInfo.processInfo.systemUptime - (LifecycleHardware.writes.last?.time ?? 0) > 0.35
+        }
+        let lostWrites = LifecycleHardware.writes.count
+        run(0.3)
+        require(LifecycleHardware.writes.count == lostWrites && errors.isEmpty)
+        engine.stop()
+        wait("Capture-loss Stop retained I/O") { LifecycleHardware.liveTaps == 0 && LifecycleHardware.liveMotors == 0 }
+        LifecycleHardware.deliversAudio = true
+        engine.start(.macAudio, tuning: OutputMode.assist.defaults, mode: .assist, playerPath: nil, startAt: 0) {
+            if let error = $0.error { errors.append(error) }
+        }
+        engine.confirmPlayer("com.spotify.client")
+        wait("Explicit recovery after lost PCM did not resume") { LifecycleHardware.writes.count > lostWrites + 6 || !errors.isEmpty }
+        require(errors.isEmpty, errors.joined(separator: "; "))
+        print("Unchanged-model call interruption clears pending output and muting, resumes after calls, and releases muting/stale output after simulated PCM loss; this is not a live call or TCC test.")
         let load = DispatchGroup()
         load.enter()
         DispatchQueue.global(qos: .userInitiated).async {
