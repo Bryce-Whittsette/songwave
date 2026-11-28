@@ -20,6 +20,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   macos:
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.disk_space || inputs.neural }}
     runs-on: macos-26
     timeout-minutes: 20
     steps:
@@ -28,9 +29,6 @@ jobs:
           persist-credentials: false
       - name: Check scripts
         run: bash -n build.sh install.sh Tests/run.sh Tests/test-isolation.sh Tests/stress-mode-switching.sh Tools/package.sh Tools/fetch-sparkle.sh Tools/sign-app.sh Tools/publish-release.sh
-      - name: Optional disk-full updater test
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.disk_space }}
-        run: python3 Tests/UpdateDiskSpaceRegression.py
       - name: Offline regression tests
         run: bash Tests/run.sh
       - name: Updater network recovery (loopback only)
@@ -42,3 +40,13 @@ jobs:
         run: |
           bash build.sh "$RUNNER_TEMP/SongWave.app"
           codesign --verify --deep --strict "$RUNNER_TEMP/SongWave.app"
+  disk-space:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.disk_space }}
+    runs-on: macos-26
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Disposable-volume installation failure and retry
+        run: python3 Tests/UpdateDiskSpaceRegression.py

@@ -6,7 +6,7 @@ The real pinned Sparkle installer failed safely when its destination ran out of 
 python3 Tests/UpdateDiskSpaceRegression.py
 ```
 
-CI can run this through **Checks → Run workflow → disk_space**. It is opt-in because it creates and mounts a disk image. It uses user-owned fixtures and requires no production signing key, administrator elevation, audio permission or physical actuator.
+CI can run this through **Checks → Run workflow → disk_space**. This selects a separate integration job; the normal PR checks still run the full regression suite and app build. It is opt-in because it creates and mounts a disk image. It uses user-owned fixtures and requires no production signing key, administrator elevation, audio permission or physical actuator.
 
 ## Evidence and safeguards
 

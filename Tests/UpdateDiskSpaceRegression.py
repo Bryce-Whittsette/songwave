@@ -58,6 +58,7 @@ print(k.publicKey.rawRepresentation.base64EncodedString())
     created.check_returncode()
     attached=False; process=None; server=None
     try:
+        mount.mkdir()
         attach=(['diskutil','image','attach','--nobrowse','--mountPoint',str(mount),str(image)] if modern else
                 ['hdiutil','attach','-nobrowse','-mountpoint',str(mount),str(image)])
         mounted=subprocess.run(attach,capture_output=True,text=True,timeout=30)
