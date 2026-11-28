@@ -55,6 +55,8 @@ Direct diagnostic fixtures cover cached model identification, malformed query re
 
 `bash Tests/test-call-permission.sh --audio-edges` connects the real capture callback/ring to Playback at 8/192 kHz with malformed PCM, maximum-size packets and long AHAP scheduling. CI runs it separately from the offline suite. See the [edge-input coverage and simulation limits](audits/audio-edges-1.0.md).
 
+`bash Tests/test-call-permission.sh --source-overlap` adds real-driver waveform validation, same-bundle PID replacement, concurrent/retiring sources and native focus-notification stress during Ultra. Final OS/private ABI calls are intercepted. See the [overlap/focus findings and live-test limits](audits/overlap-focus-1.0.md).
+
 Optional actual-model tests:
 
 ```sh
