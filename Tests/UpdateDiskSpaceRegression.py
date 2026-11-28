@@ -50,13 +50,17 @@ print(k.publicKey.rawRepresentation.base64EncodedString())
     subprocess.run([signer,'--ed-key-file',str(key),str(feed)],check=True,capture_output=True)
     modern=int(subprocess.check_output(['sw_vers','-productVersion'],text=True).split('.')[0])>=27
     create=(['diskutil','image','create','blank','--size','192m','--fs','APFS','--volumeName','SongWaveSpaceTest',str(image)] if modern else
-            ['hdiutil','create','-size','192m','-fs','APFS','-volname','SongWaveSpaceTest','-type','UDRW',str(image)])
-    subprocess.run(create,check=True,capture_output=True,timeout=45)
+            ['hdiutil','create','-size','192m','-fs','APFS','-volname','SongWaveSpaceTest','-format','UDRW',str(image)])
+    created=subprocess.run(create,capture_output=True,text=True,timeout=45)
+    if created.returncode: print(created.stderr,flush=True)
+    created.check_returncode()
     attached=False; process=None; server=None
     try:
         attach=(['diskutil','image','attach','--nobrowse','--mountPoint',str(mount),str(image)] if modern else
                 ['hdiutil','attach','-nobrowse','-mountpoint',str(mount),str(image)])
-        subprocess.run(attach,check=True,capture_output=True,timeout=30)
+        mounted=subprocess.run(attach,capture_output=True,text=True,timeout=30)
+        if mounted.returncode: print(mounted.stderr,flush=True)
+        mounted.check_returncode()
         attached=True
         assert mount.stat().st_dev != root.stat().st_dev and shutil.disk_usage(mount).total < 256*1024*1024
         target=mount/appname
