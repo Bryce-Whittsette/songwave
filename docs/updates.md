@@ -43,7 +43,9 @@ Set `SONGWAVE_SIGNING_IDENTITY` to an installed **Developer ID Application** ide
 
 Automated network recovery coverage runs separately with `python3 Tests/UpdateNetworkRegression.py`. It uses the pinned Sparkle framework and a disposable app/server to test failed manual/background checks followed by successful signed retries. It verifies that checks become available again and that the update stays undownloaded until approval. No production keys, installed app or listener preferences are used. This covers feed-check failures, not loss of connectivity during archive download or disk-full installation. See the [test report](audits/update-network-1.0.md).
 
-For an interactive installation smoke test:
+An opt-in automated destination-space test is also available: `python3 Tests/UpdateDiskSpaceRegression.py`. It fills only a verified, bounded disposable image, checks that the real installer preserves the old app on `ENOSPC`, frees the test space, and retries installation. It uses its own test key/app and disables target relaunch. See [safeguards and limits](audits/update-disk-space-1.0.md).
+
+For a manual installation/relaunch check:
 
 ```sh
 bash Tests/prepare-update-smoke.sh /private/tmp/songwave-update-test

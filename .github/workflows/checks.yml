@@ -9,6 +9,10 @@ on:
         description: Run the optional Core ML vocal-isolation tests
         type: boolean
         default: false
+      disk_space:
+        description: Run the updater test on a bounded disposable disk image
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -16,6 +20,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   macos:
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.disk_space || inputs.neural }}
     runs-on: macos-26
     timeout-minutes: 20
     steps:
@@ -35,3 +40,13 @@ jobs:
         run: |
           bash build.sh "$RUNNER_TEMP/SongWave.app"
           codesign --verify --deep --strict "$RUNNER_TEMP/SongWave.app"
+  disk-space:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.disk_space }}
+    runs-on: macos-26
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Disposable-volume installation failure and retry
+        run: python3 Tests/UpdateDiskSpaceRegression.py
