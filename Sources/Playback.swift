@@ -14,6 +14,7 @@ struct PlaybackUpdate {
     var processingDelay: Double = 0
     var dictationActive = false
     var captureFailed = false
+    var captureInterrupted = false
     var partyOverheated = false
     var finished = false
     var error: String?
@@ -218,6 +219,7 @@ private final class Session {
     private var captureRequest: CaptureRequest?
     private var captureRequestedAt = 0.0
     private var captureFailed = false
+    private var lastCapturedSound: Double?
     var macMusic: MacMusicInput?
     var hapticsEnabled = true
     var spectrum: Spectrum?
@@ -345,9 +347,35 @@ private final class Session {
         if captureRequestedAt == 0 { captureRequestedAt = ProcessInfo.processInfo.systemUptime }
     }
 
-    private func readTap() -> Bool {
-        guard let tap else { return false }
-        tap.ring.takeNewest(maximum: Int(sourceRate * 0.08), into: &scratch)
+    private func discardPlayerTap() {
+        tap = nil
+        lastCapturedSound = nil
+        connectedProcesses.removeAll(keepingCapacity: true)
+        captureRequestedAt = 0
+        nextScan = 0
+        delayedFrames.removeAll(keepingCapacity: true)
+        resetHapticState()
+    }
+
+    private func readTap(now: Double) throws -> Bool {
+        guard let connection = tap else { return false }
+        guard !connection.needsReconnect else { discardPlayerTap(); return false }
+        connection.ring.takeNewest(maximum: Int(sourceRate * 0.08), into: &scratch)
+        // Route ownership follows raw captured PCM, not the listener's EQ,
+        // intensity, focus or separated vocal output. Match automatic routing's
+        // 1.5-second silence grace, including callbacks that return only zeros.
+        if scratch.contains(where: { abs($0) > 0.00015 }) { lastCapturedSound = now }
+        let recentSound = lastCapturedSound.map { (0..<1.5).contains(now - $0) } ?? false
+        do {
+            try connection.setMuted(mode == .trackpad && recentSound)
+        } catch {
+            if connection.needsReconnect { discardPlayerTap(); return false }
+            // A failed unmute must tear down the tap, releasing its mute
+            // ownership, rather than leave a silent player indefinitely muted.
+            captureFailed = true
+            throw error
+        }
+        guard !connection.needsReconnect else { discardPlayerTap(); return false }
         for sample in scratch { append(sample) }
         return !scratch.isEmpty
     }
@@ -442,11 +470,7 @@ private final class Session {
                 if macMusic?.suppressOutput == true { delayedFrames.removeAll(keepingCapacity: true) }
             case .player(let link):
                 if tap?.needsReconnect == true {
-                    tap = nil
-                    connectedProcesses.removeAll(keepingCapacity: true)
-                    nextScan = 0
-                    delayedFrames.removeAll(keepingCapacity: true)
-                    resetHapticState()
+                    discardPlayerTap()
                 }
                 if now >= nextCallScan {
                     nextCallScan = now + 0.35
@@ -460,6 +484,7 @@ private final class Session {
                         captureRequestedAt = 0
                         connectedProcesses.removeAll(keepingCapacity: true)
                         lastAudio = nil
+                        lastCapturedSound = nil
                         delayedFrames.removeAll(keepingCapacity: true)
                         resetHapticState()
                         if !active { nextScan = 0 }
@@ -473,6 +498,7 @@ private final class Session {
                         tap = nil
                         captureRequest?.cancel(); captureRequest = nil
                         lastAudio = nil
+                        lastCapturedSound = nil
                         connectedProcesses = processes
                         if !processes.isEmpty {
                             connect(CATapDescription(stereoMixdownOfProcesses: processes))
@@ -492,24 +518,18 @@ private final class Session {
                         captureRequestedAt = 0
                     } else {
                         try setupSpectrum(rate: connection.rate)
-                        do {
-                            try connection.setMuted(mode == .trackpad)
-                            tap = connection
-                            captureRequestedAt = 0
-                        } catch {
-                            if connection.needsReconnect {
-                                connectedProcesses.removeAll(keepingCapacity: true)
-                                nextScan = 0
-                                captureRequestedAt = 0
-                            } else { captureFailed = true; throw error }
-                        }
+                        // Accept unmuted. readTap applies muting only after
+                        // real non-silent PCM arrives on this connection.
+                        tap = connection
+                        lastCapturedSound = nil
+                        captureRequestedAt = 0
                     }
                 } else if tap == nil, !connectedProcesses.isEmpty, captureRequestedAt > 0, now - captureRequestedAt >= 8 {
                     captureRequest?.cancel(); captureRequest = nil
                     captureFailed = true
                     throw GlassError("Audio capture did not respond. Stop listening, then retry in Listening help.")
                 }
-                advanced = !playerCallActive && readTap()
+                advanced = try !playerCallActive && readTap(now: now)
             }
 
             let sourceAdvanced = advanced
@@ -638,15 +658,17 @@ private final class Session {
             else if signal.beatStrength > visualBeat { visualBeat = signal.beatStrength; visualBeatFrequency = signal.beatFrequency }
             updateCounter += 1
             if updateCounter % (mode == .assist ? 4 : 2) == 0 || finished {
+                let interrupted = macMusic?.captureInterrupted ??
+                    (source.isLive && !playerCallActive && (lastCapturedSound.map { now - $0 >= 1.5 } ?? false))
                 let visual = SignalFrame(tones: signal.tones, level: signal.level, bands: signal.bands,
                     inputRMS: signal.inputRMS, hasAudio: signal.hasAudio || visualBeat > 0,
                     beatStrength: visualBeat, beatFrequency: visualBeatFrequency, bassLevel: signal.bassLevel)
                 visualBeat = 0
                 publish(PlaybackUpdate(signal: visual, elapsed: min(elapsed, duration ?? elapsed), duration: duration,
                                        device: motor.name, waiting: waiting, video: macMusic?.video, appBundle: macMusic?.activeBundle,
-                                       detection: playerCallActive ? "Paused for call audio" : isolationActive && !outputSuppressed ? (isolator?.status ?? "Waiting for vocals") : macMusic?.status,
+                                       detection: playerCallActive ? "Paused for call audio" : interrupted ? "Audio signal interrupted · check recording access" : isolationActive && !outputSuppressed ? (isolator?.status ?? "Waiting for vocals") : macMusic?.status,
                                        processingDelay: isolator?.latency ?? 0, dictationActive: macMusic?.dictationActive ?? false,
-                                       captureFailed: macMusic?.captureFailed ?? false, finished: finished))
+                                       captureFailed: macMusic?.captureFailed ?? false, captureInterrupted: interrupted, finished: finished))
             }
             if finished { stop() }
         } catch {

@@ -46,7 +46,7 @@ struct TrackpadCheckSequence {
     }
 }
 
-enum CaptureHealth: String { case notConfigured = "Not set up", unchecked = "Not checked this session", checking = "Checking access", ready = "Access checked; waiting for audio", receiving = "Audio received", waiting = "Waiting for audio", failed = "Capture needs attention", localFile = "Local file; no recording permission needed" }
+enum CaptureHealth: String { case notConfigured = "Not set up", unchecked = "Not checked this session", checking = "Checking access", ready = "Access checked; waiting for audio", receiving = "Audio received", waiting = "Waiting for audio", interrupted = "Audio signal interrupted; check recording access", failed = "Capture needs attention", localFile = "Local file; no recording permission needed" }
 enum ListeningPause: String { case none = "Listening", stopped = "Stopped", bypassed = "Haptics off", call = "Call audio; haptics paused", speech = "Speech; haptics paused", video = "Non-music video; haptics paused", waiting = "Waiting for music", check = "Setup check; normal haptics paused", failure = "Playback needs attention" }
 enum DiagnosticApp: String { case macAudio = "Automatic Mac audio", spotify = "Spotify", music = "Apple Music", browser = "Browser", other = "Other app", file = "Local file" }
 enum DiagnosticRoute: String { case builtIn = "Built-in audio", bluetooth = "Bluetooth", usb = "USB", display = "Display audio", airPlay = "AirPlay", virtual = "Virtual audio", unknown = "Unknown" }
@@ -71,7 +71,7 @@ struct ListeningHealthSnapshot {
         if failure { return .failure }
         if !active { return .stopped }
         if bypassed { return .bypassed }
-        return ["Waiting for Mac audio", "Listening for music", "Waiting for vocals"].contains(detection) ? .waiting : .none
+        return ["Waiting for Mac audio", "Listening for music", "Waiting for vocals", "Audio signal interrupted · check recording access"].contains(detection) ? .waiting : .none
     }
     static func app(bundle: String?, localFile: Bool) -> DiagnosticApp {
         if localFile { return .file }

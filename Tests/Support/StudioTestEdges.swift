@@ -34,7 +34,7 @@ struct PartyBurst {
 struct PlaybackUpdate {
     var signal = SignalFrame.empty; var elapsed = 0.0; var duration: Double?; var device: String?
     var waiting = false; var video: YouTubeState?; var appBundle: String?; var detection: String?
-    var processingDelay = 0.0; var dictationActive = false; var captureFailed = false; var partyOverheated = false; var finished = false; var error: String?
+    var processingDelay = 0.0; var dictationActive = false; var captureFailed = false; var captureInterrupted = false; var partyOverheated = false; var finished = false; var error: String?
 }
 final class Playback {
     struct Run { let source: PlaybackSource; let mode: OutputMode; let haptics: Bool; let position: Double }

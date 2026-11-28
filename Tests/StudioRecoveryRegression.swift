@@ -183,6 +183,22 @@ import Foundation
         precondition(stalled.healthSnapshot.capture == .failed && stalled.healthSnapshot.error == .capture,
             "A typed capture failure must reach recovery without relying on a permission-message string.")
         stalled.stop()
+        let interrupted = Studio()
+        interrupted.start(.macAudio)
+        Playback.lastUpdate?(PlaybackUpdate(waiting: true, detection: "Waiting for Mac audio"))
+        precondition(interrupted.captureHealth == .waiting && !interrupted.captureHelp,
+            "Ordinary startup waiting must not invent a lost capture episode.")
+        Playback.lastUpdate?(PlaybackUpdate(waiting: true, detection: "Audio signal interrupted · check recording access", captureInterrupted: true))
+        precondition(interrupted.captureHealth == .interrupted && interrupted.captureHelp && interrupted.error == nil)
+        precondition(interrupted.healthSnapshot.pause == .waiting && interrupted.healthSnapshot.error == .none &&
+            !interrupted.audioAccessHealth.requiresRecovery,
+            "An uncertain signal interruption must not turn into authoritative permission denial.")
+        Playback.lastUpdate?(PlaybackUpdate(signal: SignalFrame(tones: [], level: 0.2, bands: [], inputRMS: 0.1, hasAudio: true), detection: "Music detected"))
+        precondition(interrupted.captureHealth == .receiving && !interrupted.captureHelp,
+            "Fresh audio must clear interrupted capture guidance without another access prompt.")
+        Playback.lastUpdate?(PlaybackUpdate(detection: "Paused for call audio", captureInterrupted: true))
+        precondition(interrupted.healthSnapshot.pause == .call, "Call protection must retain priority over signal-loss guidance.")
+        interrupted.stop()
         let sleeping = Studio()
         sleeping.start(.macAudio, initialBypass: true)
         sleeping.suspendForSleep()

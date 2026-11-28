@@ -4,7 +4,6 @@ import Foundation
 // Real Studio → Playback → router → CaptureRequest → AudioTap → SampleRing.
 // SDK and hardware boundaries are local replacements, not real TCC changes.
 @main struct CallPermissionRegression {
-    static var findings = Set<String>()
     @MainActor static func wait(_ label: String, seconds: Double = 5, _ condition: () -> Bool) async throws {
         let end = ContinuousClock.now.advanced(by: .seconds(seconds))
         while !condition() && ContinuousClock.now < end { try await Task.sleep(for: .milliseconds(10)) }
@@ -151,12 +150,10 @@ import Foundation
                       "capture=\(studio.healthSnapshot.capture.rawValue) pause=\(studio.healthSnapshot.pause.rawValue) error=\(studio.healthSnapshot.error.rawValue)")
                 interruptionRequire(studio.active && InterruptionHAL.counts.taps == taps,
                     "Surviving automatic capture did not remain resumable")
-                if studio.healthSnapshot.capture != .failed {
-                    findings.insert("Silent callback loss/zeroing is shown as waiting, not a permission-specific failure. Actual TCC behavior is unverified.")
-                }
-                if mode == .assist && delivery == .stopped {
-                    try await wait("Long silent loss never offered Listening help", seconds: 9) { studio.captureHelp }
-                }
+                interruptionRequire(studio.captureHealth == .interrupted && studio.captureHelp &&
+                    studio.detection.contains("check recording access") && studio.error == nil &&
+                    !studio.audioAccessHealth.requiresRecovery,
+                    "Lost signal must show actionable uncertainty, not generic waiting or invented permission denial")
                 // A surviving tap resumes if its callbacks return. No Relaunch,
                 // Stop/start, permission API or installed app is involved.
                 let before = InterruptionHAL.packets.count
@@ -221,19 +218,20 @@ import Foundation
                 try await wait("Explicit player did not receive audio") { update.signal.hasAudio }
                 for delivery in [InterruptionHAL.Delivery.stopped, .zeros] {
                     InterruptionHAL.revoke(delivery)
-                    try await wait("Explicit silent loss did not settle") { update.waiting }
+                    try await wait("Explicit silent loss did not settle and release muting") { update.waiting && InterruptionHAL.counts.muted == 0 }
                     try await quiet(0.4)
                     let retained = InterruptionHAL.counts.muted
                     print("OBSERVED explicit silent loss:", provider.rawValue, mode.rawValue, delivery, "muted taps=\(retained) error=\(update.error != nil)")
-                    if retained > 0 {
-                        findings.insert("Explicit Trackpad only retains source muting after silent capture loss; Stop or recovered PCM is needed. Reproduced with SDK fault injection, not real TCC revocation.")
-                    }
+                    interruptionRequire(retained == 0 && update.captureInterrupted && update.detection?.contains("check recording access") == true,
+                        "Explicit signal loss retained muting or omitted recovery guidance")
                     let message = update.error?.lowercased() ?? ""
                     interruptionRequire(!message.contains("permission denied") && !message.contains("permission revoked"),
                         "Silence alone must not assert authoritative TCC denial")
                     let before = InterruptionHAL.packets.count
                     InterruptionHAL.grant()
                     try await wait("Existing explicit tap did not resume when PCM returned") { InterruptionHAL.packets.count > before + 3 && !update.waiting }
+                    interruptionRequire(!update.captureInterrupted && InterruptionHAL.counts.muted == (mode == .trackpad ? 1 : 0),
+                        "Fresh PCM did not clear the interrupted state and restore the requested route")
                 }
                 InterruptionHAL.revoke(.stopped, invalidate: true)
                 try await wait("Explicit permission error did not stop cleanly") {
@@ -255,6 +253,55 @@ import Foundation
         }
         print("PASS: four explicit Spotify/Music output routes; persistent-denial errors are actionable, clean up I/O and recover on Reconnect within the same process.")
     }
+    @MainActor static func silenceAndMuteSafety() async throws {
+        InterruptionHAL.grant()
+        InterruptionHAL.setClients([111: .init(bundle: "com.spotify.client")])
+        InterruptionHAL.locked { InterruptionHAL.delivery = .zeros }
+        let engine = Playback()
+        let link = try MusicLink("spotify:track:0000000000000000000000")
+        var update = PlaybackUpdate()
+        var tuning = OutputMode.trackpad.defaults; tuning.vocalQuality = .light; tuning.hapticFocus = .both
+        engine.start(.player(link), tuning: tuning, mode: .trackpad, playerPath: "/Fixture/Player.app", startAt: 0) { update = $0 }
+        try await wait("Silent startup did not open its tap") { InterruptionHAL.counts.taps == 1 && InterruptionHAL.counts.callbacks == 1 }
+        try await Task.sleep(for: .seconds(1.8))
+        interruptionRequire(InterruptionHAL.counts.muted == 0 && !update.captureInterrupted && update.error == nil,
+            "A silent intro must neither mute an unverified stream nor invent an interrupted session")
+        InterruptionHAL.locked { InterruptionHAL.delivery = .music }
+        try await wait("First real PCM did not establish routing") { InterruptionHAL.counts.muted == 1 && update.signal.hasAudio }
+        InterruptionHAL.locked { InterruptionHAL.delivery = .zeros }
+        try await Task.sleep(for: .milliseconds(300))
+        interruptionRequire(InterruptionHAL.counts.muted == 1 && !update.captureInterrupted, "A brief quiet passage flapped routing")
+        InterruptionHAL.locked { InterruptionHAL.delivery = .music }
+        tuning.gain = 0; tuning.eq.bass.gain = -12; tuning.eq.mid.gain = -12; tuning.eq.treble.gain = -12
+        engine.set(tuning: tuning)
+        try await Task.sleep(for: .seconds(1.8))
+        interruptionRequire(InterruptionHAL.counts.muted == 1 && !update.captureInterrupted,
+            "Routing must not mistake zero intensity/EQ for missing raw capture")
+        // Legitimate silence while the SDK still permits recording produces
+        // the same samples as a zeroed revoked stream. Assert truthful wording.
+        InterruptionHAL.locked { InterruptionHAL.delivery = .zeros }
+        try await wait("Sustained legitimate silence did not release routing") { update.captureInterrupted && InterruptionHAL.counts.muted == 0 }
+        interruptionRequire(InterruptionHAL.locked { InterruptionHAL.allowed } && update.error == nil && !update.captureFailed,
+            "A silent passage is not authoritative evidence of revoked permission")
+        print("SCOPE LIMIT: Silence is not an authoritative permission verdict. The accepted contract uses explicit signal-interruption guidance without inventing denied access.")
+        InterruptionHAL.locked { InterruptionHAL.delivery = .music }
+        try await wait("Raw PCM did not re-establish mute ownership at zero intensity") { InterruptionHAL.counts.muted == 1 && !update.captureInterrupted }
+        // If HAL rejects the unmute, destroying the failed tap must release
+        // ownership rather than leaving the player silent indefinitely.
+        InterruptionHAL.locked { InterruptionHAL.denyRoutingChanges = true; InterruptionHAL.delivery = .stopped }
+        try await wait("Failed unmute did not fail safely") { update.captureFailed && update.error != nil && InterruptionHAL.counts.taps == 0 }
+        interruptionRequire(InterruptionHAL.counts.muted == 0, "Failed unmute retained a muted tap")
+        engine.stop()
+        try await wait("Mute-safety test leaked resources") { InterruptionHAL.counts.motors == 0 && InterruptionHAL.counts.listeners == 0 }
+        InterruptionHAL.grant()
+        let studio = try await start(.assist)
+        InterruptionHAL.locked { InterruptionHAL.delivery = .zeros }
+        try await wait("Automatic legitimate silence did not show a truthful signal state") { studio.captureHealth == .interrupted }
+        interruptionRequire(studio.error == nil && studio.healthSnapshot.error != .capture && !studio.audioAccessHealth.requiresRecovery,
+            "Signal interruption must not corrupt permission verification or claim a denied grant")
+        try await stop(studio)
+        print("PASS: silent startup, brief pauses, zero EQ/intensity, genuine quiet passages and failed unmute; no private permission oracle or actual grant is used.")
+    }
     @MainActor static func main() async throws {
         setbuf(stdout, nil)
         guard let identifier = Bundle.main.bundleIdentifier, identifier.hasPrefix("studio.songwave.interruption-test.") else {
@@ -268,19 +315,18 @@ import Foundation
         try await callStormAndLateStartup()
         try await permissionLoss()
         try await explicitRoutes()
+        try await silenceAndMuteSafety()
         interruptionRequire(InterruptionHAL.locked { InterruptionHAL.opened == InterruptionHAL.closed && InterruptionHAL.aggregates.isEmpty }, "Fixture SDK resources leaked")
-        for finding in findings.sorted() { print("UNRESOLVED FINDING:", finding) }
-        print("Scope: fixture assertions passed; \(findings.count) unresolved findings. Physical call audio and real TCC revoke/regrant are not verified.")
+        print("PASS: accepted scoped capture-interruption and mute-release contract. Physical call audio and real TCC revoke/regrant remain unverified.")
         if ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] == "true" {
-            for finding in findings.sorted() { print("::warning title=Capture acceptance gap::" + finding) }
             if let path = ProcessInfo.processInfo.environment["GITHUB_STEP_SUMMARY"] {
-                let summary = "### Call/permission fixture assessment\n\nSafety/recovery assertions passed; **\(findings.count) unresolved acceptance findings**. Physical calls and actual TCC revoke/regrant remain unverified.\n\n" +
-                    findings.sorted().map { "- " + $0 }.joined(separator: "\n") + "\n\nStrict acceptance: `bash Tests/test-call-permission.sh --require-all` currently exits 2.\n"
+                let summary = "### Capture interruption and muting regression\n\n**Accepted scoped contract passed:** lost signal shows recording-access guidance with uncertainty; explicit trackpad muting releases on silence and restores on raw PCM. Startup silence, short gaps, user EQ/intensity, failed unmute, calls and same-process recovery passed.\n\nPhysical calls and actual TCC revoke/regrant remain unverified. Signal loss is not proof of permission revocation.\n"
                 if !FileManager.default.fileExists(atPath: path) { try Data().write(to: URL(fileURLWithPath: path)) }
                 let handle = try FileHandle(forWritingTo: URL(fileURLWithPath: path))
                 try handle.seekToEnd(); try handle.write(contentsOf: Data(summary.utf8)); try handle.close()
             }
         }
-        if CommandLine.arguments.contains("--require-all"), !findings.isEmpty { exit(2) }
+        // --require-all is retained for the original assessment command. All
+        // scoped requirements are now assertions and always run in CI.
     }
 }

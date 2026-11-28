@@ -149,7 +149,9 @@ private final class MusicFeed {
     var gate: MusicGate?
     var samples: [Float] = []
     var peak: Float = 0
+    var wasSelected = false
     private var lastSound = 0.0
+    func signalInterrupted(now: Double) -> Bool { wasSelected && now - lastSound >= 1.5 }
 
     init(tap: AudioTap, bundle: String) {
         self.bundle = bundle
@@ -191,6 +193,7 @@ final class MacMusicInput {
     private var dictationUntil = -Double.infinity
     private(set) var status = "Listening for music"
     private(set) var captureFailed = false
+    private(set) var captureInterrupted = false
     private(set) var activeBundle: String?
     private var selected: AudioObjectID?
     private var lastMusic = 0.0
@@ -295,8 +298,14 @@ final class MacMusicInput {
         }
         let lostRoute = best.map { feeds[$0] == nil } ?? false
         if lostRoute { best = nil }
+        // A previously audible, selected feed is now silent/unresponsive.
+        // This is capture-health evidence, not proof of TCC denial: a silent
+        // passage or protected audio can look identical to lost permission.
+        captureInterrupted = best == nil && !callActive && !speech && !excludedVideo &&
+            feeds.values.contains(where: { $0.signalInterrupted(now: now) })
         suppressOutput = callActive || lostRoute || (best == nil && (speech || excludedVideo || selected == nil))
         if let best, let feed = feeds[best] {
+            feed.wasSelected = true
             try receive(feed.samples, feed.tap.rate, selected != best)
             video = selectedVideo
             activeBundle = feed.bundle
@@ -316,6 +325,7 @@ final class MacMusicInput {
             if callActive { status = "Paused for call audio" }
             else if excludedVideo { status = "YouTube video · haptics paused" }
             else if speech { status = "Speech · haptics paused" }
+            else if captureInterrupted { status = "Audio signal interrupted · check recording access" }
             else { status = now - lastInput > 2 ? "Waiting for Mac audio" : "Listening for music" }
         }
     }

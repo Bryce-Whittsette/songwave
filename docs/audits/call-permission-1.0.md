@@ -1,5 +1,7 @@
 # Call interruption and permission-loss assessment
 
+**Follow-up:** the accepted production fix now supplies an explicit, uncertain signal-interruption state and releases explicit-player muting after silent loss. The current fixture asserts both requirements and `--require-all` exits 0 when they pass. The original PR #15 findings below are retained as investigation history; see [the fix and validation](capture-loss-fix-1.0.md). Physical call/TCC verification remains open.
+
 This is fixture-only verification of the production capture/recovery path. It does **not** close the live macOS call/TCC verification gap or claim that audible output was tested. No production source, separation model, appearance, signing configuration, installed app or real permission setting changes in this batch.
 
 ## Run it
@@ -14,7 +16,7 @@ The normal command checks implemented safety/recovery invariants and prints unre
 bash Tests/test-call-permission.sh --require-all
 ```
 
-The strict assessment currently returns **2** for the findings below. Do not remove a finding or substitute a permission-success label just to make that command green. The Checks workflow runs the fixture in its own `call-permission` job; compilation treats warnings as errors. Known gaps appear as CI warning annotations and in the job summary, not just buried in console output.
+At PR #15, the strict assessment returned **2** for the findings below, which were exposed as CI warnings and in the job summary. The follow-up replaces those observations with mandatory regression assertions for the user-approved scope; it does not substitute a permission-success label. The Checks workflow runs the fixture in its own `call-permission` job, with compiler warnings treated as errors.
 
 ## Boundary and privacy
 
@@ -44,7 +46,7 @@ The injected SDK error is `kAudioDevicePermissionsError`; this tests error handl
 1. **Silent loss has no authoritative permission-specific warning.** Stopped callbacks and zero-filled callbacks leave the recovery model at “Waiting for audio” / “Waiting for music,” with no capture error. Automatic routing releases muting and eventually offers Listening help, but cannot identify permission revocation from silence alone. Genuine music silence can produce the same observation; inferring denied permission solely from it would also be incorrect. Real OS revoke behavior still needs measurement.
 2. **Explicit Trackpad only can retain source muting after silent capture loss.** With a surviving explicit-player tap and no SDK error/invalidation, haptics settle but source muting remains until PCM returns or Stop/Reconnect tears down the tap. Automatic routing releases muting in the equivalent fixture case. This is a reproduced app-path difference under fault injection, not evidence that a specific macOS version delivers revocation this way. Production code remains unchanged as requested.
 
-The requested end-to-end acceptance is therefore **not fully clean**. This batch stays on interruption/revocation assessment rather than starting unrelated cleanup. A future fix to explicit-route liveness/muting needs its own reviewed production change; a permission-specific warning needs an authoritative failure signal or carefully worded uncertainty.
+The original PR #15 assessment was **not fully clean**. The [production follow-up](capture-loss-fix-1.0.md) implements the separately accepted mute fix and carefully worded uncertainty. An authoritative permission verdict still requires an authoritative failure signal; silence alone cannot provide it.
 
 ## Live verification remains open
 
