@@ -288,7 +288,7 @@ final class Studio: ObservableObject {
 
     func suspendForSleep() {
         if verifyingSetup { firstSuccess.cancel(); testingTrackpad = false }
-        let resume = active && source == .macAudio
+        let resume = resumeMacAfterWake || (active && source == .macAudio)
         stop()
         resumeMacAfterWake = resume
     }
@@ -298,7 +298,7 @@ final class Studio: ObservableObject {
         resumeMacAfterWake = false
         guard resume, !active, !firstSuccessPending, !verifyingSetup,
               audioAccessHealth.permitsAutomaticListening(setupSaved: audioAccessReady) else { return }
-        start(.macAudio)
+        start(.macAudio, initialBypass: localBypass)
     }
 
     var cooldown: Double {
@@ -661,13 +661,13 @@ final class Studio: ObservableObject {
             if let error = update.error {
                 if self.priorPlayback != nil { self.cancelParty() } else { self.stop() }
                 self.error = error
-                if update.detection == "Cannot capture audio · check recording permission" { self.captureHealth = .failed }
+                if update.captureFailed || update.detection == "Cannot capture audio · check recording permission" { self.captureHealth = .failed }
                 if verification { self.firstSuccess.recover() }
                 self.captureHelp = source.isLive
                 return
             }
             if verification && self.firstSuccess.audioPresent != update.signal.hasAudio { self.firstSuccess.observeAudio(update.signal.hasAudio) }
-            let capture: CaptureHealth = update.detection == "Cannot capture audio · check recording permission" ? .failed :
+            let capture: CaptureHealth = update.captureFailed || update.detection == "Cannot capture audio · check recording permission" ? .failed :
                 update.signal.hasAudio || ["Speech · haptics paused", "YouTube video · haptics paused"].contains(update.detection ?? "") ? .receiving : .waiting
             if self.captureHealth != capture { self.captureHealth = capture }
             if verification && capture == .failed { self.firstSuccess.recover() }

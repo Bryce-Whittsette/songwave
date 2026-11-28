@@ -1,130 +1,6 @@
 import CoreAudio
+import AVFoundation
 import Foundation
-
-// Keep assertion locations visible even in optimized CI executables.
-private func require(_ condition: @autoclosure () -> Bool, _ message: String = "",
-                     file: StaticString = #filePath, line: UInt = #line) {
-    guard condition() else {
-        FileHandle.standardError.write(Data("Lifecycle assertion failed at \(file):\(line): \(message)\n".utf8))
-        exit(1)
-    }
-}
-
-// Boundary replacements only: the production Playback/Session, call policy,
-// spectrum, automatic renderer and output gain run unchanged. No recording
-// permission, speaker, keyboard, actuator or neural model is used in this suite.
-struct GlassError: LocalizedError { let errorDescription: String?; init(_ text: String) { errorDescription = text } }
-struct LifecycleClient { var bundle: String; var input: UInt32 = 0; var output: UInt32 = 1 }
-enum LifecycleHardware {
-    static let lock = NSLock()
-    private static var clients: [UInt32: LifecycleClient] = [:]
-    private static var packets: [(time: Double, level: Double)] = []
-    private static var taps = 0
-    private static var muted = 0
-    private static var motors = 0
-    private static var failCapture = false
-    private static var volume = 1.0
-    static func locked<T>(_ operation: () -> T) -> T { lock.lock(); defer { lock.unlock() }; return operation() }
-    static func set(_ next: [UInt32: LifecycleClient]) { locked { clients = next } }
-    static func snapshot() -> [UInt32: LifecycleClient] { locked { clients } }
-    static func packet(_ level: Double) { locked { packets.append((ProcessInfo.processInfo.systemUptime, level)) } }
-    static var outputVolume: Double { get { locked { volume } } set { locked { volume = newValue } } }
-    static var writes: [(time: Double, level: Double)] { locked { packets } }
-    static var liveTaps: Int { locked { taps } }
-    static var mutedTaps: Int { locked { muted } }
-    static var liveMotors: Int { locked { motors } }
-    static func tap(_ delta: Int) { locked { taps += delta } }
-    static func mute(_ delta: Int) { locked { muted += delta } }
-    static func motor(_ delta: Int) { locked { motors += delta } }
-    static func failNextCapture() { locked { failCapture = true } }
-    static func captureFails() -> Bool { locked { let value = failCapture; failCapture = false; return value } }
-    static func clear() { locked { require(taps == 0 && motors == 0 && muted == 0); packets.removeAll(); clients.removeAll(); failCapture = false } }
-}
-enum AudioHardware {
-    static func processList() -> [AudioObjectID] { Array(LifecycleHardware.snapshot().keys) }
-    static func processIDs(for bundle: String, appPath: String) -> [AudioObjectID] {
-        LifecycleHardware.snapshot().filter { $0.value.bundle == bundle && $0.value.output != 0 }.map(\.key)
-    }
-    static func read<T>(_ id: AudioObjectID, _ property: UInt32, into value: inout T) -> OSStatus {
-        guard let client = LifecycleHardware.snapshot()[id] else { return -1 }
-        switch property {
-        case kAudioProcessPropertyIsRunningInput: value = client.input as! T
-        case kAudioProcessPropertyIsRunningOutput: value = client.output as! T
-        case kAudioProcessPropertyPID: value = Int32(500000 + id) as! T
-        case kAudioProcessPropertyBundleID: value = Optional(Unmanaged.passRetained(client.bundle as CFString)) as! T
-        default: return -1
-        }
-        return 0
-    }
-}
-final class LifecycleRing {
-    private var position = 0
-    func takeNewest(maximum: Int, into samples: inout [Float]) {
-        samples = (0..<192).map { offset in
-            let time = Double(position + offset) / 24000
-            let voice = (1...8).reduce(0.0) { $0 + 0.045 / Double($1) * sin(2 * .pi * 224 * Double($1) * time) }
-            return Float(0.18 * sin(2 * .pi * 65 * time) + voice)
-        }
-        position += samples.count
-    }
-}
-final class AudioTap {
-    let rate = 24000.0
-    let ring = LifecycleRing()
-    private var opened = false
-    private var muted = false
-    init(description: CATapDescription, mute: Bool) throws {
-        if LifecycleHardware.captureFails() { throw GlassError("Injected capture failure") }
-        LifecycleHardware.tap(1)
-        opened = true
-        try setMuted(mute)
-    }
-    func setMuted(_ next: Bool) throws {
-        if muted != next { muted = next; LifecycleHardware.mute(next ? 1 : -1) }
-    }
-    deinit {
-        if opened { LifecycleHardware.tap(-1) }
-        if muted { LifecycleHardware.mute(-1) }
-    }
-}
-func fold(_ left: Float, _ right: Float) -> Float { (left + right) * 0.5 }
-final class Trackpad {
-    let name = "Mock trackpad"
-    init() throws { LifecycleHardware.motor(1) }
-    func play(_ tones: [Tone], for milliseconds: Double, level: Double) throws {
-        require(milliseconds > 0 && milliseconds <= 16)
-        require(level.isFinite && (0...1).contains(level))
-        require(!tones.isEmpty && tones.allSatisfy { $0.hertz.isFinite && $0.weight.isFinite })
-        LifecycleHardware.packet(level)
-    }
-    deinit { LifecycleHardware.motor(-1) }
-}
-struct YouTubeState {
-    var browser: String; var category: String; var videoID: String?
-    static func playing() -> [Self] { [] }
-    static func family(for bundle: String) -> String? { nil }
-}
-struct PartyBurst {
-    static let length = 45.0
-    static func allowed(thermal: ProcessInfo.ThermalState) -> Bool { true }
-    static func accent(elapsed: Double) -> Bool {
-        elapsed >= 0 && elapsed < length && elapsed.truncatingRemainder(dividingBy: 0.36) < 0.12
-    }
-}
-enum OutputVolume { static func read() -> Double { LifecycleHardware.outputVolume } }
-enum OutputTiming {
-    static func reportedDelay() -> Double { 0 }
-    static func additionalDelay(reported: Double, analysisRate: Double, offsetMS: Double, focus: HapticFocus = .beat) -> Double { max(0, offsetMS / 1000) }
-}
-final class KeyboardLight { init?() { return nil }; func update(beatStrength: Double, now: Double) {} }
-final class IsolatedVocals {
-    init() { preconditionFailure("The Light playback lifecycle suite must not load a neural model") }
-    var failure: String? { nil }; var isReady: Bool { false }; var hasPendingAudio: Bool { false }
-    var isDrained: Bool { true }; var status: String { "Mock isolation" }; var latency: Double { 0 }
-    func reset() {}; func cancel() {}; func finish() {}
-    func push(_ samples: [Float], rate: Double, at now: Double) {}
-    func read(maximum: Int, at now: Double) -> [Float] { [] }
-}
 
 @main struct PlaybackLifecycleRegression {
     static func wait(_ description: String, timeout: Double = 3, until condition: () -> Bool) {
@@ -194,7 +70,185 @@ final class IsolatedVocals {
         LifecycleHardware.clear()
         print("Setup capture stays unmuted and non-actuating; explicit taps are bounded, cancelled on Stop, and blocked during calls.")
     }
+    static func blockedCaptureCancellation() throws {
+        for explicit in [false, true] {
+            LifecycleHardware.clear()
+            LifecycleHardware.set([111: LifecycleClient(bundle: "com.spotify.client")])
+            LifecycleHardware.blockCapture()
+            let engine = Playback()
+            let link = try MusicLink("spotify:track:0000000000000000000000")
+            engine.start(explicit ? .player(link) : .macAudio, tuning: OutputMode.assist.defaults,
+                         mode: .assist, playerPath: explicit ? "/Mock/Player.app" : nil, startAt: 0) { _ in }
+            wait("Capture startup was not exercised") { LifecycleHardware.captureAttempts > 0 }
+            engine.stop()
+            wait("Stop was blocked behind a stalled Core Audio startup", timeout: 1) { LifecycleHardware.liveMotors == 0 }
+            LifecycleHardware.releaseCapture()
+            run(for: 0.05)
+            wait("A cancelled capture startup retained resources") { LifecycleHardware.liveTaps == 0 && LifecycleHardware.mutedTaps == 0 }
+            require(LifecycleHardware.writes.isEmpty, "Cancelled capture startup emitted haptics")
+            engine.start(.player(link), tuning: OutputMode.assist.defaults, mode: .assist,
+                         playerPath: "/Mock/Player.app", startAt: 0) { _ in }
+            wait("A fresh session could not start after cancellation") { LifecycleHardware.writes.count > 5 }
+            engine.stop()
+            wait("The replacement session retained resources") { LifecycleHardware.liveTaps == 0 && LifecycleHardware.liveMotors == 0 }
+        }
+        print("Stop remains responsive during blocked automatic/explicit capture startup; cancelled late completions cannot retain muting or emit haptics.")
+    }
+    static func boundedCaptureAdmission() {
+        LifecycleHardware.clear(); LifecycleHardware.blockCapture()
+        var requests: [CaptureRequest] = []
+        for _ in 0..<80 {
+            if let request = CaptureRequest(description: CATapDescription(stereoMixdownOfProcesses: [111]), mute: false) { requests.append(request) }
+        }
+        require(!requests.isEmpty && requests.count <= 4, "Capture startup admission was not bounded")
+        wait("Capture workers did not start") { LifecycleHardware.captureAttempts == requests.count }
+        requests.forEach { $0.cancel() }; requests.removeAll()
+        LifecycleHardware.releaseCapture()
+        run(for: 0.1)
+        wait("Cancelled workers retained I/O") { LifecycleHardware.liveTaps == 0 && LifecycleHardware.mutedTaps == 0 }
+        print("80 capture-start requests admitted at most four Core Audio workers, with cancellation cleanup and no speaker muting.")
+    }
+    static func routeReconnection() throws {
+        for automatic in [false, true] {
+            for mode in OutputMode.allCases {
+                LifecycleHardware.clear(); LifecycleHardware.changeRoute(rate: 24000)
+                LifecycleHardware.set([111: LifecycleClient(bundle: "com.spotify.client")])
+                let engine = Playback()
+                let link = try MusicLink("spotify:track:0000000000000000000000")
+                var tuning = mode.defaults; tuning.hapticFocus = .beat
+                engine.start(automatic ? .macAudio : .player(link), tuning: tuning, mode: mode,
+                             playerPath: automatic ? nil : "/Mock/Player.app", startAt: 0) { _ in }
+                engine.confirmPlayer("com.spotify.client")
+                wait("Initial route never played") { LifecycleHardware.writes.count > 6 }
+                for rate in [48000.0, 44100.0, 16000.0, 96000.0, 48000.0] {
+                    let attempts = LifecycleHardware.captureAttempts
+                    LifecycleHardware.changeRoute(rate: rate)
+                    wait("An output change did not rebuild capture") { LifecycleHardware.captureAttempts > attempts }
+                    let prior = LifecycleHardware.writes.count
+                    wait("Output did not resume at the new sample rate") { LifecycleHardware.writes.count > prior + 6 }
+                    require(LifecycleHardware.liveTaps == 1 && LifecycleHardware.liveMotors == 1)
+                    require(LifecycleHardware.mutedTaps == (mode == .trackpad ? 1 : 0))
+                }
+                engine.stop()
+                wait("Route stress retained I/O") { LifecycleHardware.liveTaps == 0 && LifecycleHardware.liveMotors == 0 }
+            }
+        }
+        print("20 route/rate rebuilds across automatic/explicit sources and both outputs resumed with one active connection and correct muting.")
+    }
+    static func extremeRates() throws {
+        let link = try MusicLink("spotify:track:0000000000000000000000")
+        for rate in [8000.0, 11025, 16000, 22050, 24000, 32000, 44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000, 705600, 768000] {
+            LifecycleHardware.clear(); LifecycleHardware.changeRoute(rate: rate)
+            LifecycleHardware.set([111: LifecycleClient(bundle: "com.spotify.client")])
+            let engine = Playback()
+            var failure: String?
+            var tuning = OutputMode.assist.defaults; tuning.hapticFocus = .beat
+            engine.start(.player(link), tuning: tuning, mode: .assist, playerPath: "/Mock/Player.app", startAt: 0) { if let error = $0.error { failure = error } }
+            wait("A supported extreme rate produced no output: \(rate)") { LifecycleHardware.writes.count > 6 || failure != nil }
+            require(failure == nil, failure ?? "")
+            engine.stop()
+            wait("Extreme-rate playback retained resources") { LifecycleHardware.liveTaps == 0 && LifecycleHardware.liveMotors == 0 }
+        }
+        for rate in [0.0, -1, 7999, 768001, Double.infinity, Double.nan] {
+            LifecycleHardware.clear(); LifecycleHardware.changeRoute(rate: rate)
+            LifecycleHardware.set([111: LifecycleClient(bundle: "com.spotify.client")])
+            let engine = Playback(); var failure: String?
+            engine.start(.player(link), tuning: OutputMode.assist.defaults, mode: .assist,
+                         playerPath: "/Mock/Player.app", startAt: 0) { if let error = $0.error { failure = error } }
+            wait("An invalid rate did not report a failure") { failure != nil }
+            wait("Invalid-rate startup retained I/O") { LifecycleHardware.liveTaps == 0 && LifecycleHardware.liveMotors == 0 }
+            require(LifecycleHardware.writes.isEmpty)
+            engine.stop()
+        }
+        LifecycleHardware.clear(); LifecycleHardware.changeRoute(rate: 384000)
+        LifecycleHardware.set([111: LifecycleClient(bundle: "com.spotify.client")])
+        let engine = Playback(); var failure: String?
+        var tuning = OutputMode.trackpad.defaults; tuning.hapticFocus = .voice; tuning.vocalQuality = .isolated
+        engine.start(.player(link), tuning: tuning, mode: .trackpad, playerPath: "/Mock/Player.app", startAt: 0) { if let error = $0.error { failure = error } }
+        wait("Unsupported isolated input silently stalled") { failure != nil }
+        require(failure!.contains("192 kHz") && failure!.contains("Light"))
+        wait("Unsupported isolation rate retained resources") { LifecycleHardware.liveTaps == 0 && LifecycleHardware.liveMotors == 0 }
+        require(LifecycleHardware.writes.isEmpty)
+        engine.stop(); LifecycleHardware.changeRoute(rate: 24000)
+        print("Playback exercised 16 rates from 8–768 kHz; invalid rates fail cleanly; unsupported isolated rates explain Light without switching the engine or loading a model.")
+    }
+    static func staleStartupRoute() throws {
+        for automatic in [false, true] {
+            LifecycleHardware.clear(); LifecycleHardware.changeRoute(rate: 48000)
+            LifecycleHardware.set([111: LifecycleClient(bundle: "com.spotify.client")])
+            LifecycleHardware.blockCapture()
+            let engine = Playback()
+            let link = try MusicLink("spotify:track:0000000000000000000000")
+            var tuning = OutputMode.trackpad.defaults; tuning.hapticFocus = .beat
+            engine.start(automatic ? .macAudio : .player(link), tuning: tuning, mode: .trackpad,
+                         playerPath: automatic ? nil : "/Mock/Player.app", startAt: 0) { _ in }
+            engine.confirmPlayer("com.spotify.client")
+            wait("Startup did not enter the blocked route") { LifecycleHardware.captureAttempts > 0 }
+            LifecycleHardware.changeRoute(rate: 44100)
+            LifecycleHardware.releaseCapture()
+            wait("A stale startup did not recover onto the current route") {
+                LifecycleHardware.captureAttempts >= 2 && LifecycleHardware.writes.count > 6
+            }
+            require(LifecycleHardware.liveTaps == 1 && LifecycleHardware.mutedTaps == 1)
+            engine.stop()
+            wait("Stale startup recovery retained resources") { LifecycleHardware.liveTaps == 0 && LifecycleHardware.liveMotors == 0 }
+        }
+        print("Automatic and explicit capture discard stale startup completions before muting and recover at the new sample rate.")
+    }
+    static func malformedFiles() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let empty = directory.appendingPathComponent("empty.wav")
+        do {
+            let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+            _ = try AVAudioFile(forWriting: empty, settings: format.settings)
+        }
+        let corrupt = directory.appendingPathComponent("corrupt.wav")
+        try Data("RIFF\u{00}\u{00}\u{00}\u{00}WAVEfmt ".utf8).write(to: corrupt)
+        let zero = directory.appendingPathComponent("zero.wav")
+        try Data().write(to: zero)
+        for url in [empty, corrupt, zero] {
+            LifecycleHardware.clear()
+            let engine = Playback(); var failed = false
+            engine.start(.file(url), tuning: OutputMode.trackpad.defaults, mode: .trackpad,
+                         playerPath: nil, startAt: 0) { failed = $0.error != nil }
+            wait("Empty/corrupt audio did not report a failure") { failed }
+            require(LifecycleHardware.liveTaps == 0 && LifecycleHardware.liveMotors == 0 && LifecycleHardware.writes.isEmpty,
+                    "Invalid file startup touched physical-output boundaries")
+            engine.stop()
+        }
+        print("Zero-byte, empty valid WAV and truncated WAV files fail before capture or motor setup.")
+    }
+    static func routeChangesBeforeMuting() throws {
+        for automatic in [false, true] {
+            LifecycleHardware.clear(); LifecycleHardware.changeRoute(rate: 48000)
+            LifecycleHardware.set([111: LifecycleClient(bundle: "com.spotify.client")])
+            LifecycleHardware.changeRouteOnNextMute()
+            let engine = Playback(); var failure: String?
+            let link = try MusicLink("spotify:track:0000000000000000000000")
+            var tuning = OutputMode.trackpad.defaults; tuning.hapticFocus = .beat
+            engine.start(automatic ? .macAudio : .player(link), tuning: tuning, mode: .trackpad,
+                         playerPath: automatic ? nil : "/Mock/Player.app", startAt: 0) { if let error = $0.error { failure = error } }
+            engine.confirmPlayer("com.spotify.client")
+            wait("A route change immediately before muting did not recover") {
+                LifecycleHardware.captureAttempts >= 2 && LifecycleHardware.writes.count > 6 || failure != nil
+            }
+            require(failure == nil && LifecycleHardware.mutedTaps == 1 && LifecycleHardware.liveTaps == 1)
+            engine.stop()
+            wait("Muting-race recovery retained resources") { LifecycleHardware.liveTaps == 0 && LifecycleHardware.liveMotors == 0 }
+        }
+        print("Route changes between startup acceptance and speaker muting reconnect without failing the session or muting a stale tap.")
+    }
     static func main() throws {
+        setbuf(stdout, nil)
+        try malformedFiles()
+        try routeChangesBeforeMuting()
+        try extremeRates()
+        try staleStartupRoute()
+        try routeReconnection()
+        boundedCaptureAdmission()
+        try blockedCaptureCancellation()
         gain()
         try setupCheck()
         var cases = 0

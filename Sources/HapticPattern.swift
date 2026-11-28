@@ -36,6 +36,7 @@ struct HapticPattern {
               let pattern = root["Pattern"] as? [[String: Any]], pattern.count <= 4096 else { throw bad() }
         var events: [Event] = [], curves: [Curve] = [], audio = 0
         for item in pattern {
+            guard item.count == 1 else { throw bad() }
             if let event = item["Event"] as? [String: Any] {
                 let type = event["EventType"] as? String ?? ""
                 if type == "AudioCustom" || type == "AudioContinuous" { audio += 1; continue }
@@ -44,9 +45,17 @@ struct HapticPattern {
                 let duration = type == "HapticTransient" ? 0.024 : try number(event, "EventDuration")
                 guard time >= 0, time <= 3600, duration > 0, duration <= 30 else { throw bad() }
                 var intensity = 1.0, sharpness = 0.5
-                for parameter in event["EventParameters"] as? [[String: Any]] ?? [] {
+                let parameters: [[String: Any]]
+                if let supplied = event["EventParameters"] {
+                    guard let parsed = supplied as? [[String: Any]], parsed.count <= 2 else { throw bad() }
+                    parameters = parsed
+                } else { parameters = [] }
+                var identifiers = Set<String>()
+                for parameter in parameters {
+                    guard let id = parameter["ParameterID"] as? String,
+                          identifiers.insert(id).inserted else { throw bad() }
                     let value = min(1, max(0, try number(parameter, "ParameterValue")))
-                    switch parameter["ParameterID"] as? String {
+                    switch id {
                     case "HapticIntensity": intensity = value
                     case "HapticSharpness": sharpness = value
                     default: throw bad()

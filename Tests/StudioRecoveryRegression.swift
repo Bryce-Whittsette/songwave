@@ -177,6 +177,25 @@ import Foundation
         precondition(dictation.detectedApp == nil && Playback.confirmedBundle == nil,
             "Source retention must end when Dictation is no longer active.")
         dictation.stop()
+        let stalled = Studio()
+        stalled.start(.macAudio)
+        Playback.lastUpdate?(PlaybackUpdate(detection: "Audio capture unavailable · open Listening help", captureFailed: true))
+        precondition(stalled.healthSnapshot.capture == .failed && stalled.healthSnapshot.error == .capture,
+            "A typed capture failure must reach recovery without relying on a permission-message string.")
+        stalled.stop()
+        let sleeping = Studio()
+        sleeping.start(.macAudio, initialBypass: true)
+        sleeping.suspendForSleep()
+        sleeping.suspendForSleep() // duplicate sleep notifications must retain resume intent
+        precondition(!sleeping.active && sleeping.localBypass)
+        sleeping.resumeAfterWake()
+        precondition(sleeping.active && sleeping.localBypass && Playback.runs.last?.haptics == false,
+            "Waking must preserve Haptics off instead of unexpectedly actuating.")
+        sleeping.suspendForSleep()
+        sleeping.stop()
+        sleeping.resumeAfterWake()
+        precondition(!sleeping.active, "Stop must cancel a pending wake reconnection.")
+        sleeping.stop()
         print("Real Studio restores paused/playing file context, keeps preview non-actuating, rejects stopped/closed test callbacks, and persists explicit confirmation.")
         print("Recovery retries stay in place without actuation, retain file position/bypass, clear probe failures, report current audio honestly, and exclude private data from real controller diagnostics; closed permission requests cannot reopen setup.")
     }

@@ -47,7 +47,7 @@ Builds are ad hoc signed by default. A replacement binary can cause macOS to ask
 bash Tests/run.sh
 ```
 
-The default suite checks EQ controls, percussion/vocal separation heuristics, timing offsets, AHAP parsing, envelope behavior, simulated live routes, explicit-player interruption/reconnect/failure handling, access recovery, and signed-update feed rejection. It does not play audio or actuate the trackpad or keyboard.
+The default suite checks EQ controls, percussion/vocal separation heuristics, timing offsets, adversarial AHAP parsing, envelope behavior, simulated live routes, stale startup/route recovery, extreme sample rates, malformed PCM/file boundaries, explicit-player interruption/reconnect/failure handling, access recovery, and signed-update feed rejection. It does not play audio or actuate the trackpad or keyboard. See the [session stress report](audits/session-stress-1.0.md) for test scope and hardware limits.
 
 Optional actual-model tests:
 
@@ -55,7 +55,7 @@ Optional actual-model tests:
 bash Tests/test-isolation.sh
 ```
 
-This generates speech directly into a temporary file with macOS `say`, then runs the bundled Core ML model. It checks separation improvement on a controlled mix, sample counts, EOF draining, and cancellation. It does not play the fixture over speakers. Results on a generated fixture do not establish accuracy on every real song.
+This generates speech directly into a temporary file with macOS `say`, then runs the bundled Core ML model. It checks separation improvement on a controlled mix, sample counts, EOF draining, cancellation, and rapid mode changes under CPU load through production playback with fake I/O. It does not play the fixture over speakers. Results on a generated fixture do not establish accuracy on every real song.
 
 GitHub Actions runs default tests and a build on `macos-26`. Neural tests can be selected in a manual workflow run. CI does not measure physical haptics or validate the private driver ABI on different hardware.
 
