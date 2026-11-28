@@ -59,6 +59,8 @@ This generates speech directly into a temporary file with macOS `say`, then runs
 
 Access-check deadline/admission tests and the real menu/controller's injected sleep/wake bindings run in the default suite. The optional model stress test also covers recognized-call suppression and lost PCM followed by explicit recovery. [Live authorization evidence and hardware limits](audits/capture-authorization-1.0.md) distinguish those checks from physical sleep, real calls and OS permission revocation.
 
+`bash Tests/test-call-permission.sh` compiles the real controller, playback, capture and access helper against a symbol-audited fake Core Audio boundary. It assesses ringing/active calls, late startup, rapid call changes, stopped/zero callbacks, persistent denial and same-process recovery. CI runs it separately. It prints known acceptance gaps; `--require-all` returns nonzero while they remain. See the [interruption/revocation assessment](audits/call-permission-1.0.md); fixture passes are not live-call/TCC verification.
+
 GitHub Actions runs default tests and a build on `macos-26`. Neural tests can be selected in a manual workflow run. CI does not measure physical haptics or validate the private driver ABI on different hardware.
 
 `python3 Tests/UpdateNetworkRegression.py` exercises real Sparkle HTTP checks against a disposable loopback server: unavailable endpoint, HTTP errors, dropped/truncated feeds, cancellation, a background-check failure, and signed-feed retries. CI runs it separately from the offline suite. The fixture has its own actual bundle identifier and temporary signing key; it downloads no app payload and never installs an update or changes the listener's network settings. See [updater network coverage](audits/update-network-1.0.md).

@@ -19,6 +19,16 @@ concurrency:
   group: checks-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  call-permission:
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.disk_space || inputs.neural }}
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Fixture call interruption and permission-loss assessment
+        run: bash Tests/test-call-permission.sh
   macos:
     if: ${{ github.event_name != 'workflow_dispatch' || !inputs.disk_space || inputs.neural }}
     runs-on: macos-26
