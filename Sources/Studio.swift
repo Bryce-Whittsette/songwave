@@ -668,6 +668,7 @@ final class Studio: ObservableObject {
             }
             if verification && self.firstSuccess.audioPresent != update.signal.hasAudio { self.firstSuccess.observeAudio(update.signal.hasAudio) }
             let capture: CaptureHealth = update.captureFailed || update.detection == "Cannot capture audio · check recording permission" ? .failed :
+                update.captureInterrupted ? .interrupted :
                 update.signal.hasAudio || ["Speech · haptics paused", "YouTube video · haptics paused"].contains(update.detection ?? "") ? .receiving : .waiting
             if self.captureHealth != capture { self.captureHealth = capture }
             if verification && capture == .failed { self.firstSuccess.recover() }
@@ -682,7 +683,7 @@ final class Studio: ObservableObject {
             if (!source.isLive || duration != nil) && (abs(self.elapsed - position) >= 0.18 || update.finished) { self.elapsed = position }
             if self.duration != duration { self.duration = duration }
             if self.device != update.device { self.device = update.device }
-            let help = (source != .macAudio || update.detection == "Waiting for Mac audio") && update.waiting && (self.startedAt.map { Date().timeIntervalSince($0) > 8 } ?? false)
+            let help = update.captureInterrupted || ((source != .macAudio || update.detection == "Waiting for Mac audio") && update.waiting && (self.startedAt.map { Date().timeIntervalSince($0) > 8 } ?? false))
             if self.captureHelp != help { self.captureHelp = help }
             if update.finished { self.stop() }
         }
