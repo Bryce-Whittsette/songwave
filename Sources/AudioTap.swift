@@ -49,33 +49,58 @@ enum AudioHardware {
 // The audio callback only moves PCM into bounded memory. It never drives the motor.
 final class SampleRing {
     private let lock = OSAllocatedUnfairLock()
+    private let clock: () -> ContinuousClock.Instant
+    private var lastInput: ContinuousClock.Instant?
     private var samples = [Float](repeating: 0, count: 32_768)
     private var writeIndex = 0
     private var count = 0
 
+    init(clock: @escaping () -> ContinuousClock.Instant = { .now }) { self.clock = clock }
+
     func push(_ input: UnsafePointer<AudioBufferList>) {
+        let bufferCount = input.pointee.mNumberBuffers
+        guard bufferCount == 1 || bufferCount == 2 else { return }
         let buffers = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: input))
-        guard let first = buffers.first, first.mData != nil, first.mNumberChannels > 0,
-              lock.lockIfAvailable() else { return }
+        let first = buffers[0]
+        guard (1...2).contains(first.mNumberChannels), Self.validStorage(first) else { return }
+        if bufferCount == 2 {
+            let right = buffers[1]
+            guard first.mNumberChannels == 1, right.mNumberChannels == 1,
+                  right.mDataByteSize == first.mDataByteSize, Self.validStorage(right) else { return }
+        } else {
+            guard Int(first.mDataByteSize) % (MemoryLayout<Float>.stride * Int(first.mNumberChannels)) == 0 else { return }
+        }
+        guard lock.lockIfAvailable() else { return }
         defer { lock.unlock() }
 
         let channels = Int(first.mNumberChannels)
         let values = first.mData!.assumingMemoryBound(to: Float.self)
         let frames = Int(first.mDataByteSize) / MemoryLayout<Float>.stride / channels
-        if channels == 1, buffers.count >= 2, let second = buffers[1].mData,
-           buffers[1].mDataByteSize >= first.mDataByteSize {
+        guard frames > 0 else { return }
+        lastInput = clock()
+        // Callback work stays bounded even if HAL supplies a large valid packet.
+        let start = max(0, frames - samples.count)
+        if bufferCount == 2, let second = buffers[1].mData {
             let right = second.assumingMemoryBound(to: Float.self)
-            for frame in 0..<frames { add(fold(values[frame], right[frame])) }
+            for frame in start..<frames { add(fold(values[frame], right[frame])) }
         } else {
-            for frame in 0..<frames {
+            for frame in start..<frames {
                 let i = frame * channels
                 add(channels > 1 ? fold(values[i], values[i + 1]) : values[i])
             }
         }
     }
 
+    private static func validStorage(_ buffer: AudioBuffer) -> Bool {
+        guard let pointer = buffer.mData, buffer.mDataByteSize > 0, buffer.mDataByteSize <= 1_048_576 else { return false }
+        return Int(bitPattern: pointer) % MemoryLayout<Float>.alignment == 0 &&
+            Int(buffer.mDataByteSize) % MemoryLayout<Float>.stride == 0
+    }
+
     private func add(_ sample: Float) {
-        samples[writeIndex] = sample
+        // Float PCM is normalized audio. Preserve normal headroom, while keeping
+        // NaN/infinity and corrupt outliers out of classifier/filter state.
+        samples[writeIndex] = sample.isFinite && abs(sample) <= 16 ? sample : 0
         writeIndex = (writeIndex + 1) % samples.count
         count = min(count + 1, samples.count)
     }
@@ -84,6 +109,13 @@ final class SampleRing {
         destination.removeAll(keepingCapacity: true)
         lock.lock()
         defer { lock.unlock() }
+        // Continuous time includes system sleep. PCM retained before a stalled
+        // consumer or sleep must not masquerade as fresh music on resume.
+        guard let lastInput,
+              (.zero ... .milliseconds(200)).contains(lastInput.duration(to: clock())) else {
+            count = 0
+            return
+        }
         let length = min(count, max(0, maximum))
         let start = (writeIndex - length + samples.count) % samples.count
         for offset in 0..<length { destination.append(samples[(start + offset) % samples.count]) }
@@ -107,6 +139,10 @@ final class AudioTap {
     private var callback: AudioDeviceIOProcID?
     private var running = false
     private let ioQueue = DispatchQueue(label: "songwave.capture", qos: .userInteractive)
+    private let routeQueue = DispatchQueue(label: "songwave.capture-route", qos: .userInitiated)
+    private let reconfigure = OSAllocatedUnfairLock(initialState: false)
+    private var listeners: [(AudioObjectID, AudioObjectPropertyAddress, AudioObjectPropertyListenerBlock)] = []
+    var needsReconnect: Bool { reconfigure.withLock { $0 } }
 
     init(description: CATapDescription, mute: Bool) throws {
         self.description = description
@@ -119,8 +155,7 @@ final class AudioTap {
         try Self.check(AudioHardwareCreateProcessTap(description, &tap), "create the audio tap")
         var format = AudioStreamBasicDescription()
         let formatStatus = AudioHardware.read(tap, kAudioTapPropertyFormat, into: &format)
-        guard formatStatus == noErr, format.mSampleRate > 0, format.mBitsPerChannel == 32,
-              format.mFormatID == kAudioFormatLinearPCM, format.mFormatFlags & kAudioFormatFlagIsFloat != 0 else {
+        guard formatStatus == noErr, Self.supports(format) else {
             AudioHardwareDestroyProcessTap(tap)
             throw GlassError("macOS did not provide a usable audio format.")
         }
@@ -146,6 +181,55 @@ final class AudioTap {
         }, "attach to the audio stream")
         try Self.check(AudioDeviceStart(aggregate, callback), "start the audio tap")
         running = true
+        // HAL notifications only mark state; the playback queue owns rebuilding.
+        // No extra timer or synchronous property reads are added to rendering.
+        try watch(tap, selector: kAudioTapPropertyFormat, expectedFormat: format)
+        try watch(AudioHardware.system, selector: kAudioHardwarePropertyDefaultOutputDevice)
+        var outputDevice = AudioObjectID(kAudioObjectUnknown)
+        if AudioHardware.read(AudioHardware.system, kAudioHardwarePropertyDefaultOutputDevice, into: &outputDevice) == noErr,
+           outputDevice != kAudioObjectUnknown {
+            try watch(outputDevice, selector: kAudioDevicePropertyNominalSampleRate)
+        }
+        // A route may change while AudioDeviceStart is waiting, before any
+        // listener exists. Recheck once on this startup worker before handoff.
+        var current = AudioStreamBasicDescription()
+        if AudioHardware.read(tap, kAudioTapPropertyFormat, into: &current) != noErr || !Self.sameFormat(current, format) {
+            reconfigure.withLock { $0 = true }
+        }
+    }
+
+    private static func sameFormat(_ current: AudioStreamBasicDescription, _ expected: AudioStreamBasicDescription) -> Bool {
+        current.mSampleRate == expected.mSampleRate && current.mFormatID == expected.mFormatID &&
+        current.mFormatFlags == expected.mFormatFlags && current.mBitsPerChannel == expected.mBitsPerChannel &&
+        current.mChannelsPerFrame == expected.mChannelsPerFrame && current.mBytesPerFrame == expected.mBytesPerFrame &&
+        current.mFramesPerPacket == expected.mFramesPerPacket && current.mBytesPerPacket == expected.mBytesPerPacket
+    }
+
+    private static func supports(_ format: AudioStreamBasicDescription) -> Bool {
+        guard format.mSampleRate.isFinite, (8000...768000).contains(format.mSampleRate),
+              (1...2).contains(format.mChannelsPerFrame), format.mBitsPerChannel == 32,
+              format.mFormatID == kAudioFormatLinearPCM, format.mFormatFlags & kAudioFormatFlagIsFloat != 0,
+              format.mFormatFlags & (kAudioFormatFlagIsBigEndian | kAudioFormatFlagIsSignedInteger) == 0 else { return false }
+        let planar = format.mFormatFlags & kAudioFormatFlagIsNonInterleaved != 0
+        let bytes = UInt32(MemoryLayout<Float>.stride) * (planar ? 1 : format.mChannelsPerFrame)
+        return format.mFramesPerPacket == 1 && format.mBytesPerFrame == bytes && format.mBytesPerPacket == bytes
+    }
+
+    private func watch(_ object: AudioObjectID, selector: AudioObjectPropertySelector,
+                       expectedFormat: AudioStreamBasicDescription? = nil) throws {
+        let flag = reconfigure
+        let listener: AudioObjectPropertyListenerBlock = { _, _ in
+            if let expected = expectedFormat {
+                var current = AudioStreamBasicDescription()
+                if AudioHardware.read(object, kAudioTapPropertyFormat, into: &current) == noErr,
+                   Self.sameFormat(current, expected) { return }
+            }
+            flag.withLock { $0 = true }
+        }
+        var address = AudioObjectPropertyAddress(mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        try Self.check(AudioObjectAddPropertyListenerBlock(object, &address, routeQueue, listener), "watch audio routing")
+        listeners.append((object, address, listener))
     }
 
     func setMuted(_ mute: Bool) throws {
@@ -169,6 +253,9 @@ final class AudioTap {
     }
 
     deinit {
+        for (object, var address, listener) in listeners {
+            AudioObjectRemovePropertyListenerBlock(object, &address, routeQueue, listener)
+        }
         if running { AudioDeviceStop(aggregate, callback) }
         if let callback { AudioDeviceDestroyIOProcID(aggregate, callback) }
         if aggregate != kAudioObjectUnknown { AudioHardwareDestroyAggregateDevice(aggregate) }

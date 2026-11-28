@@ -151,14 +151,15 @@ private final class MusicFeed {
     var peak: Float = 0
     private var lastSound = 0.0
 
-    init(process: AudioObjectID, bundle: String) throws {
+    init(tap: AudioTap, bundle: String) {
         self.bundle = bundle
-        tap = try AudioTap(description: CATapDescription(stereoMixdownOfProcesses: [process]), mute: false)
+        self.tap = tap
     }
 
     deinit { gate?.finish() }
 
     func read(now: Double, allowClassification: Bool) throws {
+        guard !tap.needsReconnect else { throw CaptureFault.routeChanged }
         tap.ring.takeNewest(maximum: Int(tap.rate * 0.08), into: &samples)
         peak = samples.reduce(0) { max($0, abs($1)) }
         if peak > 0.00015 { lastSound = now }
@@ -171,23 +172,36 @@ private final class MusicFeed {
 
 final class MacMusicInput {
     private var feeds: [AudioObjectID: MusicFeed] = [:]
+    private var pending: [AudioObjectID: (bundle: String, started: Double, request: CaptureRequest)] = [:]
+    private let requestTap: (CATapDescription, Bool) -> CaptureRequest?
+
+    init(requestTap: @escaping (CATapDescription, Bool) -> CaptureRequest? = { CaptureRequest(description: $0, mute: $1) }) {
+        self.requestTap = requestTap
+    }
+    deinit { for value in pending.values { value.request.cancel() } }
     var confirmedPlayer: String?
-    var idle: Bool { feeds.isEmpty || ProcessInfo.processInfo.systemUptime - lastInput > 2 }
+    var idle: Bool {
+        if pending.values.contains(where: { lastRead - $0.started < 1 }) { return false }
+        return feeds.isEmpty || lastRead - lastInput > 2
+    }
     private var retryAfter: [AudioObjectID: Double] = [:]
     private var scanAfter = 0.0
     private var callActive = false
     private(set) var dictationActive = false
     private var dictationUntil = -Double.infinity
     private(set) var status = "Listening for music"
+    private(set) var captureFailed = false
     private(set) var activeBundle: String?
     private var selected: AudioObjectID?
     private var lastMusic = 0.0
     private var lastInput = 0.0
+    private var lastRead = 0.0
     private var tabs: [YouTubeState] = []
     private(set) var video: YouTubeState?
     private(set) var suppressOutput = false
 
     func read(now: Double, mute: Bool, receive: ([Float], Double, Bool) throws -> Void) throws {
+        lastRead = now
         if now >= scanAfter {
             scanAfter = now + 0.35
             tabs = YouTubeState.playing()
@@ -198,16 +212,37 @@ final class MacMusicInput {
             let sources = clients.filter { !$0.isDictationService }
             let eligible = callActive ? [] : sources.map(\.id)
             let allowed = Set(eligible)
-            feeds = feeds.filter { allowed.contains($0.key) }
+            let identities = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0.bundle) })
+            feeds = feeds.filter { allowed.contains($0.key) && identities[$0.key] == $0.value.bundle }
+            pending = pending.filter {
+                let keep = allowed.contains($0.key) && identities[$0.key] == $0.value.bundle
+                if !keep { $0.value.request.cancel() }
+                return keep
+            }
             if let selected, feeds[selected] == nil { self.selected = nil }
             retryAfter = retryAfter.filter { allowed.contains($0.key) }
             if !callActive {
-                for client in sources where feeds[client.id] == nil && now >= retryAfter[client.id, default: 0] {
-                    do { feeds[client.id] = try MusicFeed(process: client.id, bundle: client.bundle) }
-                    catch { retryAfter[client.id] = now + 3; status = error.localizedDescription }
+                for client in sources where feeds[client.id] == nil && pending[client.id] == nil && now >= retryAfter[client.id, default: 0] {
+                    if let request = requestTap(CATapDescription(stereoMixdownOfProcesses: [client.id]), false) {
+                        pending[client.id] = (client.bundle, now, request)
+                    } else { retryAfter[client.id] = now + 3 }
                 }
             }
         }
+        for (id, value) in pending {
+            if let result = value.request.takeResult() {
+                pending.removeValue(forKey: id)
+                switch result {
+                case .success(let tap): feeds[id] = MusicFeed(tap: tap, bundle: value.bundle)
+                case .failure(let error): retryAfter[id] = now + 3; status = error.localizedDescription
+                }
+            } else if now - value.started >= 8 {
+                value.request.cancel()
+                pending.removeValue(forKey: id)
+                retryAfter[id] = now + 3
+            }
+        }
+        captureFailed = feeds.isEmpty && pending.isEmpty && !retryAfter.isEmpty && !callActive
         var best: AudioObjectID?
         var score = 0.0
         var speech = false
@@ -225,7 +260,8 @@ final class MacMusicInput {
             } catch {
                 // A failed recognizer or disappearing client must not stop other players.
                 feeds.removeValue(forKey: id)
-                retryAfter[id] = now + 3
+                if selected == id { selected = nil }
+                retryAfter[id] = now + (error is CaptureFault ? 0 : 3)
                 continue
             }
             if feed.peak > 0.00015 { lastInput = now }
@@ -257,7 +293,7 @@ final class MacMusicInput {
                 if selected == id { selected = nil }
             }
         }
-        suppressOutput = callActive || (best == nil && (speech || excludedVideo))
+        suppressOutput = callActive || (best == nil && (speech || excludedVideo || selected == nil))
         if let best, let feed = feeds[best] {
             try receive(feed.samples, feed.tap.rate, selected != best)
             video = selectedVideo
@@ -273,7 +309,8 @@ final class MacMusicInput {
             } else if let video, !tabs.contains(where: { $0.browser == video.browser && $0.videoID == video.videoID }) {
                 self.video = nil
             }
-            if feeds.isEmpty, !retryAfter.isEmpty, !callActive { status = "Cannot capture audio · check recording permission"; return }
+            if feeds.isEmpty, !pending.isEmpty, !callActive { status = "Connecting to Mac audio…"; return }
+            if captureFailed { status = "Audio capture unavailable · open Listening help"; return }
             if callActive { status = "Paused for call audio" }
             else if excludedVideo { status = "YouTube video · haptics paused" }
             else if speech { status = "Speech · haptics paused" }

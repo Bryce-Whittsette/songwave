@@ -14,3 +14,6 @@ cp -X "$project"/Sources/Vendor*.swift "$project/Sources/IsolatedVocals.swift" \
   "$project/Tests/VocalIsolationRegression.swift" "$scratch/"
 xcrun swiftc -swift-version 5 -O "$scratch/"*.swift -o "$scratch/check"
 "$scratch/check" "$model" "$scratch/voice.aiff"
+
+# Exercise real model lifetime changes with production playback and fake I/O.
+bash "$project/Tests/stress-mode-switching.sh" "$model"

@@ -25,6 +25,24 @@ cp -X "$project"/Sources/{HapticPattern,Equalizer,Signal,RhythmDSP,VocalFocus,Tr
 xcrun swiftc -swift-version 5 -O "$patterns"/*.swift -o "$patterns/check"
 "$patterns/check" "$project/Examples/120bpm.ahap"
 
+adversarial="$scratch/adversarial"
+mkdir -p "$adversarial"
+cp -X "$project"/Sources/{HapticPattern,Equalizer,Signal,RhythmDSP,VocalFocus,Trackpad}.swift "$project/Tests/PatternAdversarialRegression.swift" "$adversarial/"
+xcrun swiftc -swift-version 5 -O "$adversarial"/*.swift -o "$adversarial/check"
+"$adversarial/check"
+
+capture="$scratch/capture"
+mkdir -p "$capture"
+cp -X "$project"/Sources/{AudioTap,CaptureRequest}.swift "$project/Tests/CaptureRegression.swift" "$capture/"
+xcrun swiftc -swift-version 5 -O "$capture"/*.swift -o "$capture/check"
+"$capture/check"
+
+hal="$scratch/hal"
+mkdir -p "$hal"
+cp -X "$project"/Sources/{AudioTap,CaptureRequest}.swift "$project/Tests/AudioTapLifecycleRegression.swift" "$hal/"
+xcrun swiftc -swift-version 5 -O "$hal"/*.swift -o "$hal/check"
+"$hal/check"
+
 both="$scratch/both"
 mkdir -p "$both"
 cp -X "$project"/Sources/{HapticPattern,Equalizer,Signal,RhythmDSP,VocalFocus,Trackpad}.swift "$project/Tests/BothRegression.swift" "$both/"
@@ -33,7 +51,7 @@ xcrun swiftc -swift-version 5 -O "$both"/*.swift -o "$both/check"
 
 live="$scratch/live"
 mkdir -p "$live"
-cp -X "$project"/Sources/{MusicDetection,HapticPattern,Equalizer,Signal,RhythmDSP,VocalFocus}.swift "$project/Tests/LiveHapticsRegression.swift" "$live/"
+cp -X "$project"/Sources/{MusicDetection,CaptureRequest,HapticPattern,Equalizer,Signal,RhythmDSP,VocalFocus}.swift "$project/Tests/LiveHapticsRegression.swift" "$live/"
 xcrun swiftc -swift-version 5 -O "$live"/*.swift -o "$live/check"
 "$live/check"
 
@@ -51,8 +69,8 @@ xcrun swiftc -swift-version 5 -O "$access"/*.swift -o "$access/check"
 
 lifecycle="$scratch/lifecycle"
 mkdir -p "$lifecycle"
-cp -X "$project"/Sources/{Playback,Source,MusicDetection,HapticPattern,Signal,Equalizer,RhythmDSP,VocalFocus,ListeningHealth}.swift \
-  "$project/Tests/PlaybackLifecycleRegression.swift" "$lifecycle/"
+cp -X "$project"/Sources/{Playback,Source,MusicDetection,CaptureRequest,HapticPattern,Signal,Equalizer,RhythmDSP,VocalFocus,ListeningHealth}.swift \
+  "$project/Tests/PlaybackLifecycleRegression.swift" "$project/Tests/Support/PlaybackTestEdges.swift" "$lifecycle/"
 xcrun swiftc -swift-version 5 -O "$lifecycle"/*.swift -o "$lifecycle/check"
 "$lifecycle/check"
 

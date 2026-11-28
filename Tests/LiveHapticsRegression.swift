@@ -38,11 +38,16 @@ final class MockRing {
 final class AudioTap {
     static var muted: Set<UInt32> = []
     static var live = 0
-    let rate = 24000.0
+    static var outputRate = 24000.0
+    static var routeGeneration = 0
+    let rate: Double
+    private let generation: Int
     let ring = MockRing()
     let id: UInt32
+    var needsReconnect: Bool { generation != Self.routeGeneration }
     init(description: CATapDescription, mute: Bool) throws {
         id = description.processes[0]
+        rate = Self.outputRate; generation = Self.routeGeneration
         Self.live += 1
     }
     func setMuted(_ muted: Bool) throws {
@@ -60,7 +65,92 @@ struct YouTubeState {
 }
 
 @main struct LiveHapticsRegression {
+    static func sourceSwitchStress() throws {
+        let router = MacMusicInput(requestTap: { description, mute in CaptureRequest(result: Result { try AudioTap(description: description, mute: mute) }) })
+        let sources = ["com.spotify.client", "com.apple.Music", "com.google.Chrome"]
+        var now = ProcessInfo.processInfo.systemUptime
+        for index in 0..<3000 {
+            let bundle = sources[index % sources.count]
+            // Core Audio object IDs belong to object lifetimes, not app identities.
+            AudioHardware.clients = [111: MockClient(bundle: bundle)]
+            router.confirmedPlayer = bundle.contains("Chrome") ? nil : bundle
+            YouTubeState.states = bundle.contains("Chrome") ? [YouTubeState(browser: "chrome", category: "music", videoID: "fixture")] : []
+            now += 0.4
+            var received = false
+            try router.read(now: now, mute: index % 2 == 0) { samples, _, changed in
+                received = !samples.isEmpty
+                precondition(changed, "A replacement process must reset the analyzer even when its object ID is reused.")
+            }
+            guard received && router.activeBundle == bundle else {
+                fputs("FAIL: a recycled Core Audio process ID retained the previous app's capture identity.\n", stderr); exit(1)
+            }
+            if index % 11 == 0 {
+                AudioHardware.clients = [:]; now += 3 * 3600
+                try router.read(now: now, mute: true) { _, _, _ in preconditionFailure("Silence replayed a previous source") }
+                precondition(AudioTap.live == 0 && AudioTap.muted.isEmpty && router.activeBundle == nil)
+            }
+        }
+        AudioHardware.clients = [:]
+        try router.read(now: now + 2, mute: false) { _, _, _ in preconditionFailure("Stopped clients produced output") }
+        precondition(AudioTap.live == 0 && AudioTap.muted.isEmpty)
+        print("3,000 Spotify/Music/browser identity switches, recycled IDs, both mute policies and simulated multi-hour idle jumps passed without retained taps.")
+    }
+    static func stalledStartupRecovery() throws {
+        var stalled = true
+        let router = MacMusicInput(requestTap: { description, mute in
+            stalled ? CaptureRequest(result: nil) : CaptureRequest(result: Result { try AudioTap(description: description, mute: mute) })
+        })
+        AudioHardware.clients = [111: MockClient(bundle: "com.spotify.client")]
+        router.confirmedPlayer = "com.spotify.client"
+        var now = ProcessInfo.processInfo.systemUptime
+        try router.read(now: now, mute: false) { _, _, _ in preconditionFailure("Pending capture produced PCM") }
+        precondition(!router.idle && !router.captureFailed && router.suppressOutput)
+        now += 2
+        try router.read(now: now, mute: false) { _, _, _ in preconditionFailure("Pending capture produced PCM") }
+        precondition(router.idle && !router.captureFailed, "A stalled setup should reduce polling without claiming success.")
+        now += 7
+        try router.read(now: now, mute: false) { _, _, _ in preconditionFailure("Timed-out capture produced PCM") }
+        precondition(router.captureFailed && router.suppressOutput && router.status.contains("Listening help"))
+        stalled = false; now += 3.5
+        var received = false
+        try router.read(now: now, mute: false) { samples, _, _ in received = !samples.isEmpty }
+        precondition(received && !router.captureFailed && !router.suppressOutput)
+        AudioHardware.clients = [:]
+        try router.read(now: now + 1, mute: false) { _, _, _ in preconditionFailure("Stopped capture produced PCM") }
+        precondition(AudioTap.live == 0 && AudioTap.muted.isEmpty)
+        print("Pending capture stays non-actuating, reduces polling, times out into recovery, and resumes after the I/O edge recovers.")
+    }
+    static func routeChanges() throws {
+        for muted in [false, true] {
+            let router = MacMusicInput(requestTap: { description, mute in CaptureRequest(result: Result { try AudioTap(description: description, mute: mute) }) })
+            AudioHardware.clients = [111: MockClient(bundle: "com.spotify.client")]
+            router.confirmedPlayer = "com.spotify.client"
+            var now = ProcessInfo.processInfo.systemUptime
+            try router.read(now: now, mute: muted) { _, _, _ in }
+            for rate in [48000.0, 44100.0, 16000.0, 96000.0, 48000.0] {
+                AudioTap.outputRate = rate; AudioTap.routeGeneration += 1; now += 0.4
+                try router.read(now: now, mute: muted) { _, _, _ in preconditionFailure("A stale route was consumed") }
+                precondition(router.suppressOutput && AudioTap.live == 0 && AudioTap.muted.isEmpty)
+                now += 0.4
+                var received = false
+                try router.read(now: now, mute: muted) { _, actual, changed in
+                    received = true
+                    precondition(actual == rate && changed, "New route format did not reset the analyzer")
+                }
+                precondition(received && AudioTap.live == 1 && !router.suppressOutput)
+                precondition(AudioTap.muted == (muted ? [111] : []))
+            }
+            AudioHardware.clients = [:]
+            try router.read(now: now + 1, mute: false) { _, _, _ in }
+            precondition(AudioTap.live == 0 && AudioTap.muted.isEmpty)
+        }
+        AudioTap.outputRate = 24000
+        print("Simulated output-route changes at 16/44.1/48/96 kHz discard stale taps, reset analysis, restore muting policy and resume without manual reconnection.")
+    }
     static func main() throws {
+        try routeChanges()
+        try stalledStartupRecovery()
+        try sourceSwitchStress()
         var cases = 0
         for bundle in ["com.spotify.client", "com.apple.Music", "com.google.Chrome"] {
             for mode in OutputMode.allCases {
@@ -68,7 +158,7 @@ struct YouTubeState {
                     MockRing.position = 0; MockRing.silent = false
                     AudioHardware.clients = [111: MockClient(bundle: bundle)]
                     YouTubeState.states = bundle.contains("Chrome") ? [YouTubeState(browser: "chrome", category: "music", videoID: "song")] : []
-                    let router = MacMusicInput()
+                    let router = MacMusicInput(requestTap: { description, mute in CaptureRequest(result: Result { try AudioTap(description: description, mute: mute) }) })
                     router.confirmedPlayer = bundle.contains("Chrome") ? nil : bundle
                     var spectrum = try Spectrum(sampleRate: 24000)
                     var renderer = AutomaticHaptics()
