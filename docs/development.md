@@ -49,6 +49,8 @@ bash Tests/run.sh
 
 The default suite checks EQ controls, percussion/vocal separation heuristics, timing offsets, adversarial AHAP parsing, envelope behavior, simulated live routes, stale startup/route recovery, extreme sample rates, malformed PCM/file boundaries, explicit-player interruption/reconnect/failure handling, access recovery, and signed-update feed rejection. It does not play audio or actuate the trackpad or keyboard. See the [session stress report](audits/session-stress-1.0.md) for test scope and hardware limits.
 
+Source-validation fixtures also check Spotify URI scheme casing without changing case-sensitive item IDs, Apple Music song-selection queries, and rejection of misleading hosts, credentials, ports, unsupported schemes and malformed IDs. They do not open links or contact either service.
+
 Optional actual-model tests:
 
 ```sh

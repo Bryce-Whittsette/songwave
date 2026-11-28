@@ -3,6 +3,12 @@ set -euo pipefail
 project="$(cd "$(dirname "$0")/.." && pwd)"
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/songwave-wheels.XXXXXX")"
 trap 'rm -rf "$scratch"' EXIT
+source="$scratch/source"
+mkdir -p "$source"
+cp -X "$project/Sources/Source.swift" "$project/Tests/SourceRegression.swift" "$source/"
+xcrun swiftc -swift-version 5 -warnings-as-errors "$source"/*.swift -o "$source/check"
+"$source/check"
+
 cp -X "$project"/Sources/{GlassControls,Equalizer,Signal,RhythmDSP,VocalFocus,Trackpad}.swift "$project/Tests/WheelRegression.swift" "$scratch/"
 xcrun swiftc -swift-version 5 "$scratch"/*.swift -o "$scratch/check"
 "$scratch/check"
