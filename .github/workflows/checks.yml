@@ -28,6 +28,9 @@ jobs:
           persist-credentials: false
       - name: Check scripts
         run: bash -n build.sh install.sh Tests/run.sh Tests/test-isolation.sh Tests/stress-mode-switching.sh Tools/package.sh Tools/fetch-sparkle.sh Tools/sign-app.sh Tools/publish-release.sh
+      - name: Optional disk-full updater test
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.disk_space }}
+        run: python3 Tests/UpdateDiskSpaceRegression.py
       - name: Offline regression tests
         run: bash Tests/run.sh
       - name: Updater network recovery (loopback only)
@@ -35,9 +38,6 @@ jobs:
       - name: Optional vocal-isolation tests
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.neural }}
         run: bash Tests/test-isolation.sh
-      - name: Optional disk-full updater test
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.disk_space }}
-        run: python3 Tests/UpdateDiskSpaceRegression.py
       - name: Build and verify the app
         run: |
           bash build.sh "$RUNNER_TEMP/SongWave.app"
