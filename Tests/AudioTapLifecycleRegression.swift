@@ -11,13 +11,14 @@ enum FakeHAL {
     static var createdCallback = 0, destroyedCallback = 0, started = 0, stopped = 0
     static var watches: [(AudioObjectID, AudioObjectPropertyAddress, AudioObjectPropertyListenerBlock)] = []
     static var rateOnStart: Double?
+    static var muteWrites = 0
     static var rate = 48000.0
     static var channels: UInt32 = 2, bits: UInt32 = 32, frameBytes: UInt32 = 8, packetFrames: UInt32 = 1
     static var flags: AudioFormatFlags = kAudioFormatFlagIsFloat
     static func reset(_ failure: String = "") {
         fail = failure; createdTap = 0; destroyedTap = 0; createdAggregate = 0; destroyedAggregate = 0
         createdCallback = 0; destroyedCallback = 0; started = 0; stopped = 0; watches = []; rate = 48000; rateOnStart = nil
-        channels = 2; bits = 32; frameBytes = 8; packetFrames = 1; flags = kAudioFormatFlagIsFloat
+        channels = 2; bits = 32; frameBytes = 8; packetFrames = 1; flags = kAudioFormatFlagIsFloat; muteWrites = 0
     }
     static func format() -> AudioStreamBasicDescription {
         AudioStreamBasicDescription(mSampleRate: rate, mFormatID: kAudioFormatLinearPCM,
@@ -74,7 +75,8 @@ enum FakeHAL {
 }
 @discardableResult func AudioObjectSetPropertyData(_ id: AudioObjectID, _ address: UnsafePointer<AudioObjectPropertyAddress>,
                                _ qualifierSize: UInt32, _ qualifier: UnsafeRawPointer?, _ size: UInt32, _ data: UnsafeRawPointer) -> OSStatus {
-    FakeHAL.fail == "mute" ? -1 : noErr
+    FakeHAL.muteWrites += 1
+    return FakeHAL.fail == "mute" ? -1 : noErr
 }
 
 @main struct AudioTapLifecycleRegression {
@@ -123,6 +125,8 @@ enum FakeHAL {
         FakeHAL.rate = 44100
         FakeHAL.notify(kAudioTapPropertyFormat)
         precondition(tap!.needsReconnect, "A changed tap format must request a rebuild")
+        do { try tap!.setMuted(true); preconditionFailure("A stale tap newly muted speakers") } catch {}
+        precondition(FakeHAL.muteWrites == 0, "A stale tap reached the HAL muting setter")
         tap = nil
         precondition(FakeHAL.watches.isEmpty && FakeHAL.createdTap == FakeHAL.destroyedTap)
         for selector in [kAudioHardwarePropertyDefaultOutputDevice, kAudioDevicePropertyNominalSampleRate] {

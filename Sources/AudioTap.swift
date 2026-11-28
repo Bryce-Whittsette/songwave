@@ -235,6 +235,7 @@ final class AudioTap {
     func setMuted(_ mute: Bool) throws {
         let behavior: CATapMuteBehavior = mute ? .mutedWhenTapped : .unmuted
         guard description.muteBehavior != behavior else { return }
+        guard !mute || !needsReconnect else { throw GlassError("The audio output changed before speaker routing was ready.") }
         let previous = description.muteBehavior
         description.muteBehavior = behavior
         var address = AudioObjectPropertyAddress(mSelector: kAudioTapPropertyDescription,

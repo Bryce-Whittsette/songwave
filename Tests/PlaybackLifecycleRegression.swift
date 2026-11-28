@@ -220,9 +220,30 @@ import Foundation
         }
         print("Zero-byte, empty valid WAV and truncated WAV files fail before capture or motor setup.")
     }
+    static func routeChangesBeforeMuting() throws {
+        for automatic in [false, true] {
+            LifecycleHardware.clear(); LifecycleHardware.changeRoute(rate: 48000)
+            LifecycleHardware.set([111: LifecycleClient(bundle: "com.spotify.client")])
+            LifecycleHardware.changeRouteOnNextMute()
+            let engine = Playback(); var failure: String?
+            let link = try MusicLink("spotify:track:0000000000000000000000")
+            var tuning = OutputMode.trackpad.defaults; tuning.hapticFocus = .beat
+            engine.start(automatic ? .macAudio : .player(link), tuning: tuning, mode: .trackpad,
+                         playerPath: automatic ? nil : "/Mock/Player.app", startAt: 0) { if let error = $0.error { failure = error } }
+            engine.confirmPlayer("com.spotify.client")
+            wait("A route change immediately before muting did not recover") {
+                LifecycleHardware.captureAttempts >= 2 && LifecycleHardware.writes.count > 6 || failure != nil
+            }
+            require(failure == nil && LifecycleHardware.mutedTaps == 1 && LifecycleHardware.liveTaps == 1)
+            engine.stop()
+            wait("Muting-race recovery retained resources") { LifecycleHardware.liveTaps == 0 && LifecycleHardware.liveMotors == 0 }
+        }
+        print("Route changes between startup acceptance and speaker muting reconnect without failing the session or muting a stale tap.")
+    }
     static func main() throws {
         setbuf(stdout, nil)
         try malformedFiles()
+        try routeChangesBeforeMuting()
         try extremeRates()
         try staleStartupRoute()
         try routeReconnection()

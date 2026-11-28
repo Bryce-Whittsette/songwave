@@ -289,7 +289,7 @@ final class MacMusicInput {
                 try feed.tap.setMuted(shouldMute)
             } catch {
                 feeds.removeValue(forKey: id)
-                retryAfter[id] = now + 3
+                retryAfter[id] = now + (feed.tap.needsReconnect ? 0 : 3)
                 if selected == id { selected = nil }
             }
         }

@@ -28,6 +28,7 @@ enum LifecycleHardware {
     private static var volume = 1.0
     private static var sampleRate = 24000.0
     private static var routeGeneration = 0
+    private static var changeOnMute = false
     static func locked<T>(_ operation: () -> T) -> T { lock.lock(); defer { lock.unlock() }; return operation() }
     static func set(_ next: [UInt32: LifecycleClient]) { locked { clients = next } }
     static func snapshot() -> [UInt32: LifecycleClient] { locked { clients } }
@@ -52,9 +53,15 @@ enum LifecycleHardware {
     }
     static var route: (rate: Double, generation: Int) { locked { (sampleRate, routeGeneration) } }
     static func changeRoute(rate: Double) { locked { sampleRate = rate; routeGeneration += 1 } }
+    static func changeRouteOnNextMute() { locked { changeOnMute = true } }
+    static func beforeMute() {
+        locked {
+            if changeOnMute { changeOnMute = false; sampleRate = 44100; routeGeneration += 1 }
+        }
+    }
     static func failNextCapture() { locked { failCapture = true } }
     static func captureFails() -> Bool { locked { let value = failCapture; failCapture = false; return value } }
-    static func clear() { locked { require(taps == 0 && motors == 0 && muted == 0); packets.removeAll(); clients.removeAll(); failCapture = false } }
+    static func clear() { locked { require(taps == 0 && motors == 0 && muted == 0); packets.removeAll(); clients.removeAll(); failCapture = false; changeOnMute = false } }
 }
 enum AudioHardware {
     static func processList() -> [AudioObjectID] { Array(LifecycleHardware.snapshot().keys) }
@@ -103,8 +110,11 @@ final class AudioTap {
         try setMuted(mute)
     }
     func setMuted(_ next: Bool) throws {
-        require(!next || !needsReconnect, "A stale startup result applied speaker muting")
-        if muted != next { muted = next; LifecycleHardware.mute(next ? 1 : -1) }
+        if muted != next {
+            if next { LifecycleHardware.beforeMute() }
+            guard !next || !needsReconnect else { throw GlassError("Output changed before muting") }
+            muted = next; LifecycleHardware.mute(next ? 1 : -1)
+        }
     }
     deinit {
         if opened { LifecycleHardware.tap(-1) }

@@ -492,10 +492,17 @@ private final class Session {
                         captureRequestedAt = 0
                     } else {
                         try setupSpectrum(rate: connection.rate)
-                        do { try connection.setMuted(mode == .trackpad) }
-                        catch { captureFailed = true; throw error }
-                        tap = connection
-                        captureRequestedAt = 0
+                        do {
+                            try connection.setMuted(mode == .trackpad)
+                            tap = connection
+                            captureRequestedAt = 0
+                        } catch {
+                            if connection.needsReconnect {
+                                connectedProcesses.removeAll(keepingCapacity: true)
+                                nextScan = 0
+                                captureRequestedAt = 0
+                            } else { captureFailed = true; throw error }
+                        }
                     }
                 } else if tap == nil, !connectedProcesses.isEmpty, captureRequestedAt > 0, now - captureRequestedAt >= 8 {
                     captureRequest?.cancel(); captureRequest = nil
