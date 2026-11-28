@@ -26,6 +26,8 @@ jobs:
         run: bash -n build.sh install.sh Tests/run.sh Tests/test-isolation.sh Tests/stress-mode-switching.sh Tools/package.sh Tools/fetch-sparkle.sh Tools/sign-app.sh Tools/publish-release.sh
       - name: Offline regression tests
         run: bash Tests/run.sh
+      - name: Updater network recovery (loopback only)
+        run: python3 Tests/UpdateNetworkRegression.py
       - name: Optional vocal-isolation tests
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.neural }}
         run: bash Tests/test-isolation.sh

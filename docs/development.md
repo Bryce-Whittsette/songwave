@@ -61,6 +61,8 @@ Access-check deadline/admission tests and the real menu/controller's injected sl
 
 GitHub Actions runs default tests and a build on `macos-26`. Neural tests can be selected in a manual workflow run. CI does not measure physical haptics or validate the private driver ABI on different hardware.
 
+`python3 Tests/UpdateNetworkRegression.py` exercises real Sparkle HTTP checks against a disposable loopback server: unavailable endpoint, HTTP errors, dropped/truncated feeds, cancellation, a background-check failure, and signed-feed retries. CI runs it separately from the offline suite. The fixture has its own actual bundle identifier and temporary signing key; it downloads no app payload and never installs an update or changes the listener's network settings. See [updater network coverage](audits/update-network-1.0.md).
+
 The default suite also checks first-success state/cancellation, unmuted non-actuating preview, bounded explicit test output with fake hardware, adversarial diagnostics privacy, and display suspension/recovery and the iPhone PCM queue/analysis-suspension policy. The separate iPhone workflow compiles unsigned Simulator and device targets. See the [mobile development guide](mobile.md) and [energy measurement protocol](energy.md).
 
 ## Layout
