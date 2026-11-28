@@ -17,6 +17,15 @@ An initial sample of the installed Mac 0.5.7 build during playback observed roug
 
 The new build has not yet been measured in the same playback conditions. There is no claimed percentage saving or guarantee that macOS's “significant energy” notice disappears. The existing AI vocal model is unchanged and remains more expensive than Light analysis.
 
+On November 28, installed **1.0.0 build 24** was sampled during two bounded 65-second synthetic-source trials on the same M4 MacBook Air/macOS 27.3 beta host, using built-in 48 kHz output and Speakers + haptics/Beat. Each trial launched 22 local player processes with overlapping playback, ran two separate CPU workers, and included a normal 45-second Ultra request with keyboard lighting off. `ps` sampled only the SongWave process 128 times per trial:
+
+| Trial | Observed CPU range (`ps %cpu`) | Observed RSS range |
+| --- | --- | --- |
+| First | 0.3–57.4% | 58.5–126.5 MiB |
+| Second | 0.3–61.7% | 55.2–109.1 MiB |
+
+These ranges include source startup/churn and settling, not an isolated Ultra phase or a steady-state average. CPU percentage uses the process/core convention and is not a percentage of the whole machine; RSS is not physical footprint. The UI automation provider failed during foreground-switch attempts, so these are not verified app-switch benchmarks. No matched non-Ultra baseline, battery drain, Energy Impact or continuous thermal trace was collected. They establish neither a saving nor a leak/endurance verdict; the controlled comparisons below remain open. [Live-test scope](audits/overlap-focus-1.0.md).
+
 ## Compare builds
 
 Use the same Mac, OS, output route, volume, power state, song and selected focus. Record the exact build number and whether Light or Isolated is selected. Do not compare a silent source against music playback.

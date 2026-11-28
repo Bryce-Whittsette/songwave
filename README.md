@@ -57,7 +57,7 @@ Music detection and vocal separation are approximate. Some protected audio canno
 
 ## For developers
 
-[Product decisions and development credits](docs/project-decisions.md) · [Update pipeline](docs/updates.md)
+[Product decisions and development credits](docs/project-decisions.md) · [Validation and current limits](docs/validation.md) · [Update pipeline](docs/updates.md)
 
 [Build and test](docs/development.md) · [How it works](docs/architecture.md) · [Streaming engine decisions](docs/streaming-engine.md) · [iPhone prototype](docs/mobile.md) · [Energy work and measurements](docs/energy.md) · [Release process](docs/releasing.md) · [Contributing](CONTRIBUTING.md) · [Privacy](PRIVACY.md)
 
