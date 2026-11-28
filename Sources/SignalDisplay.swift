@@ -8,6 +8,7 @@ final class SignalDisplay: ObservableObject {
     private let primaryOwner = UUID()
     private var visibleOwners: Set<UUID> = []
     private let clock: () -> Double
+    private let beatSleep: () async -> Void
     private var beatAt = -Double.infinity
     private var beatStrength = 0.0
     private var latest = SignalFrame.empty
@@ -21,8 +22,10 @@ final class SignalDisplay: ObservableObject {
     @Published private(set) var settling = false
     @Published private(set) var frame = SignalFrame.empty
 
-    init(clock: @escaping () -> Double = { ProcessInfo.processInfo.systemUptime }) {
+    init(clock: @escaping () -> Double = { ProcessInfo.processInfo.systemUptime },
+         beatSleep: @escaping () async -> Void = { try? await Task.sleep(for: .milliseconds(250)) }) {
         self.clock = clock
+        self.beatSleep = beatSleep
         let now = clock()
         timestamp = now
         receivedAt = now
@@ -84,8 +87,9 @@ final class SignalDisplay: ObservableObject {
     private func retainBeat() {
         if !recentBeat { recentBeat = true }
         beatReleaseTask?.cancel()
+        let sleep = beatSleep
         beatReleaseTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(250))
+            await sleep()
             guard !Task.isCancelled else { return }
             self?.recentBeat = false; self?.beatReleaseTask = nil
         }

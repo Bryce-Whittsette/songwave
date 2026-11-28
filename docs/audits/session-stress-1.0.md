@@ -41,6 +41,8 @@ Local validation used an Apple-silicon MacBook Air on macOS 27.3 build 26C5047e.
 
 The capture ring and real `AudioTap` boundary suites also passed with Address Sanitizer and compiler warnings treated as errors. A native app build passed strict code-signature verification using the existing build configuration. A local native accessibility run could not initialize macOS UI automation; that environment failure is not an accessibility pass. The repository's separate accessibility CI remains the native UI gate.
 
+An optional CI run also exposed a wall-clock-sensitive visual beat expiry test. Its cancellation checks now release controlled expiry events instead of depending on three 160 ms scheduling windows. The production default remains a 250 ms wait; appearance, animation and physical output are unchanged. Optimized display assertions now print the failing location rather than only a trap.
+
 A live capture attempt reproduced a long wait inside `AudioDeviceStart`. The candidate kept Stop responsive and showed bounded capture-failure recovery. The underlying OS/driver/authorization cause of the live no-signal result was not established or fixed. Offline recovery coverage is not proof of successful live capture on this machine.
 
 Revoking System Audio Recording required the owner's Touch ID/password. Authentication was cancelled and permission was left enabled. Mid-session permission failure and call interruption are covered through injected boundaries; live permission revocation and a real call remain unverified. No recording or song metadata is included in this report.
