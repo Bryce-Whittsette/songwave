@@ -48,9 +48,11 @@ print(k.publicKey.rawRepresentation.base64EncodedString())
     enclosure.set('{http://www.andymatuschak.org/xml-namespaces/sparkle}edSignature',signature)
     enclosure.set('length',str(archive.stat().st_size)); xml.write(feed,encoding='utf-8',xml_declaration=True)
     subprocess.run([signer,'--ed-key-file',str(key),str(feed)],check=True,capture_output=True)
-    modern=int(subprocess.check_output(['sw_vers','-productVersion'],text=True).split('.')[0])>=27
+    # Image tooling is backported independently of the macOS major version.
+    # Select by supported command, not a guessed version boundary.
+    modern=subprocess.run(['diskutil','image','create','blank','--help'],capture_output=True).returncode==0
     create=(['diskutil','image','create','blank','--size','192m','--fs','APFS','--volumeName','SongWaveSpaceTest',str(image)] if modern else
-            ['hdiutil','create','-size','192m','-fs','APFS','-volname','SongWaveSpaceTest','-format','UDRW',str(image)])
+            ['hdiutil','create','-size','192m','-fs','APFS','-volname','SongWaveSpaceTest',str(image)])
     created=subprocess.run(create,capture_output=True,text=True,timeout=45)
     if created.returncode: print(created.stderr,flush=True)
     created.check_returncode()
