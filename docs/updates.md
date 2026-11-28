@@ -41,7 +41,9 @@ Set `SONGWAVE_SIGNING_IDENTITY` to an installed **Developer ID Application** ide
 
 `Tests/run.sh` instantiates the real pinned Sparkle updater with an isolated host bundle, without starting checks or touching listener preferences. It verifies the hourly default, opt-out and rejection of a saved automatic-install preference. A disposable signed-bundle test exercises real patch creation/reconstruction, wrong-base and corruption rejection. The feed verifier checks canonical patch URLs, source builds, unique bases, lengths and signatures. It also verifies the real signed seed feed and rejects content changes, wrong keys, unsigned suffixes, missing signatures and wrong lengths. `Tools/prepare-update.py` signs releases with the Keychain key; `Tools/verify-update.swift` repeats verification with only the public key.
 
-For an installation smoke test:
+Automated network recovery coverage runs separately with `python3 Tests/UpdateNetworkRegression.py`. It uses the pinned Sparkle framework and a disposable app/server to test failed manual/background checks followed by successful signed retries. It verifies that checks become available again and that the update stays undownloaded until approval. No production keys, installed app or listener preferences are used. This covers feed-check failures, not loss of connectivity during archive download or disk-full installation. See the [test report](audits/update-network-1.0.md).
+
+For an interactive installation smoke test:
 
 ```sh
 bash Tests/prepare-update-smoke.sh /private/tmp/songwave-update-test
